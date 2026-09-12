@@ -1,5 +1,6 @@
-import type { ReactElement } from 'react'
+import type { ComponentType, ReactElement } from 'react'
 import type { SourceConfig } from '../../../shared/types'
+import { IconLiveTv, IconMovie, IconPlus, IconRefresh, IconSeries, IconStar } from './Icons'
 
 export type ViewKey = 'live' | 'vod' | 'series' | 'favorites'
 
@@ -14,11 +15,11 @@ interface Props {
   loading: boolean
 }
 
-const TABS: { key: ViewKey; label: string; icon: string }[] = [
-  { key: 'live', label: 'Canlı TV', icon: '📡' },
-  { key: 'vod', label: 'Filmler', icon: '🎬' },
-  { key: 'series', label: 'Diziler', icon: '🎞️' },
-  { key: 'favorites', label: 'Favoriler', icon: '★' }
+const TABS: { key: ViewKey; label: string; Icon: ComponentType<{ size?: number }> }[] = [
+  { key: 'live', label: 'Canlı TV', Icon: IconLiveTv },
+  { key: 'vod', label: 'Filmler', Icon: IconMovie },
+  { key: 'series', label: 'Diziler', Icon: IconSeries },
+  { key: 'favorites', label: 'Favoriler', Icon: IconStar }
 ]
 
 export function TopNav({
@@ -34,8 +35,8 @@ export function TopNav({
   return (
     <div className="topnav">
       <div className="topnav-brand">
-        <div className="brand-mark">IP</div>
-        <span className="brand-name">IPTV Stüdyo</span>
+        <div className="brand-mark">T</div>
+        <span className="brand-name">IPTV Toto</span>
       </div>
 
       <div className="topnav-tabs">
@@ -45,7 +46,7 @@ export function TopNav({
             className={`topnav-tab ${view === tab.key ? 'active' : ''}`}
             onClick={() => onViewChange(tab.key)}
           >
-            <span>{tab.icon}</span> {tab.label}
+            <tab.Icon size={16} /> {tab.label}
           </button>
         ))}
       </div>
@@ -66,11 +67,15 @@ export function TopNav({
         </select>
       )}
 
-      <button className="icon-btn" onClick={onReload} title="Listeyi yenile">
-        {loading ? '…' : '⟳'}
+      <button
+        className={`icon-btn ${loading ? 'icon-btn-spinning' : ''}`}
+        onClick={onReload}
+        title="Listeyi yenile"
+      >
+        <IconRefresh size={15} />
       </button>
       <button className="btn-primary topnav-add-btn" onClick={onAddSource}>
-        + Kaynak
+        <IconPlus size={14} /> Kaynak
       </button>
     </div>
   )

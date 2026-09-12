@@ -90,7 +90,16 @@ export async function testXtreamLogin(
 // tanıyoruz.
 const BIG_LIST_TIMEOUT_MS = 45000
 
-export async function getLiveChannels(cfg: XtreamSourceConfig): Promise<Channel[]> {
+export interface LiveChannelsResult {
+  channels: Channel[]
+  categoryOrder: string[]
+}
+
+// Kategorileri sağlayıcının döndürdüğü sırayla veriyoruz (alfabetik değil):
+// çoğu panel TR kanallarını/kategorilerini en başa koyacak şekilde
+// düzenlenmiştir, alfabetik sıralama bunu bozup [AR]/[BG] gibi kodları
+// araya sokuyordu.
+export async function getLiveChannels(cfg: XtreamSourceConfig): Promise<LiveChannelsResult> {
   const catsRes = await window.iptv.http.fetchJson<XtreamCategory[]>(
     apiUrl(cfg, 'get_live_categories')
   )
@@ -104,7 +113,7 @@ export async function getLiveChannels(cfg: XtreamSourceConfig): Promise<Channel[
 
   const host = cleanHost(cfg.host)
   const ext = cfg.liveExtension || 'm3u8'
-  return (streamsRes.data || []).map((s) => ({
+  const channels = (streamsRes.data || []).map((s) => ({
     id: `xtream-live-${s.stream_id}`,
     name: s.name,
     logo: s.stream_icon,
@@ -113,9 +122,16 @@ export async function getLiveChannels(cfg: XtreamSourceConfig): Promise<Channel[
     epgChannelId: s.epg_channel_id,
     streamId: s.stream_id
   }))
+  const categoryOrder = (catsRes.data || []).map((c) => c.category_name)
+  return { channels, categoryOrder }
 }
 
-export async function getVodItems(cfg: XtreamSourceConfig): Promise<VodItem[]> {
+export interface VodItemsResult {
+  items: VodItem[]
+  categoryOrder: string[]
+}
+
+export async function getVodItems(cfg: XtreamSourceConfig): Promise<VodItemsResult> {
   const catsRes = await window.iptv.http.fetchJson<XtreamCategory[]>(
     apiUrl(cfg, 'get_vod_categories')
   )
@@ -127,7 +143,7 @@ export async function getVodItems(cfg: XtreamSourceConfig): Promise<VodItem[]> {
   const catMap = new Map<string, string>()
   for (const c of catsRes.data || []) catMap.set(c.category_id, c.category_name)
 
-  return (streamsRes.data || []).map((s) => ({
+  const items = (streamsRes.data || []).map((s) => ({
     id: `xtream-vod-${s.stream_id}`,
     name: s.name,
     logo: s.stream_icon,
@@ -135,6 +151,8 @@ export async function getVodItems(cfg: XtreamSourceConfig): Promise<VodItem[]> {
     streamId: s.stream_id,
     containerExtension: s.container_extension || 'mp4'
   }))
+  const categoryOrder = (catsRes.data || []).map((c) => c.category_name)
+  return { items, categoryOrder }
 }
 
 export function getVodStreamUrl(cfg: XtreamSourceConfig, item: VodItem): string {

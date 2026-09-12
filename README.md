@@ -1,12 +1,13 @@
-# IPTV Stüdyo
+# IPTV Toto
 
 Mac ve Windows için masaüstü IPTV oynatıcı. Mor temalı, modern arayüz.
 
 ## Neler var?
 
 - **M3U link** veya **Xtream Codes** ile kanal listesi ekleme
-- Canlı TV, Filmler, Diziler, Favoriler sekmeleri
-- Kategori filtreleme ve arama
+- Kategori | kanal listesi | oynatıcı şeklinde 3 sütunlu, düzenli arayüz (binlerce kanal olsa bile)
+- Canlı TV, Filmler, Diziler, Favoriler sekmeleri (sekme değiştirince oynatma kesilmez)
+- Kategoriler sağlayıcının kendi sırasına göre gösterilir (TR kanallar/kategoriler genelde en üstte)
 - Oynatıcıda **canlı yayın kalite bilgisi**: çözünürlük, FPS, bitrate, codec
 - Canlı kanallarda **şimdi/sırada** TV rehberi (Xtream kaynaklarda)
 - Birden fazla kaynak ekleyip aralarında geçiş yapabilme

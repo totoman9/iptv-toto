@@ -3,6 +3,7 @@ import type { EpgProgram, SourceConfig } from '../../../shared/types'
 import { attachStream, type AttachedPlayer } from '../lib/playerEngine'
 import { useStreamStats } from '../hooks/useStreamStats'
 import { getShortEpg } from '../lib/xtream'
+import { IconExpand, IconLiveTv, IconWarning } from './Icons'
 
 export interface PlayableItem {
   id: string
@@ -79,14 +80,18 @@ export function PlayerPane({ item, source }: Props): ReactElement {
 
         {!item && (
           <div className="player-pane-idle">
-            <div className="player-pane-idle-icon">📺</div>
+            <div className="player-pane-idle-icon">
+              <IconLiveTv size={30} />
+            </div>
             <p>Bir kanal seçin</p>
           </div>
         )}
 
         {item && error && (
           <div className="player-error">
-            <div>⚠️ {error}</div>
+            <div className="player-error-row">
+              <IconWarning size={16} /> {error}
+            </div>
           </div>
         )}
 
@@ -124,7 +129,7 @@ export function PlayerPane({ item, source }: Props): ReactElement {
                 </div>
               )}
               <button className="icon-btn" onClick={toggleFullscreen} title="Tam ekran">
-                ⛶
+                <IconExpand size={15} />
               </button>
             </div>
 

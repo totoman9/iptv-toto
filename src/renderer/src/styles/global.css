@@ -203,6 +203,10 @@ textarea {
   border-color: var(--primary);
 }
 
+.icon-btn-spinning svg {
+  animation: spin 1s linear infinite;
+}
+
 /* ---------- 3-column browse layout ---------- */
 /* Flex yerine grid kullanmıyoruz: bir sütun (ör. boş dizi listesi) hiç
    render edilmediğinde bile oynatıcının her zaman kalan alanı doldurmasını
@@ -372,13 +376,15 @@ textarea {
 }
 
 .channel-row-fav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 24px;
   height: 24px;
   border-radius: 50%;
   border: none;
   background: transparent;
   color: var(--text-faint);
-  font-size: 13px;
   cursor: pointer;
   flex-shrink: 0;
 }
@@ -504,6 +510,9 @@ textarea {
 }
 
 .btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   background: var(--gradient);
   border: none;
   color: white;
@@ -788,4 +797,10 @@ textarea {
   gap: 10px;
   text-align: center;
   padding: 20px;
+}
+
+.player-error-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }

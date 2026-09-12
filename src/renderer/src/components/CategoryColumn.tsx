@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactElement } from 'react'
+import { IconSearch } from './Icons'
 
 export interface CategoryEntry {
   key: string
@@ -11,6 +12,10 @@ interface Props {
   activeGroup: string
   onSelectGroup: (group: string) => void
   allLabel?: string
+  // Sağlayıcının kategori sırası (varsa). Örn. Xtream panelleri genelde TR
+  // kategorileri en başa koyar; bu sırayı bozmamak için alfabetik sıralama
+  // yerine bunu kullanıyoruz.
+  orderedGroups?: string[]
 }
 
 export const ALL_GROUP = '__all__'
@@ -19,18 +24,36 @@ export function CategoryColumn({
   items,
   activeGroup,
   onSelectGroup,
-  allLabel = 'Tüm kanallar'
+  allLabel = 'Tüm kanallar',
+  orderedGroups
 }: Props): ReactElement {
   const [search, setSearch] = useState('')
 
   const categories = useMemo<CategoryEntry[]>(() => {
     const counts = new Map<string, number>()
     for (const item of items) counts.set(item.group, (counts.get(item.group) || 0) + 1)
-    const entries = Array.from(counts.entries())
-      .map(([key, count]) => ({ key, label: key, count }))
-      .sort((a, b) => a.label.localeCompare(b.label, 'tr'))
+
+    let entries: CategoryEntry[]
+    if (orderedGroups && orderedGroups.length > 0) {
+      // Sağlayıcı sırasını koru; listede olmayan (ör. sonradan eklenmiş)
+      // grupları sona, alfabetik ekle.
+      const known = new Set(orderedGroups)
+      const ordered = orderedGroups
+        .filter((g) => counts.has(g))
+        .map((key) => ({ key, label: key, count: counts.get(key) || 0 }))
+      const extra = Array.from(counts.keys())
+        .filter((g) => !known.has(g))
+        .sort((a, b) => a.localeCompare(b, 'tr'))
+        .map((key) => ({ key, label: key, count: counts.get(key) || 0 }))
+      entries = [...ordered, ...extra]
+    } else {
+      entries = Array.from(counts.entries())
+        .map(([key, count]) => ({ key, label: key, count }))
+        .sort((a, b) => a.label.localeCompare(b.label, 'tr'))
+    }
+
     return [{ key: ALL_GROUP, label: allLabel, count: items.length }, ...entries]
-  }, [items, allLabel])
+  }, [items, allLabel, orderedGroups])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLocaleLowerCase('tr')
@@ -43,7 +66,7 @@ export function CategoryColumn({
   return (
     <div className="pane pane-categories">
       <div className="pane-search">
-        <span>🔍</span>
+        <IconSearch size={14} />
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}

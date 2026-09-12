@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactElement } from 'react'
 import { List, type RowComponentProps } from 'react-window'
 import { ALL_GROUP } from './CategoryColumn'
+import { IconSearch, IconStar } from './Icons'
 
 export interface ListableItem {
   id: string
@@ -50,7 +51,7 @@ function Row({
           }}
           title="Favorilere ekle / çıkar"
         >
-          ★
+          <IconStar size={13} filled={favoriteIds.has(item.id)} />
         </button>
       )}
     </div>
@@ -92,7 +93,7 @@ export function ItemListColumn({
   return (
     <div className="pane pane-items">
       <div className="pane-search">
-        <span>🔍</span>
+        <IconSearch size={14} />
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}

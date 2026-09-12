@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactElement } from 'react'
 import type { SeriesItem, SeriesSeason, SourceConfig } from '../../../shared/types'
 import { getSeriesSeasons } from '../lib/xtream'
+import { IconPlayCircle, IconSearch } from './Icons'
 
 interface Props {
   series: SeriesItem[]
@@ -54,7 +55,7 @@ export function SeriesView({ series, source, playingId, onPlayEpisode }: Props):
     <>
       <div className="pane pane-categories">
         <div className="pane-search">
-          <span>🔍</span>
+          <IconSearch size={14} />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -110,7 +111,7 @@ export function SeriesView({ series, source, playingId, onPlayEpisode }: Props):
                     <span>
                       {ep.episodeNum}. {ep.title}
                     </span>
-                    <span>▶</span>
+                    <IconPlayCircle size={16} />
                   </div>
                 ))}
               </div>

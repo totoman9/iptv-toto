@@ -7,15 +7,36 @@ export interface Library {
   channels: Channel[]
   vod: VodItem[]
   series: SeriesItem[]
+  // Kategorilerin sağlayıcıdan geldiği sıra (TR kategoriler genelde en
+  // başta gelir). Boşsa alfabetik sıralamaya düşülür.
+  liveCategoryOrder: string[]
+  vodCategoryOrder: string[]
   loading: boolean
   error: string | null
   reload: () => void
+}
+
+// M3U listelerinde ayrı bir kategori API'si yok; grupları listede ilk
+// göründükleri sırayla çıkarıyoruz (o da genelde listeyi hazırlayanın
+// bilinçli sıralamasını yansıtır).
+function firstSeenGroupOrder(items: { group: string }[]): string[] {
+  const seen = new Set<string>()
+  const order: string[] = []
+  for (const item of items) {
+    if (!seen.has(item.group)) {
+      seen.add(item.group)
+      order.push(item.group)
+    }
+  }
+  return order
 }
 
 export function useLibrary(source: SourceConfig | null): Library {
   const [channels, setChannels] = useState<Channel[]>([])
   const [vod, setVod] = useState<VodItem[]>([])
   const [series, setSeries] = useState<SeriesItem[]>([])
+  const [liveCategoryOrder, setLiveCategoryOrder] = useState<string[]>([])
+  const [vodCategoryOrder, setVodCategoryOrder] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [reloadTick, setReloadTick] = useState(0)
@@ -25,6 +46,8 @@ export function useLibrary(source: SourceConfig | null): Library {
       setChannels([])
       setVod([])
       setSeries([])
+      setLiveCategoryOrder([])
+      setVodCategoryOrder([])
       return
     }
 
@@ -40,7 +63,11 @@ export function useLibrary(source: SourceConfig | null): Library {
         try {
           const res = await window.iptv.http.fetchText(source!.url, { timeoutMs: 30000 })
           if (!res.ok || !res.data) throw new Error(res.error || 'Liste indirilemedi')
-          if (!cancelled) setChannels(parseM3U(res.data))
+          const parsed = parseM3U(res.data)
+          if (!cancelled) {
+            setChannels(parsed)
+            setLiveCategoryOrder(firstSeenGroupOrder(parsed))
+          }
         } catch (err) {
           if (!cancelled) {
             setError(err instanceof Error ? err.message : 'Liste indirilemedi')
@@ -59,7 +86,8 @@ export function useLibrary(source: SourceConfig | null): Library {
       try {
         const live = await getLiveChannels(source!)
         if (cancelled) return
-        setChannels(live)
+        setChannels(live.channels)
+        setLiveCategoryOrder(live.categoryOrder)
         setLoading(false)
       } catch (err) {
         if (!cancelled) {
@@ -70,8 +98,11 @@ export function useLibrary(source: SourceConfig | null): Library {
       }
 
       try {
-        const vodItems = await getVodItems(source!)
-        if (!cancelled) setVod(vodItems)
+        const vodResult = await getVodItems(source!)
+        if (!cancelled) {
+          setVod(vodResult.items)
+          setVodCategoryOrder(vodResult.categoryOrder)
+        }
       } catch {
         // Film listesi alınamadıysa sessizce boş bırak, canlı yayın etkilenmesin
       }
@@ -94,6 +125,8 @@ export function useLibrary(source: SourceConfig | null): Library {
     channels,
     vod,
     series,
+    liveCategoryOrder,
+    vodCategoryOrder,
     loading,
     error,
     reload: () => setReloadTick((t) => t + 1)

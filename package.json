@@ -1,7 +1,7 @@
 {
-  "name": "iptv-app",
+  "name": "iptv-toto",
   "version": "0.1.0",
-  "description": "Masaüstü IPTV oynatıcı (Mac & Windows)",
+  "description": "IPTV Toto — Masaüstü IPTV oynatıcı (Mac & Windows)",
   "main": "./out/main/index.js",
   "type": "commonjs",
   "author": "",
@@ -15,8 +15,8 @@
     "build:win": "electron-vite build && electron-builder --win"
   },
   "build": {
-    "appId": "com.iptvstudio.app",
-    "productName": "IPTV Stüdyo",
+    "appId": "com.toto.iptv",
+    "productName": "IPTV Toto",
     "directories": {
       "buildResources": "build"
     },

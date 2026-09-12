@@ -14,7 +14,8 @@ import { getVodStreamUrl } from './lib/xtream'
 function App(): ReactElement {
   const { sources, activeSource, activeSourceId, ready, addSource, setActiveSourceId } =
     useSources()
-  const { channels, vod, series, loading, error, reload } = useLibrary(activeSource)
+  const { channels, vod, series, liveCategoryOrder, vodCategoryOrder, loading, error, reload } =
+    useLibrary(activeSource)
   const { favoriteIds, toggleFavorite } = useFavorites()
 
   const [view, setView] = useState<ViewKey>('live')
@@ -110,6 +111,7 @@ function App(): ReactElement {
               activeGroup={liveGroup}
               onSelectGroup={setLiveGroup}
               allLabel="Tüm kanallar"
+              orderedGroups={liveCategoryOrder}
             />
             <ItemListColumn
               items={channels}
@@ -130,6 +132,7 @@ function App(): ReactElement {
               activeGroup={vodGroup}
               onSelectGroup={setVodGroup}
               allLabel="Tüm filmler"
+              orderedGroups={vodCategoryOrder}
             />
             <ItemListColumn
               items={vod}
