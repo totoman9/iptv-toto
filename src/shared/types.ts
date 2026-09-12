@@ -64,6 +64,18 @@ export interface SeriesSeason {
   episodes: SeriesEpisode[]
 }
 
+// Film/dizi detay bilgisi (Xtream get_vod_info / get_series_info'dan)
+export interface MediaDetails {
+  plot?: string
+  cast?: string
+  director?: string
+  genre?: string
+  releaseDate?: string
+  rating?: string
+  durationText?: string
+  coverBig?: string
+}
+
 export interface EpgProgram {
   title: string
   description?: string

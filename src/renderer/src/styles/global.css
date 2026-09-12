@@ -444,6 +444,39 @@ textarea {
   padding: 8px 12px;
 }
 
+.media-details {
+  padding: 4px 4px 18px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.media-details-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.media-details-meta {
+  display: flex;
+  gap: 10px;
+  font-size: 11.5px;
+  color: var(--text-faint);
+  margin-bottom: 8px;
+}
+
+.media-details-plot {
+  font-size: 12.5px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  margin: 0 0 8px;
+}
+
+.media-details-cast {
+  font-size: 12px;
+  color: var(--text-faint);
+  margin: 0;
+}
+
 .season-block {
   margin-bottom: 16px;
 }
@@ -542,6 +575,9 @@ textarea {
 }
 
 .btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text);
@@ -550,6 +586,77 @@ textarea {
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+}
+
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--danger);
+  border: none;
+  color: white;
+  padding: 10px 20px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ---------- Kaynak yönetimi ---------- */
+.source-manage-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+  margin-bottom: 4px;
+}
+
+.source-manage-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+}
+
+.source-manage-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.source-manage-type {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: 2px;
+}
+
+.source-manage-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.source-manage-actions .icon-btn {
+  width: 30px;
+  height: 30px;
+}
+
+.source-manage-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.source-manage-btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
 }
 
 /* ---------- Modal ---------- */
@@ -649,6 +756,53 @@ textarea {
   justify-content: flex-end;
   gap: 8px;
   margin-top: 8px;
+}
+
+.modal-vod {
+  width: 620px;
+  max-width: 92vw;
+}
+
+.vod-detail-layout {
+  display: flex;
+  gap: 20px;
+}
+
+.vod-detail-cover {
+  width: 160px;
+  height: 240px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.vod-detail-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.vod-detail-cover-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-faint);
+}
+
+.vod-detail-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.vod-detail-info h2 {
+  margin: 0 0 8px;
 }
 
 /* ---------- Embedded player pane ---------- */
@@ -834,6 +988,12 @@ textarea {
   gap: 8px;
 }
 
+.player-error-hint {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--player-text-faint);
+}
+
 /* ---------- Oynatıcı kontrol çubuğu ---------- */
 .player-controls {
   display: flex;
@@ -909,5 +1069,14 @@ textarea {
 .player-topbar .icon-btn:hover,
 .player-controls .icon-btn:hover {
   color: var(--player-text);
+  border-color: var(--primary-light);
+}
+
+.player-error .btn-secondary {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--player-text);
+}
+.player-error .btn-secondary:hover {
   border-color: var(--primary-light);
 }

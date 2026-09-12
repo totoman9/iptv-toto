@@ -1,6 +1,13 @@
 import type { ComponentType, ReactElement } from 'react'
 import type { SourceConfig } from '../../../shared/types'
-import { IconLiveTv, IconMovie, IconPlus, IconRefresh, IconSeries, IconStar } from './Icons'
+import {
+  IconLiveTv,
+  IconMovie,
+  IconRefresh,
+  IconSeries,
+  IconSettings,
+  IconStar
+} from './Icons'
 
 export type ViewKey = 'live' | 'vod' | 'series' | 'favorites'
 
@@ -10,7 +17,7 @@ interface Props {
   sources: SourceConfig[]
   activeSourceId: string | null
   onSourceChange: (id: string) => void
-  onAddSource: () => void
+  onManageSources: () => void
   onReload: () => void
   loading: boolean
 }
@@ -28,7 +35,7 @@ export function TopNav({
   sources,
   activeSourceId,
   onSourceChange,
-  onAddSource,
+  onManageSources,
   onReload,
   loading
 }: Props): ReactElement {
@@ -74,8 +81,8 @@ export function TopNav({
       >
         <IconRefresh size={15} />
       </button>
-      <button className="btn-primary topnav-add-btn" onClick={onAddSource}>
-        <IconPlus size={14} /> Kaynak
+      <button className="btn-primary topnav-add-btn" onClick={onManageSources}>
+        <IconSettings size={14} /> Kaynaklar
       </button>
     </div>
   )

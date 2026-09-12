@@ -1,6 +1,7 @@
 import type {
   Channel,
   EpgProgram,
+  MediaDetails,
   SeriesEpisode,
   SeriesItem,
   SeriesSeason,
@@ -44,6 +45,15 @@ interface XtreamSeriesInfoEpisode {
 }
 
 interface XtreamSeriesInfo {
+  info?: {
+    plot?: string
+    cast?: string
+    director?: string
+    genre?: string
+    releaseDate?: string
+    rating?: string | number
+    cover?: string
+  }
   episodes: Record<string, XtreamSeriesInfoEpisode[]>
 }
 
@@ -160,6 +170,44 @@ export function getVodStreamUrl(cfg: XtreamSourceConfig, item: VodItem): string 
   return `${host}/movie/${cfg.username}/${cfg.password}/${item.streamId}.${item.containerExtension}`
 }
 
+interface XtreamMediaInfo {
+  plot?: string
+  cast?: string
+  director?: string
+  genre?: string
+  releasedate?: string
+  release_date?: string
+  rating?: string | number
+  duration?: string
+  movie_image?: string
+  cover_big?: string
+  backdrop_path?: string[]
+}
+
+function mapMediaInfo(info: XtreamMediaInfo | undefined): MediaDetails {
+  if (!info) return {}
+  return {
+    plot: info.plot || undefined,
+    cast: info.cast || undefined,
+    director: info.director || undefined,
+    genre: info.genre || undefined,
+    releaseDate: info.releasedate || info.release_date || undefined,
+    rating: info.rating !== undefined ? String(info.rating) : undefined,
+    durationText: info.duration || undefined,
+    coverBig: info.cover_big || info.movie_image || info.backdrop_path?.[0] || undefined
+  }
+}
+
+export async function getVodDetails(
+  cfg: XtreamSourceConfig,
+  streamId: number
+): Promise<MediaDetails> {
+  const res = await window.iptv.http.fetchJson<{ info?: XtreamMediaInfo }>(
+    apiUrl(cfg, 'get_vod_info', `&vod_id=${streamId}`)
+  )
+  return mapMediaInfo(res.data?.info)
+}
+
 export async function getSeriesList(cfg: XtreamSourceConfig): Promise<SeriesItem[]> {
   const catsRes = await window.iptv.http.fetchJson<XtreamCategory[]>(
     apiUrl(cfg, 'get_series_categories')
@@ -181,17 +229,22 @@ export async function getSeriesList(cfg: XtreamSourceConfig): Promise<SeriesItem
   }))
 }
 
+export interface SeriesSeasonsResult {
+  seasons: SeriesSeason[]
+  details: MediaDetails
+}
+
 export async function getSeriesSeasons(
   cfg: XtreamSourceConfig,
   seriesId: number
-): Promise<SeriesSeason[]> {
+): Promise<SeriesSeasonsResult> {
   const res = await window.iptv.http.fetchJson<XtreamSeriesInfo>(
     apiUrl(cfg, 'get_series_info', `&series_id=${seriesId}`)
   )
   const host = cleanHost(cfg.host)
   const episodesBySeason = res.data?.episodes || {}
 
-  return Object.entries(episodesBySeason)
+  const seasons = Object.entries(episodesBySeason)
     .map(([seasonNum, episodes]) => {
       const seasonEpisodes: SeriesEpisode[] = episodes.map((ep) => ({
         id: ep.id,
@@ -205,6 +258,21 @@ export async function getSeriesSeasons(
       return { season: Number(seasonNum), episodes: seasonEpisodes }
     })
     .sort((a, b) => a.season - b.season)
+
+  const info = res.data?.info
+  const details: MediaDetails = info
+    ? {
+        plot: info.plot || undefined,
+        cast: info.cast || undefined,
+        director: info.director || undefined,
+        genre: info.genre || undefined,
+        releaseDate: info.releaseDate || undefined,
+        rating: info.rating !== undefined ? String(info.rating) : undefined,
+        coverBig: info.cover || undefined
+      }
+    : {}
+
+  return { seasons, details }
 }
 
 export async function getShortEpg(

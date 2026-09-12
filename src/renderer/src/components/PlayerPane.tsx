@@ -3,15 +3,41 @@ import type { EpgProgram, SourceConfig } from '../../../shared/types'
 import { attachStream, type AttachedPlayer } from '../lib/playerEngine'
 import { useStreamStats } from '../hooks/useStreamStats'
 import { getShortEpg } from '../lib/xtream'
+import { getProgress, saveProgress } from '../lib/continueWatching'
 import {
   IconExpand,
   IconLiveTv,
   IconMute,
   IconPause,
   IconPlay,
+  IconRefresh,
   IconVolume,
   IconWarning
 } from './Icons'
+
+const VOLUME_STORAGE_KEY = 'iptv-toto-volume'
+
+function loadStoredVolume(): { volume: number; muted: boolean } {
+  try {
+    const raw = window.localStorage.getItem(VOLUME_STORAGE_KEY)
+    if (!raw) return { volume: 1, muted: false }
+    const parsed = JSON.parse(raw)
+    return {
+      volume: typeof parsed.volume === 'number' ? parsed.volume : 1,
+      muted: !!parsed.muted
+    }
+  } catch {
+    return { volume: 1, muted: false }
+  }
+}
+
+function saveStoredVolume(volume: number, muted: boolean): void {
+  try {
+    window.localStorage.setItem(VOLUME_STORAGE_KEY, JSON.stringify({ volume, muted }))
+  } catch {
+    /* ignore */
+  }
+}
 
 export interface PlayableItem {
   id: string
@@ -42,6 +68,7 @@ export function PlayerPane({ item, source }: Props): ReactElement {
   const wrapRef = useRef<HTMLDivElement>(null)
   const [player, setPlayer] = useState<AttachedPlayer | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const errorRef = useRef<string | null>(null)
   const [epg, setEpg] = useState<EpgProgram[]>([])
 
   const [isPlaying, setIsPlaying] = useState(true)
@@ -50,9 +77,23 @@ export function PlayerPane({ item, source }: Props): ReactElement {
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [controlsVisible, setControlsVisible] = useState(true)
+  const [retryTick, setRetryTick] = useState(0)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const resumedForUrl = useRef<string | null>(null)
 
   const stats = useStreamStats(videoRef, player)
+
+  // Ses seviyesini bir kere, uygulama açılışında hatırlanan değere ayarla
+  // (video elementi tek örnek olduğu için kanal/film değişse de korunur).
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+    const { volume: storedVolume, muted: storedMuted } = loadStoredVolume()
+    video.volume = storedVolume
+    video.muted = storedMuted
+    setVolume(storedVolume)
+    setIsMuted(storedMuted)
+  }, [])
 
   useEffect(() => {
     setError(null)
@@ -67,7 +108,78 @@ export function PlayerPane({ item, source }: Props): ReactElement {
       setPlayer(null)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item?.url, retryTick])
+
+  useEffect(() => {
+    errorRef.current = error
+  }, [error])
+
+  // Bağlantı hatası varsa 5 saniyede bir otomatik olarak tekrar dener.
+  // Ayrı bir efekt olarak (yalnızca item.url'e bağlı, error/retryTick'e
+  // değil) kuruluyor ki her yeniden denemede zamanlayıcı sıfırlanıp
+  // baştan başlamasın.
+  useEffect(() => {
+    if (!item) return
+    const timer = setInterval(() => {
+      if (errorRef.current) retry()
+    }, 5000)
+    return () => clearInterval(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item?.url])
+
+  // Kaldığın yerden devam et (canlı olmayan içerikler için)
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video || !item || item.isLive) return
+    resumedForUrl.current = null
+
+    const onLoadedMeta = (): void => {
+      if (resumedForUrl.current === item.url) return
+      resumedForUrl.current = item.url
+      getProgress(item.id).then((saved) => {
+        if (!saved || !video.duration) return
+        const nearEnd = saved.positionSeconds >= video.duration * 0.95
+        if (saved.positionSeconds > 5 && !nearEnd) {
+          video.currentTime = saved.positionSeconds
+        }
+      })
+    }
+    video.addEventListener('loadedmetadata', onLoadedMeta)
+    return () => video.removeEventListener('loadedmetadata', onLoadedMeta)
+  }, [item])
+
+  // İzleme konumunu belirli aralıklarla kaydet
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video || !item || item.isLive) return
+    let lastSaved = 0
+    const onTime = (): void => {
+      const t = video.currentTime
+      if (Math.abs(t - lastSaved) < 8 || !video.duration) return
+      lastSaved = t
+      saveProgress({
+        id: item.id,
+        title: item.name,
+        positionSeconds: t,
+        durationSeconds: video.duration,
+        updatedAt: Date.now()
+      })
+    }
+    video.addEventListener('timeupdate', onTime)
+    return () => {
+      video.removeEventListener('timeupdate', onTime)
+      // Ayrılırken son konumu da kaydet
+      if (video.duration && video.currentTime > 5) {
+        saveProgress({
+          id: item.id,
+          title: item.name,
+          positionSeconds: video.currentTime,
+          durationSeconds: video.duration,
+          updatedAt: Date.now()
+        })
+      }
+    }
+  }, [item])
 
   // Video elementinin gerçek durumunu (oynatma/duraklatma/süre) dinle
   useEffect(() => {
@@ -81,6 +193,7 @@ export function PlayerPane({ item, source }: Props): ReactElement {
     const onVolume = (): void => {
       setVolume(video.volume)
       setIsMuted(video.muted)
+      saveStoredVolume(video.volume, video.muted)
     }
 
     video.addEventListener('play', onPlay)
@@ -132,6 +245,64 @@ export function PlayerPane({ item, source }: Props): ReactElement {
       if (hideTimer.current) clearTimeout(hideTimer.current)
     }
   }, [isPlaying, item?.id])
+
+  // Klavye kısayolları: boşluk=oynat/duraklat, yukarı/aşağı=ses, sol/sağ=sar
+  // (yalnızca canlı olmayanlarda), m=sessiz, f=tam ekran. Bir yazı kutusuna
+  // yazarken tetiklenmesin diye input/textarea/select odaktaysa yoksayılır.
+  useEffect(() => {
+    if (!item) return
+    const currentItem = item
+
+    function isTypingTarget(el: EventTarget | null): boolean {
+      if (!(el instanceof HTMLElement)) return false
+      return ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName) || el.isContentEditable
+    }
+
+    function onKeyDown(e: KeyboardEvent): void {
+      if (isTypingTarget(e.target)) return
+      const video = videoRef.current
+      if (!video) return
+
+      switch (e.key) {
+        case ' ':
+        case 'k':
+          e.preventDefault()
+          togglePlay()
+          break
+        case 'm':
+          toggleMute()
+          break
+        case 'f':
+          toggleFullscreen()
+          break
+        case 'ArrowUp':
+          e.preventDefault()
+          video.volume = Math.min(1, video.volume + 0.05)
+          video.muted = false
+          break
+        case 'ArrowDown':
+          e.preventDefault()
+          video.volume = Math.max(0, video.volume - 0.05)
+          break
+        case 'ArrowRight':
+          if (!currentItem.isLive)
+            video.currentTime = Math.min(video.duration || 0, video.currentTime + 10)
+          break
+        case 'ArrowLeft':
+          if (!currentItem.isLive) video.currentTime = Math.max(0, video.currentTime - 10)
+          break
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item])
+
+  function retry(): void {
+    setError(null)
+    setRetryTick((t) => t + 1)
+  }
 
   const now = epg[0]
   const next = epg[1]
@@ -197,6 +368,10 @@ export function PlayerPane({ item, source }: Props): ReactElement {
             <div className="player-error-row">
               <IconWarning size={16} /> {error}
             </div>
+            <p className="player-error-hint">5 saniyede bir otomatik yeniden deneniyor…</p>
+            <button className="btn-secondary" onClick={retry}>
+              <IconRefresh size={13} /> Şimdi Dene
+            </button>
           </div>
         )}
 

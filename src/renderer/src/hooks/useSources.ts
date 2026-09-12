@@ -8,6 +8,7 @@ export interface SourcesApi {
   activeSourceId: string | null
   ready: boolean
   addSource: (source: SourceConfig) => void
+  updateSource: (id: string, source: SourceConfig) => void
   removeSource: (id: string) => void
   setActiveSourceId: (id: string) => void
 }
@@ -35,15 +36,27 @@ export function useSources(): SourcesApi {
     saveActiveSourceId(source.id)
   }, [])
 
+  const updateSource = useCallback((id: string, source: SourceConfig) => {
+    setSources((prev) => {
+      const next = prev.map((s) => (s.id === id ? source : s))
+      saveSources(next)
+      return next
+    })
+  }, [])
+
   const removeSource = useCallback((id: string) => {
+    let remaining: SourceConfig[] = []
     setSources((prev) => {
       const next = prev.filter((s) => s.id !== id)
+      remaining = next
       saveSources(next)
       return next
     })
     setActiveId((prev) => {
       if (prev !== id) return prev
-      return null
+      const fallback = remaining[0]?.id || null
+      saveActiveSourceId(fallback || '')
+      return fallback
     })
   }, [])
 
@@ -58,6 +71,7 @@ export function useSources(): SourcesApi {
     activeSourceId: activeId,
     ready,
     addSource,
+    updateSource,
     removeSource,
     setActiveSourceId
   }

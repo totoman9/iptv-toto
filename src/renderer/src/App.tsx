@@ -3,7 +3,8 @@ import { TopNav, type ViewKey } from './components/TopNav'
 import { CategoryColumn, ALL_GROUP } from './components/CategoryColumn'
 import { ItemListColumn, type ListableItem } from './components/ItemListColumn'
 import { SeriesView } from './components/SeriesView'
-import { AddSourceModal } from './components/AddSourceModal'
+import { ManageSourcesModal } from './components/ManageSourcesModal'
+import { VodDetailModal } from './components/VodDetailModal'
 import { PlayerPane, type PlayableItem } from './components/PlayerPane'
 import { useSources } from './hooks/useSources'
 import { useLibrary } from './hooks/useLibrary'
@@ -12,14 +13,23 @@ import type { Channel, VodItem } from '../../shared/types'
 import { getVodStreamUrl } from './lib/xtream'
 
 function App(): ReactElement {
-  const { sources, activeSource, activeSourceId, ready, addSource, setActiveSourceId } =
-    useSources()
+  const {
+    sources,
+    activeSource,
+    activeSourceId,
+    ready,
+    addSource,
+    updateSource,
+    removeSource,
+    setActiveSourceId
+  } = useSources()
   const { channels, vod, series, liveCategoryOrder, vodCategoryOrder, loading, error, reload } =
     useLibrary(activeSource)
   const { favoriteIds, toggleFavorite } = useFavorites()
 
   const [view, setView] = useState<ViewKey>('live')
-  const [showAddSource, setShowAddSource] = useState(false)
+  const [showManageSources, setShowManageSources] = useState(false)
+  const [vodDetail, setVodDetail] = useState<VodItem | null>(null)
   const [playing, setPlaying] = useState<PlayableItem | null>(null)
   const [liveGroup, setLiveGroup] = useState(ALL_GROUP)
   const [vodGroup, setVodGroup] = useState(ALL_GROUP)
@@ -41,16 +51,16 @@ function App(): ReactElement {
     })
   }
 
-  function playVod(item: ListableItem): void {
+  function playVod(item: VodItem): void {
     if (!activeSource || activeSource.type !== 'xtream') return
-    const vodItem = item as VodItem
     setPlaying({
-      id: vodItem.id,
-      name: vodItem.name,
-      group: vodItem.group,
-      url: getVodStreamUrl(activeSource, vodItem),
+      id: item.id,
+      name: item.name,
+      group: item.group,
+      url: getVodStreamUrl(activeSource, item),
       isLive: false
     })
+    setVodDetail(null)
   }
 
   function playEpisode(title: string, group: string, url: string): void {
@@ -77,7 +87,7 @@ function App(): ReactElement {
         sources={sources}
         activeSourceId={activeSourceId}
         onSourceChange={setActiveSourceId}
-        onAddSource={() => setShowAddSource(true)}
+        onManageSources={() => setShowManageSources(true)}
         onReload={reload}
         loading={loading}
       />
@@ -87,7 +97,7 @@ function App(): ReactElement {
           <div className="empty-state">
             <h3>Henüz bir kaynak eklemedin</h3>
             <p>Başlamak için bir M3U linki ya da Xtream Codes hesabı ekle.</p>
-            <button className="btn-primary" onClick={() => setShowAddSource(true)}>
+            <button className="btn-primary" onClick={() => setShowManageSources(true)}>
               + Kaynak Ekle
             </button>
           </div>
@@ -149,7 +159,7 @@ function App(): ReactElement {
                   items={vod}
                   activeGroup={vodGroup}
                   selectedId={playing?.id}
-                  onSelect={playVod}
+                  onSelect={(item) => setVodDetail(item as VodItem)}
                   emptyTitle="Film bulunamadı"
                   emptyHint="Filmler yalnızca Xtream Codes kaynaklarında listelenir."
                 />
@@ -183,13 +193,22 @@ function App(): ReactElement {
         )}
       </div>
 
-      {showAddSource && (
-        <AddSourceModal
-          onClose={() => setShowAddSource(false)}
-          onAdd={(source) => {
-            addSource(source)
-            setShowAddSource(false)
-          }}
+      {showManageSources && (
+        <ManageSourcesModal
+          sources={sources}
+          onClose={() => setShowManageSources(false)}
+          onAdd={addSource}
+          onUpdate={updateSource}
+          onRemove={removeSource}
+        />
+      )}
+
+      {vodDetail && (
+        <VodDetailModal
+          item={vodDetail}
+          source={activeSource}
+          onClose={() => setVodDetail(null)}
+          onPlay={playVod}
         />
       )}
     </div>

@@ -5,15 +5,18 @@ import { testXtreamLogin } from '../lib/xtream'
 interface Props {
   onClose: () => void
   onAdd: (source: SourceConfig) => void
+  // Verilirse pencere "düzenleme" moduna geçer: alanlar bu kaynaktan
+  // doldurulur, kaydedince aynı id ile güncellenir.
+  editing?: SourceConfig
 }
 
-export function AddSourceModal({ onClose, onAdd }: Props): ReactElement {
-  const [tab, setTab] = useState<'m3u' | 'xtream'>('m3u')
-  const [name, setName] = useState('')
-  const [m3uUrl, setM3uUrl] = useState('')
-  const [host, setHost] = useState('')
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
+export function AddSourceModal({ onClose, onAdd, editing }: Props): ReactElement {
+  const [tab, setTab] = useState<'m3u' | 'xtream'>(editing?.type === 'xtream' ? 'xtream' : 'm3u')
+  const [name, setName] = useState(editing?.name || '')
+  const [m3uUrl, setM3uUrl] = useState(editing?.type === 'm3u' ? editing.url : '')
+  const [host, setHost] = useState(editing?.type === 'xtream' ? editing.host : '')
+  const [username, setUsername] = useState(editing?.type === 'xtream' ? editing.username : '')
+  const [password, setPassword] = useState(editing?.type === 'xtream' ? editing.password : '')
   const [error, setError] = useState<string | null>(null)
   const [checking, setChecking] = useState(false)
 
@@ -27,7 +30,7 @@ export function AddSourceModal({ onClose, onAdd }: Props): ReactElement {
       }
       onAdd({
         type: 'm3u',
-        id: `m3u-${Date.now()}`,
+        id: editing?.id || `m3u-${Date.now()}`,
         name: name.trim() || 'M3U Listem',
         url: m3uUrl.trim()
       })
@@ -41,7 +44,7 @@ export function AddSourceModal({ onClose, onAdd }: Props): ReactElement {
 
     const cfg: SourceConfig = {
       type: 'xtream',
-      id: `xtream-${Date.now()}`,
+      id: editing?.id || `xtream-${Date.now()}`,
       name: name.trim() || 'Xtream Hesabım',
       host: host.trim(),
       username: username.trim(),
@@ -63,7 +66,7 @@ export function AddSourceModal({ onClose, onAdd }: Props): ReactElement {
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>Kaynak Ekle</h2>
+        <h2>{editing ? 'Kaynağı Düzenle' : 'Kaynak Ekle'}</h2>
         <p className="modal-sub">M3U linki ya da Xtream Codes hesabınla bağlan.</p>
 
         <div className="tab-row">
@@ -125,7 +128,7 @@ export function AddSourceModal({ onClose, onAdd }: Props): ReactElement {
             Vazgeç
           </button>
           <button className="btn-primary" onClick={handleSubmit} disabled={checking}>
-            {checking ? 'Kontrol ediliyor…' : 'Ekle ve Bağlan'}
+            {checking ? 'Kontrol ediliyor…' : editing ? 'Kaydet' : 'Ekle ve Bağlan'}
           </button>
         </div>
       </div>

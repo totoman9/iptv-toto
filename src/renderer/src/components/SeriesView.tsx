@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactElement } from 'react'
-import type { SeriesItem, SeriesSeason, SourceConfig } from '../../../shared/types'
+import type { MediaDetails, SeriesItem, SeriesSeason, SourceConfig } from '../../../shared/types'
 import { getSeriesSeasons } from '../lib/xtream'
 import { IconPlayCircle, IconSearch } from './Icons'
 
@@ -14,6 +14,7 @@ export function SeriesView({ series, source, playingId, onPlayEpisode }: Props):
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<SeriesItem | null>(null)
   const [seasons, setSeasons] = useState<SeriesSeason[]>([])
+  const [details, setDetails] = useState<MediaDetails>({})
   const [loading, setLoading] = useState(false)
 
   const filtered = useMemo(() => {
@@ -25,13 +26,15 @@ export function SeriesView({ series, source, playingId, onPlayEpisode }: Props):
   useEffect(() => {
     if (!selected || !source || source.type !== 'xtream') {
       setSeasons([])
+      setDetails({})
       return
     }
     let cancelled = false
     setLoading(true)
     getSeriesSeasons(source, selected.seriesId).then((data) => {
       if (!cancelled) {
-        setSeasons(data)
+        setSeasons(data.seasons)
+        setDetails(data.details)
         setLoading(false)
       }
     })
@@ -97,6 +100,22 @@ export function SeriesView({ series, source, playingId, onPlayEpisode }: Props):
 
         {selected && !loading && (
           <div className="pane-list episode-scroll">
+            {(details.plot || details.genre || details.rating) && (
+              <div className="media-details">
+                <div className="media-details-title">{selected.name}</div>
+                <div className="media-details-meta">
+                  {details.releaseDate && <span>{details.releaseDate.slice(0, 4)}</span>}
+                  {details.genre && <span>{details.genre}</span>}
+                  {details.rating && <span>★ {details.rating}</span>}
+                </div>
+                {details.plot && <p className="media-details-plot">{details.plot}</p>}
+                {details.cast && (
+                  <p className="media-details-cast">
+                    <b>Oyuncular:</b> {details.cast}
+                  </p>
+                )}
+              </div>
+            )}
             {seasons.map((season) => (
               <div className="season-block" key={season.season}>
                 <div className="season-title">Sezon {season.season}</div>
