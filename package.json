@@ -1,0 +1,52 @@
+{
+  "name": "iptv-app",
+  "version": "0.1.0",
+  "description": "Masaüstü IPTV oynatıcı (Mac & Windows)",
+  "main": "./out/main/index.js",
+  "type": "commonjs",
+  "author": "",
+  "license": "UNLICENSED",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "build:mac": "electron-vite build && electron-builder --mac",
+    "build:win": "electron-vite build && electron-builder --win"
+  },
+  "build": {
+    "appId": "com.iptvstudio.app",
+    "productName": "IPTV Stüdyo",
+    "directories": {
+      "buildResources": "build"
+    },
+    "files": ["out/**/*"],
+    "mac": {
+      "target": ["dmg"],
+      "category": "public.app-category.entertainment"
+    },
+    "win": {
+      "target": ["nsis"]
+    }
+  },
+  "dependencies": {
+    "hls.js": "^1.7.3",
+    "mpegts.js": "^1.8.2",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "sax": "^1.6.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/sax": "^1.2.7",
+    "@vitejs/plugin-react": "^5.2.0",
+    "electron": "^44.3.0",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^5.0.0",
+    "playwright-core": "^1.63.0",
+    "typescript": "^5.7.3",
+    "vite": "^7.3.6"
+  }
+}
