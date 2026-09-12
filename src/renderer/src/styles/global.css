@@ -3,27 +3,34 @@
 }
 
 :root {
-  --bg: #0a0813;
-  --bg-elevated: #120f1f;
-  --surface: #1a1530;
-  --surface-2: #221c3d;
-  --surface-hover: #2b2350;
-  --border: #2f2853;
-  --border-soft: #241f42;
-  --primary: #8b5cf6;
-  --primary-dark: #6d28d9;
-  --primary-light: #c4b5fd;
+  /* Beyaz zemin, mor vurgular */
+  --bg: #faf8fd;
+  --bg-elevated: #ffffff;
+  --surface: #f3eefb;
+  --surface-2: #ece3f9;
+  --surface-hover: #e4d6f6;
+  --border: #e2d3f4;
+  --border-soft: #ece2f8;
+  --primary: #7c3aed;
+  --primary-dark: #6222c4;
+  --primary-light: #9b6bf0;
   --gradient: linear-gradient(135deg, #7c3aed 0%, #a855f7 50%, #d946ef 100%);
-  --text: #f3f0ff;
-  --text-dim: #ada6c9;
-  --text-faint: #766f96;
-  --danger: #f43f5e;
-  --success: #34d399;
+  --text: #1e1730;
+  --text-dim: #5c5270;
+  --text-faint: #948aab;
+  --danger: #dc2626;
+  --success: #16a34a;
   --live: #ef4444;
   --radius-sm: 8px;
   --radius: 14px;
   --radius-lg: 20px;
-  --shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+  --shadow: 0 10px 30px rgba(124, 58, 237, 0.16);
+
+  /* Oynatıcı her zaman siyah zemin üzerinde durur; tema ne olursa olsun
+     buradaki metinler açık renkli kalmalı. */
+  --player-text: #f3f0ff;
+  --player-text-dim: #cabfe0;
+  --player-text-faint: #a89ec2;
 }
 
 html,
@@ -71,8 +78,8 @@ textarea {
   flex-direction: column;
   height: 100vh;
   background:
-    radial-gradient(1200px 600px at 90% -10%, rgba(168, 85, 247, 0.12), transparent 60%),
-    radial-gradient(900px 500px at -10% 110%, rgba(124, 58, 237, 0.1), transparent 60%), var(--bg);
+    radial-gradient(1200px 600px at 90% -10%, rgba(168, 85, 247, 0.1), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(124, 58, 237, 0.08), transparent 60%), var(--bg);
 }
 
 .app-shell-loading {
@@ -95,6 +102,12 @@ textarea {
   padding: 12px 20px;
   border-bottom: 1px solid var(--border-soft);
   -webkit-app-region: drag;
+}
+
+/* macOS'ta pencere trafik ışıkları (kapat/küçült/büyüt) sol üstte içeriğin
+   üzerine biniyor; onlara yer açıyoruz. */
+.platform-mac .topnav {
+  padding-left: 82px;
 }
 
 .topnav-brand {
@@ -670,7 +683,7 @@ textarea {
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  color: var(--text-faint);
+  color: var(--player-text-faint);
 }
 
 .player-pane-idle-icon {
@@ -694,11 +707,12 @@ textarea {
 .player-title {
   font-size: 14px;
   font-weight: 700;
+  color: var(--player-text);
 }
 
 .player-group {
   font-size: 11px;
-  color: var(--text-faint);
+  color: var(--player-text-faint);
 }
 
 .live-badge {
@@ -728,11 +742,11 @@ textarea {
   gap: 10px;
   align-items: center;
   background: rgba(10, 8, 19, 0.6);
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 999px;
   padding: 6px 14px;
   font-size: 11px;
-  color: var(--text-dim);
+  color: var(--player-text-dim);
   font-variant-numeric: tabular-nums;
   backdrop-filter: blur(6px);
   flex-shrink: 0;
@@ -740,7 +754,7 @@ textarea {
 }
 
 .stats-badge b {
-  color: var(--text);
+  color: var(--player-text);
   font-weight: 700;
 }
 
@@ -772,7 +786,12 @@ textarea {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--text-faint);
+  color: var(--player-text-faint);
+}
+
+.epg-now strong,
+.epg-next span {
+  color: var(--player-text);
 }
 
 .epg-progress {
@@ -790,7 +809,7 @@ textarea {
 }
 
 .player-error {
-  color: var(--text-dim);
+  color: var(--player-text-dim);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -803,4 +822,82 @@ textarea {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* ---------- Oynatıcı kontrol çubuğu ---------- */
+.player-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.player-controls .icon-btn {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.time-label {
+  font-size: 11px;
+  color: var(--player-text-dim);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.controls-spacer {
+  flex: 1;
+}
+
+.seek-bar,
+.volume-bar {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  outline: none;
+}
+
+.seek-bar {
+  flex: 1;
+  min-width: 60px;
+}
+
+.volume-bar {
+  width: 80px;
+}
+
+.seek-bar::-webkit-slider-thumb,
+.volume-bar::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--primary-light);
+  cursor: pointer;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.25);
+}
+
+.volume-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* Oynatıcı üzerindeki ikon düğmeleri her zaman koyu/camsı görünmeli
+   (arkalarında video görüntüsü olur, açık temada bile). */
+.player-topbar .icon-btn,
+.player-controls .icon-btn {
+  background: rgba(10, 8, 19, 0.55);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: var(--player-text-dim);
+}
+.player-topbar .icon-btn:hover,
+.player-controls .icon-btn:hover {
+  color: var(--player-text);
+  border-color: var(--primary-light);
 }

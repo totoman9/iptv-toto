@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { HttpResult } from '../shared/types'
 
 const api = {
+  platform: process.platform,
   store: {
     read: <T>(key: string): Promise<T | null> => ipcRenderer.invoke('store:read', key),
     write: (key: string, value: unknown): Promise<boolean> =>

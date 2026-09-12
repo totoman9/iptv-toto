@@ -45,8 +45,9 @@ function attachHls(
   onInfo: (info: StreamInfo) => void,
   onFatal: () => void
 ): { destroy: () => void } {
-  // enableWorker kapalı: paketlenmiş Electron uygulamasında file:// kökeninden
-  // yüklenen worker'lar bazı sistemlerde sessizce başarısız olabiliyor.
+  // enableWorker: false — bu Electron sürümünde worker açıkken mpegts/hls
+  // akışı bazen tamamen donuyor (init segmenti alınıp hiç veri iletilmiyor).
+  // Ana iş parçacığında biraz daha CPU harcasa da güvenilir çalışıyor.
   const hls = new Hls({ maxBufferLength: 30, enableWorker: false })
   hls.loadSource(url)
   hls.attachMedia(video)
@@ -77,7 +78,20 @@ function attachMpegts(
 ): { destroy: () => void } {
   const player = mpegts.createPlayer(
     { type: 'mse', isLive: true, url },
-    { enableWorker: false, liveBufferLatencyChasing: true }
+    {
+      enableWorker: false,
+      enableStashBuffer: true,
+      // Canlıya yapışmak için arabellek büyüyünce ileri atlıyor; varsayılan
+      // eşikler çok sık tetiklenip "fotoğraf gibi" atlamalara yol açıyordu.
+      // Eşikleri gevşeterek (birkaç saniye ekstra gecikme pahasına) daha
+      // az sık ve daha yumuşak geçişler hedefliyoruz.
+      liveBufferLatencyChasing: true,
+      liveBufferLatencyMaxLatency: 4.0,
+      liveBufferLatencyMinRemain: 1.5,
+      autoCleanupSourceBuffer: true,
+      autoCleanupMaxBackwardDuration: 30,
+      autoCleanupMinBackwardDuration: 10
+    }
   )
   player.attachMediaElement(video)
   player.on(mpegts.Events.MEDIA_INFO, (mediaInfo: Record<string, unknown>) => {

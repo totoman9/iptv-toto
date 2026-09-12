@@ -110,6 +110,41 @@ export function IconWarning({ size, ...rest }: IconProps): ReactElement {
   )
 }
 
+export function IconPlay({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} fill="currentColor" stroke="none" {...rest}>
+      <path d="M7.5 5.2v13.6a1 1 0 0 0 1.53.85l10.9-6.8a1 1 0 0 0 0-1.7l-10.9-6.8a1 1 0 0 0-1.53.85Z" />
+    </svg>
+  )
+}
+
+export function IconPause({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} fill="currentColor" stroke="none" {...rest}>
+      <rect x="6.5" y="4.5" width="4" height="15" rx="1" />
+      <rect x="13.5" y="4.5" width="4" height="15" rx="1" />
+    </svg>
+  )
+}
+
+export function IconVolume({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <path d="M4 9.5v5h3.6l4.9 3.9V5.6L7.6 9.5Z" fill="currentColor" stroke="none" />
+      <path d="M16.2 8.3a5 5 0 0 1 0 7.4M18.8 5.8a8.8 8.8 0 0 1 0 12.4" />
+    </svg>
+  )
+}
+
+export function IconMute({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <path d="M4 9.5v5h3.6l4.9 3.9V5.6L7.6 9.5Z" fill="currentColor" stroke="none" />
+      <path d="m15.5 10 4.5 4M20 10l-4.5 4" />
+    </svg>
+  )
+}
+
 export function IconPlayCircle({ size, ...rest }: IconProps): ReactElement {
   return (
     <svg {...base(size)} {...rest}>
