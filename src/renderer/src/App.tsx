@@ -1,21 +1,29 @@
 import { useMemo, useState, type ReactElement } from 'react'
 import { TopNav, type ViewKey } from './components/TopNav'
 import { CategoryColumn, ALL_GROUP } from './components/CategoryColumn'
-import { ItemListColumn, type ListableItem } from './components/ItemListColumn'
-import { SeriesView } from './components/SeriesView'
+import { ItemListColumn, type ListableItem, type ListViewMode } from './components/ItemListColumn'
+import { MediaBrowser } from './components/media/MediaBrowser'
 import { ManageSourcesModal } from './components/ManageSourcesModal'
-import { VodDetailModal } from './components/VodDetailModal'
 import { PinPromptModal } from './components/PinPromptModal'
 import { ParentalLockSettingsModal } from './components/ParentalLockSettingsModal'
 import { EpgGridModal } from './components/EpgGridModal'
 import { IconGuide } from './components/Icons'
-import { PlayerPane, type PlayableItem } from './components/PlayerPane'
+import { PlayerPane, type PlayerMode } from './components/PlayerPane'
 import { useSources } from './hooks/useSources'
 import { useLibrary } from './hooks/useLibrary'
 import { useFavorites } from './hooks/useFavorites'
 import { useParentalLock } from './hooks/useParentalLock'
-import type { Channel, VodItem } from '../../shared/types'
-import { getVodStreamUrl } from './lib/xtream'
+import type { Channel, PlayableItem } from '../../shared/types'
+
+const LIST_VIEW_KEY = 'iptv-toto-live-view'
+
+function loadListView(): ListViewMode {
+  try {
+    return window.localStorage.getItem(LIST_VIEW_KEY) === 'grid' ? 'grid' : 'list'
+  } catch {
+    return 'list'
+  }
+}
 
 function App(): ReactElement {
   const {
@@ -28,8 +36,21 @@ function App(): ReactElement {
     removeSource,
     setActiveSourceId
   } = useSources()
-  const { channels, vod, series, liveCategoryOrder, vodCategoryOrder, loading, error, reload } =
-    useLibrary(activeSource)
+  const {
+    channels,
+    vod,
+    series,
+    liveCategoryOrder,
+    vodCategoryOrder,
+    seriesCategoryOrder,
+    liveStatus,
+    vodStatus,
+    seriesStatus,
+    refreshing,
+    loading,
+    error,
+    reload
+  } = useLibrary(activeSource)
   const { favoriteIds, toggleFavorite } = useFavorites()
   const lockApi = useParentalLock()
 
@@ -38,10 +59,13 @@ function App(): ReactElement {
   const [showParentalLock, setShowParentalLock] = useState(false)
   const [showEpgGrid, setShowEpgGrid] = useState(false)
   const [pendingUnlock, setPendingUnlock] = useState<{ action: () => void } | null>(null)
-  const [vodDetail, setVodDetail] = useState<VodItem | null>(null)
   const [playing, setPlaying] = useState<PlayableItem | null>(null)
+  // Film/dizi tam sayfa oynatılırken önceki canlı yayını hatırla; geri
+  // dönünce kaldığı kanaldan devam etsin.
+  const [theater, setTheater] = useState(false)
+  const [liveBeforeTheater, setLiveBeforeTheater] = useState<PlayableItem | null>(null)
   const [liveGroup, setLiveGroup] = useState(ALL_GROUP)
-  const [vodGroup, setVodGroup] = useState(ALL_GROUP)
+  const [listView, setListView] = useState<ListViewMode>(loadListView)
 
   const favoriteChannels = useMemo(
     () => channels.filter((c) => favoriteIds.has(c.id)),
@@ -49,9 +73,9 @@ function App(): ReactElement {
   )
 
   const allGroups = useMemo(() => {
-    const set = new Set<string>([...liveCategoryOrder, ...vodCategoryOrder])
+    const set = new Set<string>([...liveCategoryOrder, ...vodCategoryOrder, ...seriesCategoryOrder])
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'tr'))
-  }, [liveCategoryOrder, vodCategoryOrder])
+  }, [liveCategoryOrder, vodCategoryOrder, seriesCategoryOrder])
 
   const epgSourceChannels = useMemo(
     () => (liveGroup === ALL_GROUP ? channels : channels.filter((c) => c.group === liveGroup)),
@@ -67,12 +91,6 @@ function App(): ReactElement {
   )
   const epgTruncated = epgSourceChannels.length > epgChannels.length
 
-  function onTuneFromEpg(channelId: string): void {
-    const ch = channels.find((c) => c.id === channelId)
-    if (ch) playChannel(ch)
-    setShowEpgGrid(false)
-  }
-
   // Bir grup (kategori) kilitliyse işlemi hemen yapmak yerine PIN sorup
   // bekletiyoruz; doğru PIN girilince orijinal işlem çalışır.
   function guardedAction(group: string, action: () => void): void {
@@ -86,36 +104,45 @@ function App(): ReactElement {
   function playChannel(item: ListableItem): void {
     const channel = item as Channel
     guardedAction(channel.group, () => {
+      setTheater(false)
       setPlaying({
         id: channel.id,
         name: channel.name,
         group: channel.group,
         url: channel.url,
         streamId: channel.streamId,
-        isLive: true
+        isLive: true,
+        logo: channel.logo,
+        kind: 'live'
       })
     })
   }
 
-  function openVodDetail(item: ListableItem): void {
-    const vodItem = item as VodItem
-    guardedAction(vodItem.group, () => setVodDetail(vodItem))
+  function onTuneFromEpg(channelId: string): void {
+    const ch = channels.find((c) => c.id === channelId)
+    if (ch) playChannel(ch)
+    setShowEpgGrid(false)
   }
 
-  function playVod(item: VodItem): void {
-    if (!activeSource || activeSource.type !== 'xtream') return
-    setPlaying({
-      id: item.id,
-      name: item.name,
-      group: item.group,
-      url: getVodStreamUrl(activeSource, item),
-      isLive: false
-    })
-    setVodDetail(null)
+  function playFromBrowser(item: PlayableItem): void {
+    if (playing?.isLive) setLiveBeforeTheater(playing)
+    setPlaying(item)
+    setTheater(true)
   }
 
-  function playEpisode(title: string, group: string, url: string): void {
-    setPlaying({ id: url, name: title, group, url, isLive: false })
+  function closeTheater(): void {
+    setTheater(false)
+    setPlaying(liveBeforeTheater)
+    setLiveBeforeTheater(null)
+  }
+
+  function changeListView(mode: ListViewMode): void {
+    setListView(mode)
+    try {
+      window.localStorage.setItem(LIST_VIEW_KEY, mode)
+    } catch {
+      /* ignore */
+    }
   }
 
   if (!ready) {
@@ -129,6 +156,99 @@ function App(): ReactElement {
   }
 
   const noSourceYet = sources.length === 0
+  const isMediaView = view === 'vod' || view === 'series'
+  const hostMode: PlayerMode | 'hidden' = noSourceYet
+    ? 'hidden'
+    : theater && playing
+      ? 'theater'
+      : !isMediaView
+        ? 'docked'
+        : playing
+          ? 'mini'
+          : 'hidden'
+
+  let leftArea: ReactElement | null = null
+  if (noSourceYet) {
+    leftArea = (
+      <div className="empty-state">
+        <h3>Henüz bir kaynak eklemedin</h3>
+        <p>Başlamak için bir M3U linki ya da Xtream Codes hesabı ekle.</p>
+        <button className="btn-primary" onClick={() => setShowManageSources(true)}>
+          + Kaynak Ekle
+        </button>
+      </div>
+    )
+  } else if (view === 'live') {
+    if (loading && channels.length === 0) {
+      leftArea = (
+        <div className="pane pane-wide">
+          <div className="empty-state">
+            <div className="spinner" />
+            <p>İçerik yükleniyor…</p>
+          </div>
+        </div>
+      )
+    } else if (error && channels.length === 0) {
+      leftArea = (
+        <div className="pane pane-wide">
+          <div className="empty-state">
+            <h3>Bir sorun oluştu</h3>
+            <p>{error}</p>
+            <button className="btn-primary" onClick={reload}>
+              Tekrar Dene
+            </button>
+          </div>
+        </div>
+      )
+    } else {
+      leftArea = (
+        <>
+          <CategoryColumn
+            items={channels}
+            activeGroup={liveGroup}
+            onSelectGroup={(g) => guardedAction(g, () => setLiveGroup(g))}
+            allLabel="Tüm kanallar"
+            orderedGroups={liveCategoryOrder}
+            lockedGroups={lockApi.lockedGroups}
+          />
+          <ItemListColumn
+            items={channels}
+            activeGroup={liveGroup}
+            selectedId={playing?.id}
+            onSelect={playChannel}
+            favoriteIds={favoriteIds}
+            onToggleFavorite={toggleFavorite}
+            emptyTitle="Canlı kanal bulunamadı"
+            emptyHint={liveStatus === 'ready' ? 'Bu kaynakta canlı yayın listesi yok.' : ''}
+            viewMode={listView}
+            onViewModeChange={changeListView}
+            headerAction={
+              activeSource?.type === 'xtream' ? (
+                <button className="icon-btn" onClick={() => setShowEpgGrid(true)} title="TV Rehberi">
+                  <IconGuide size={15} />
+                </button>
+              ) : undefined
+            }
+          />
+        </>
+      )
+    }
+  } else if (view === 'favorites') {
+    leftArea = (
+      <ItemListColumn
+        items={favoriteChannels}
+        activeGroup={ALL_GROUP}
+        selectedId={playing?.id}
+        onSelect={playChannel}
+        favoriteIds={favoriteIds}
+        onToggleFavorite={toggleFavorite}
+        emptyTitle="Favori kanalın yok"
+        emptyHint="Canlı TV listesinde kanalların üzerindeki yıldıza tıklayarak favorilere ekleyebilirsin."
+        viewMode={listView}
+        onViewModeChange={changeListView}
+      />
+    )
+  }
 
   return (
     <div className="app-shell">
@@ -141,121 +261,42 @@ function App(): ReactElement {
         onManageSources={() => setShowManageSources(true)}
         onOpenParentalLock={() => setShowParentalLock(true)}
         onReload={reload}
-        loading={loading}
+        loading={loading || refreshing}
       />
 
       <div className="app-body">
-        {noSourceYet ? (
-          <div className="empty-state">
-            <h3>Henüz bir kaynak eklemedin</h3>
-            <p>Başlamak için bir M3U linki ya da Xtream Codes hesabı ekle.</p>
-            <button className="btn-primary" onClick={() => setShowManageSources(true)}>
-              + Kaynak Ekle
-            </button>
+        {/* Çocukların SIRASI sabit tutuluyor: oynatıcı her zaman son sırada,
+            böylece sekme değişse de React onu yeniden kurmuyor ve yayın
+            kesilmiyor. Görünüşü (yan panel / köşe / tam sayfa) CSS ile değişir. */}
+        <div className={`main-area view-${view}`}>
+          {leftArea}
+          {!noSourceYet && isMediaView ? (
+            <MediaBrowser
+              key={`${view}-${activeSourceId}`}
+              kind={view as 'vod' | 'series'}
+              vod={vod}
+              series={series}
+              categoryOrder={view === 'vod' ? vodCategoryOrder : seriesCategoryOrder}
+              status={view === 'vod' ? vodStatus : seriesStatus}
+              source={activeSource}
+              lockedGroups={lockApi.lockedGroups}
+              isLocked={lockApi.isLocked}
+              guard={guardedAction}
+              onPlay={playFromBrowser}
+            />
+          ) : null}
+          <div key="player-host" className={`player-host host-${hostMode}`}>
+            <PlayerPane
+              item={playing}
+              source={activeSource}
+              mode={hostMode === 'hidden' ? 'docked' : hostMode}
+              isFavorite={!!playing && favoriteIds.has(playing.id)}
+              onToggleFavorite={playing?.isLive ? () => toggleFavorite(playing.id) : undefined}
+              onClose={hostMode === 'theater' ? closeTheater : () => setPlaying(null)}
+              onExpand={() => setView('live')}
+            />
           </div>
-        ) : loading && channels.length === 0 ? (
-          <div className="empty-state">
-            <div className="spinner" />
-            <p>İçerik yükleniyor…</p>
-          </div>
-        ) : error ? (
-          <div className="empty-state">
-            <h3>Bir sorun oluştu</h3>
-            <p>{error}</p>
-            <button className="btn-primary" onClick={reload}>
-              Tekrar Dene
-            </button>
-          </div>
-        ) : (
-          // Oynatıcı burada TEK bir yerde, tüm sekmeler için ortak render
-          // ediliyor. Önceden her sekmenin kendi <PlayerPane> kopyası vardı;
-          // sekme değiştirince React onu yok edip yeniden kuruyordu, bu da
-          // yayının resetlenip ekranın bir an simsiyah kalmasına yol
-          // açıyordu. Tek örnek + aynı JSX konumu = sekme değişse de aynı
-          // <video> ve bağlantı canlı kalır.
-          <div
-            className={`browse-row ${view === 'series' ? 'browse-row-series' : ''} ${view === 'favorites' ? 'browse-row-no-categories' : ''}`}
-          >
-            {view === 'live' && (
-              <>
-                <CategoryColumn
-                  items={channels}
-                  activeGroup={liveGroup}
-                  onSelectGroup={(g) => guardedAction(g, () => setLiveGroup(g))}
-                  allLabel="Tüm kanallar"
-                  orderedGroups={liveCategoryOrder}
-                  lockedGroups={lockApi.lockedGroups}
-                />
-                <ItemListColumn
-                  items={channels}
-                  activeGroup={liveGroup}
-                  selectedId={playing?.id}
-                  onSelect={playChannel}
-                  favoriteIds={favoriteIds}
-                  onToggleFavorite={toggleFavorite}
-                  emptyTitle="Canlı kanal bulunamadı"
-                  emptyHint="Bu kaynakta canlı yayın listesi yok."
-                  headerAction={
-                    activeSource?.type === 'xtream' ? (
-                      <button
-                        className="icon-btn"
-                        onClick={() => setShowEpgGrid(true)}
-                        title="TV Rehberi"
-                      >
-                        <IconGuide size={15} />
-                      </button>
-                    ) : undefined
-                  }
-                />
-              </>
-            )}
-
-            {view === 'vod' && (
-              <>
-                <CategoryColumn
-                  items={vod}
-                  activeGroup={vodGroup}
-                  onSelectGroup={(g) => guardedAction(g, () => setVodGroup(g))}
-                  allLabel="Tüm filmler"
-                  orderedGroups={vodCategoryOrder}
-                  lockedGroups={lockApi.lockedGroups}
-                />
-                <ItemListColumn
-                  items={vod}
-                  activeGroup={vodGroup}
-                  selectedId={playing?.id}
-                  onSelect={openVodDetail}
-                  emptyTitle="Film bulunamadı"
-                  emptyHint="Filmler yalnızca Xtream Codes kaynaklarında listelenir."
-                />
-              </>
-            )}
-
-            {view === 'series' && (
-              <SeriesView
-                series={series}
-                source={activeSource}
-                onPlayEpisode={playEpisode}
-                playingId={playing?.id}
-              />
-            )}
-
-            {view === 'favorites' && (
-              <ItemListColumn
-                items={favoriteChannels}
-                activeGroup={ALL_GROUP}
-                selectedId={playing?.id}
-                onSelect={playChannel}
-                favoriteIds={favoriteIds}
-                onToggleFavorite={toggleFavorite}
-                emptyTitle="Favori kanalın yok"
-                emptyHint="Canlı TV listesinde kanalların üzerindeki yıldıza tıklayarak favorilere ekleyebilirsin."
-              />
-            )}
-
-            <PlayerPane item={playing} source={activeSource} />
-          </div>
-        )}
+        </div>
       </div>
 
       {showManageSources && (
@@ -265,15 +306,6 @@ function App(): ReactElement {
           onAdd={addSource}
           onUpdate={updateSource}
           onRemove={removeSource}
-        />
-      )}
-
-      {vodDetail && (
-        <VodDetailModal
-          item={vodDetail}
-          source={activeSource}
-          onClose={() => setVodDetail(null)}
-          onPlay={playVod}
         />
       )}
 

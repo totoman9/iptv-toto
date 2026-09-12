@@ -212,6 +212,62 @@ export function IconGuide({ size, ...rest }: IconProps): ReactElement {
   )
 }
 
+export function IconScissors({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <circle cx="6.5" cy="7" r="2.6" />
+      <circle cx="6.5" cy="17" r="2.6" />
+      <path d="M8.6 8.6 19.5 18.5M8.6 15.4 19.5 5.5" />
+    </svg>
+  )
+}
+
+export function IconArrowLeft({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <path d="M19 12H5M11 6l-6 6 6 6" />
+    </svg>
+  )
+}
+
+export function IconGrid({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <rect x="4" y="4" width="6.5" height="6.5" rx="1.4" />
+      <rect x="13.5" y="4" width="6.5" height="6.5" rx="1.4" />
+      <rect x="4" y="13.5" width="6.5" height="6.5" rx="1.4" />
+      <rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.4" />
+    </svg>
+  )
+}
+
+export function IconList({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <path d="M9 6.5h11M9 12h11M9 17.5h11" />
+      <circle cx="4.8" cy="6.5" r="1" fill="currentColor" stroke="none" />
+      <circle cx="4.8" cy="12" r="1" fill="currentColor" stroke="none" />
+      <circle cx="4.8" cy="17.5" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+export function IconChevronRight({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <path d="m9.5 6 6 6-6 6" />
+    </svg>
+  )
+}
+
+export function IconCheck({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <path d="m5 12.5 4.3 4.3L19 7" />
+    </svg>
+  )
+}
+
 export function IconPlayCircle({ size, ...rest }: IconProps): ReactElement {
   return (
     <svg {...base(size)} {...rest}>

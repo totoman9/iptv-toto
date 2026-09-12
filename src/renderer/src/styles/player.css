@@ -1,0 +1,387 @@
+/* ---------- Ana alan + oynatıcı yerleşimi ---------- */
+.main-area {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  position: relative;
+}
+
+.pane-wide {
+  width: 570px;
+}
+
+.player-host {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+
+.player-host.host-docked {
+  flex: 1 1 auto;
+}
+
+.player-host.host-hidden {
+  display: none;
+}
+
+/* Film/Dizi ekranında gezinirken canlı yayın köşede küçük pencerede sürer */
+.player-host.host-mini {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  width: 400px;
+  height: 225px;
+  z-index: 45;
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: 0 18px 48px rgba(30, 15, 60, 0.35);
+}
+
+/* Film/dizi oynatılırken tüm pencere (Netflix gibi) */
+.player-host.host-theater {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: #000;
+}
+
+.player-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  background: var(--bg);
+}
+
+.player-pane.mode-docked {
+  padding: 14px 14px 14px 0;
+  overflow-y: auto;
+  container-type: size;
+}
+
+.player-pane.mode-mini,
+.player-pane.mode-theater {
+  background: #000;
+}
+
+/* Video kutusu videonun kendi oranında (varsayılan 16:9). Yan panelde
+   genişlik alanı doldurur ama yükseklik panelin %62'sini geçmez; kalan
+   beyaz alan aşağıdaki bilgi paneline kalır. */
+.player-stage {
+  flex-shrink: 0;
+  margin: 0 auto;
+  width: min(100%, calc(62cqh * var(--ar, 1.7778)));
+  aspect-ratio: var(--ar, 1.7778);
+}
+
+.mode-mini .player-stage,
+.mode-theater .player-stage {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  flex: 1;
+}
+
+.player-pane-video-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: 0 12px 34px rgba(30, 15, 60, 0.16);
+}
+
+.mode-mini .player-pane-video-wrap,
+.mode-theater .player-pane-video-wrap,
+.player-pane-video-wrap:fullscreen {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.player-pane-video-wrap video {
+  object-fit: contain;
+}
+
+.player-topbar,
+.player-bottom {
+  transition: opacity 0.25s;
+}
+
+.mode-theater .player-topbar {
+  padding: 22px 26px;
+}
+
+.mode-theater .player-bottom {
+  padding: 22px 26px 26px;
+}
+
+/* Mini pencere üst şeridi */
+.mini-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.7), transparent);
+  z-index: 3;
+}
+
+.mini-title {
+  color: var(--player-text);
+  font-size: 12px;
+  font-weight: 700;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.mini-overlay .icon-btn {
+  width: 26px;
+  height: 26px;
+  background: rgba(10, 8, 19, 0.55);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: var(--player-text);
+}
+
+/* ---------- Bilgi paneli (yan panelde videonun altı) ---------- */
+.player-info {
+  margin-top: 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+.player-info-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.player-info-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  color: var(--text-faint);
+}
+
+.player-info-logo img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.player-info-titles {
+  min-width: 0;
+}
+
+.player-info-name {
+  font-size: 16px;
+  font-weight: 800;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.player-info-group {
+  font-size: 12px;
+  color: var(--text-faint);
+  margin-top: 2px;
+}
+
+.btn-sm {
+  padding: 7px 12px;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.btn-secondary.is-favorite {
+  color: #a16207;
+  border-color: #facc15;
+  background: #fffbeb;
+}
+
+.btn-secondary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.player-info-now {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.player-info-now-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.epg-chip {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #fff;
+  background: var(--live);
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+
+.player-info-time {
+  font-size: 12px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.player-info-now-title {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.info-progress {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.info-progress-fill {
+  height: 100%;
+  background: var(--gradient);
+}
+
+.player-info-desc {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-dim);
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.player-info-section-title {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  margin-bottom: 6px;
+}
+
+.upcoming-row {
+  display: flex;
+  gap: 12px;
+  padding: 6px 0;
+  border-top: 1px solid var(--border-soft);
+  font-size: 12.5px;
+}
+
+.upcoming-time {
+  color: var(--primary);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  width: 42px;
+  flex-shrink: 0;
+}
+
+.upcoming-title {
+  color: var(--text-dim);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.player-info-stats .stats-badge {
+  display: inline-flex;
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text-dim);
+  backdrop-filter: none;
+}
+
+.player-info-stats .stats-badge b {
+  color: var(--text);
+}
+
+/* ---------- Kesit bildirimi ---------- */
+.clip-toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 13px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.clip-toast button {
+  border: none;
+  background: transparent;
+  color: var(--primary);
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  font-size: 12.5px;
+}
+
+.clip-toast-done {
+  border-color: rgba(22, 163, 74, 0.35);
+  background: #f0fdf4;
+}
+
+.clip-toast-error {
+  border-color: rgba(220, 38, 38, 0.3);
+  background: #fef2f2;
+  color: var(--danger);
+}
+
+.player-pane-video-wrap .clip-toast {
+  position: absolute;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  background: rgba(10, 8, 19, 0.82);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: var(--player-text);
+}
+
+.player-pane-video-wrap .clip-toast button {
+  color: var(--primary-light);
+}
+
+.icon-btn-busy svg {
+  animation: pulse-opacity 0.9s ease-in-out infinite;
+}
+
+@keyframes pulse-opacity {
+  50% {
+    opacity: 0.35;
+  }
+}

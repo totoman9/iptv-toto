@@ -28,6 +28,8 @@ interface XtreamVodStream {
   stream_icon?: string
   category_id: string
   container_extension?: string
+  rating?: string | number
+  added?: string | number
 }
 
 interface XtreamSeries {
@@ -35,6 +37,16 @@ interface XtreamSeries {
   name: string
   cover?: string
   category_id: string
+  rating?: string | number
+  genre?: string
+  releaseDate?: string
+  backdrop_path?: string[] | string
+}
+
+function toNumber(v: string | number | undefined): number | undefined {
+  if (v === undefined || v === null || v === '') return undefined
+  const n = typeof v === 'number' ? v : parseFloat(v)
+  return Number.isFinite(n) ? n : undefined
 }
 
 interface XtreamSeriesInfoEpisode {
@@ -100,6 +112,17 @@ export async function testXtreamLogin(
 // tanıyoruz.
 const BIG_LIST_TIMEOUT_MS = 45000
 
+// Kategori listeleri küçük ama bazen ilk denemede zaman aşımına uğruyor;
+// boş dönünce bütün içerik "Diğer" grubuna düşüyordu. Birkaç kez yeniden dene.
+async function fetchCategories(url: string): Promise<{ data: XtreamCategory[] }> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const res = await window.iptv.http.fetchJson<XtreamCategory[]>(url, { timeoutMs: 20000 })
+    if (res.ok && Array.isArray(res.data)) return { data: res.data }
+    await new Promise((r) => setTimeout(r, 800 * (attempt + 1)))
+  }
+  return { data: [] }
+}
+
 export interface LiveChannelsResult {
   channels: Channel[]
   categoryOrder: string[]
@@ -110,8 +133,8 @@ export interface LiveChannelsResult {
 // düzenlenmiştir, alfabetik sıralama bunu bozup [AR]/[BG] gibi kodları
 // araya sokuyordu.
 export async function getLiveChannels(cfg: XtreamSourceConfig): Promise<LiveChannelsResult> {
-  const catsRes = await window.iptv.http.fetchJson<XtreamCategory[]>(
-    apiUrl(cfg, 'get_live_categories')
+  const catsRes = await fetchCategories(
+    apiUrl(cfg,'get_live_categories')
   )
   const streamsRes = await window.iptv.http.fetchJson<XtreamLiveStream[]>(
     apiUrl(cfg, 'get_live_streams'),
@@ -142,8 +165,8 @@ export interface VodItemsResult {
 }
 
 export async function getVodItems(cfg: XtreamSourceConfig): Promise<VodItemsResult> {
-  const catsRes = await window.iptv.http.fetchJson<XtreamCategory[]>(
-    apiUrl(cfg, 'get_vod_categories')
+  const catsRes = await fetchCategories(
+    apiUrl(cfg,'get_vod_categories')
   )
   const streamsRes = await window.iptv.http.fetchJson<XtreamVodStream[]>(
     apiUrl(cfg, 'get_vod_streams'),
@@ -159,7 +182,9 @@ export async function getVodItems(cfg: XtreamSourceConfig): Promise<VodItemsResu
     logo: s.stream_icon,
     group: catMap.get(s.category_id) || 'Diğer',
     streamId: s.stream_id,
-    containerExtension: s.container_extension || 'mp4'
+    containerExtension: s.container_extension || 'mp4',
+    rating: toNumber(s.rating),
+    added: toNumber(s.added)
   }))
   const categoryOrder = (catsRes.data || []).map((c) => c.category_name)
   return { items, categoryOrder }
@@ -194,7 +219,8 @@ function mapMediaInfo(info: XtreamMediaInfo | undefined): MediaDetails {
     releaseDate: info.releasedate || info.release_date || undefined,
     rating: info.rating !== undefined ? String(info.rating) : undefined,
     durationText: info.duration || undefined,
-    coverBig: info.cover_big || info.movie_image || info.backdrop_path?.[0] || undefined
+    coverBig: info.cover_big || info.movie_image || info.backdrop_path?.[0] || undefined,
+    backdrop: info.backdrop_path?.[0] || undefined
   }
 }
 
@@ -208,25 +234,40 @@ export async function getVodDetails(
   return mapMediaInfo(res.data?.info)
 }
 
-export async function getSeriesList(cfg: XtreamSourceConfig): Promise<SeriesItem[]> {
-  const catsRes = await window.iptv.http.fetchJson<XtreamCategory[]>(
-    apiUrl(cfg, 'get_series_categories')
+export interface SeriesListResult {
+  items: SeriesItem[]
+  categoryOrder: string[]
+}
+
+export async function getSeriesList(cfg: XtreamSourceConfig): Promise<SeriesListResult> {
+  const catsRes = await fetchCategories(
+    apiUrl(cfg,'get_series_categories')
   )
   const seriesRes = await window.iptv.http.fetchJson<XtreamSeries[]>(
     apiUrl(cfg, 'get_series'),
     { timeoutMs: BIG_LIST_TIMEOUT_MS }
   )
+  if (!seriesRes.ok) throw new Error(seriesRes.error || 'Dizi listesi alınamadı')
 
   const catMap = new Map<string, string>()
   for (const c of catsRes.data || []) catMap.set(c.category_id, c.category_name)
 
-  return (seriesRes.data || []).map((s) => ({
-    id: `xtream-series-${s.series_id}`,
-    name: s.name,
-    logo: s.cover,
-    group: catMap.get(s.category_id) || 'Diğer',
-    seriesId: s.series_id
-  }))
+  const items = (seriesRes.data || []).map((s) => {
+    const backdrop = Array.isArray(s.backdrop_path) ? s.backdrop_path[0] : s.backdrop_path
+    return {
+      id: `xtream-series-${s.series_id}`,
+      name: s.name,
+      logo: s.cover,
+      group: catMap.get(s.category_id) || 'Diğer',
+      seriesId: s.series_id,
+      rating: toNumber(s.rating),
+      genre: s.genre || undefined,
+      year: s.releaseDate ? String(s.releaseDate).slice(0, 4) : undefined,
+      backdrop: backdrop || undefined
+    }
+  })
+  const categoryOrder = (catsRes.data || []).map((c) => c.category_name)
+  return { items, categoryOrder }
 }
 
 export interface SeriesSeasonsResult {

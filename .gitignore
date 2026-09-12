@@ -7,3 +7,5 @@ release
 .DS_Store
 .env
 *.tsbuildinfo
+# ffmpeg ikilileri büyük; `npm run fetch:ffmpeg` ile indirilir
+resources/ffmpeg/

@@ -1,7 +1,9 @@
 import { useMemo, useState, type ReactElement, type ReactNode } from 'react'
 import { List, type RowComponentProps } from 'react-window'
 import { ALL_GROUP } from './CategoryColumn'
-import { IconSearch, IconStar } from './Icons'
+import { IconGrid, IconList, IconSearch, IconStar } from './Icons'
+
+export type ListViewMode = 'list' | 'grid'
 
 export interface ListableItem {
   id: string
@@ -16,6 +18,30 @@ interface RowProps {
   onSelect: (item: ListableItem) => void
   favoriteIds?: Set<string>
   onToggleFavorite?: (id: string) => void
+}
+
+function FavButton({
+  item,
+  favoriteIds,
+  onToggleFavorite
+}: {
+  item: ListableItem
+  favoriteIds?: Set<string>
+  onToggleFavorite?: (id: string) => void
+}): ReactElement | null {
+  if (!favoriteIds || !onToggleFavorite) return null
+  return (
+    <button
+      className={`channel-row-fav ${favoriteIds.has(item.id) ? 'active' : ''}`}
+      onClick={(e) => {
+        e.stopPropagation()
+        onToggleFavorite(item.id)
+      }}
+      title="Favorilere ekle / çıkar"
+    >
+      <IconStar size={13} filled={favoriteIds.has(item.id)} />
+    </button>
+  )
 }
 
 function Row({
@@ -42,18 +68,48 @@ function Row({
         )}
       </div>
       <span className="channel-row-name">{item.name}</span>
-      {favoriteIds && onToggleFavorite && (
-        <button
-          className={`channel-row-fav ${favoriteIds.has(item.id) ? 'active' : ''}`}
-          onClick={(e) => {
-            e.stopPropagation()
-            onToggleFavorite(item.id)
-          }}
-          title="Favorilere ekle / çıkar"
+      <FavButton item={item} favoriteIds={favoriteIds} onToggleFavorite={onToggleFavorite} />
+    </div>
+  )
+}
+
+interface TileRowProps {
+  tiles: ListableItem[][]
+  selectedId?: string
+  onSelect: (item: ListableItem) => void
+  favoriteIds?: Set<string>
+  onToggleFavorite?: (id: string) => void
+}
+
+function TileRow({
+  index,
+  style,
+  tiles,
+  selectedId,
+  onSelect,
+  favoriteIds,
+  onToggleFavorite
+}: RowComponentProps<TileRowProps>): ReactElement {
+  return (
+    <div style={style} className="tile-row">
+      {tiles[index].map((item) => (
+        <div
+          key={item.id}
+          className={`channel-tile ${selectedId === item.id ? 'active' : ''}`}
+          onClick={() => onSelect(item)}
+          title={item.name}
         >
-          <IconStar size={13} filled={favoriteIds.has(item.id)} />
-        </button>
-      )}
+          <FavButton item={item} favoriteIds={favoriteIds} onToggleFavorite={onToggleFavorite} />
+          <div className="channel-tile-logo">
+            {item.logo ? (
+              <img src={item.logo} alt="" onError={(e) => (e.currentTarget.style.display = 'none')} />
+            ) : (
+              <span>{item.name.slice(0, 2).toUpperCase()}</span>
+            )}
+          </div>
+          <span className="channel-tile-name">{item.name}</span>
+        </div>
+      ))}
     </div>
   )
 }
@@ -68,7 +124,11 @@ interface Props {
   emptyTitle: string
   emptyHint: string
   headerAction?: ReactNode
+  viewMode?: ListViewMode
+  onViewModeChange?: (mode: ListViewMode) => void
 }
+
+const TILE_COLS = 3
 
 export function ItemListColumn({
   items,
@@ -79,7 +139,9 @@ export function ItemListColumn({
   onToggleFavorite,
   emptyTitle,
   emptyHint,
-  headerAction
+  headerAction,
+  viewMode = 'list',
+  onViewModeChange
 }: Props): ReactElement {
   const [search, setSearch] = useState('')
 
@@ -92,8 +154,14 @@ export function ItemListColumn({
     })
   }, [items, activeGroup, search])
 
+  const tiles = useMemo(() => {
+    const out: ListableItem[][] = []
+    for (let i = 0; i < filtered.length; i += TILE_COLS) out.push(filtered.slice(i, i + TILE_COLS))
+    return out
+  }, [filtered])
+
   return (
-    <div className="pane pane-items">
+    <div className={`pane pane-items view-${viewMode}`}>
       <div className="pane-search-row">
         <div className="pane-search">
           <IconSearch size={14} />
@@ -103,12 +171,39 @@ export function ItemListColumn({
             placeholder={`${filtered.length} öğede ara`}
           />
         </div>
+        {onViewModeChange && (
+          <div className="view-toggle">
+            <button
+              className={viewMode === 'list' ? 'active' : ''}
+              onClick={() => onViewModeChange('list')}
+              title="Liste görünümü"
+            >
+              <IconList size={14} />
+            </button>
+            <button
+              className={viewMode === 'grid' ? 'active' : ''}
+              onClick={() => onViewModeChange('grid')}
+              title="Izgara görünümü"
+            >
+              <IconGrid size={14} />
+            </button>
+          </div>
+        )}
         {headerAction}
       </div>
       {filtered.length === 0 ? (
         <div className="empty-state empty-state-compact">
           <h3>{emptyTitle}</h3>
           <p>{emptyHint}</p>
+        </div>
+      ) : viewMode === 'grid' ? (
+        <div className="pane-list">
+          <List
+            rowComponent={TileRow}
+            rowCount={tiles.length}
+            rowHeight={118}
+            rowProps={{ tiles, selectedId, onSelect, favoriteIds, onToggleFavorite }}
+          />
         </div>
       ) : (
         <div className="pane-list">

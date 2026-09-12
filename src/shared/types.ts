@@ -41,6 +41,9 @@ export interface VodItem {
   group: string
   streamId: number
   containerExtension: string
+  rating?: number
+  // Sağlayıcıya eklenme zamanı (unix sn) — "Son eklenenler" sırası için
+  added?: number
 }
 
 export interface SeriesItem {
@@ -49,6 +52,10 @@ export interface SeriesItem {
   logo?: string
   group: string
   seriesId: number
+  rating?: number
+  genre?: string
+  year?: string
+  backdrop?: string
 }
 
 export interface SeriesEpisode {
@@ -74,6 +81,24 @@ export interface MediaDetails {
   rating?: string
   durationText?: string
   coverBig?: string
+  backdrop?: string
+}
+
+// Oynatıcıya verilen öğe. kind/series* alanları "kaldığın yerden devam"
+// kaydında hangi dizinin hangi bölümü olduğunu bilmek için tutulur.
+export interface PlayableItem {
+  id: string
+  name: string
+  group: string
+  url: string
+  streamId?: number
+  isLive: boolean
+  logo?: string
+  kind?: 'live' | 'movie' | 'episode'
+  seriesId?: number
+  seriesName?: string
+  season?: number
+  episodeNum?: number
 }
 
 export interface EpgProgram {
@@ -87,5 +112,11 @@ export interface HttpResult<T = string> {
   ok: boolean
   status?: number
   data?: T
+  error?: string
+}
+
+export interface ClipResult {
+  ok: boolean
+  path?: string
   error?: string
 }

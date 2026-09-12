@@ -48,6 +48,15 @@ export interface ContinueWatchingEntry {
   positionSeconds: number
   durationSeconds: number
   updatedAt: number
+  // Aşağıdakiler "İzlemeye devam et" satırından doğrudan oynatabilmek ve
+  // dizilerde hangi bölümde kalındığını göstermek için
+  kind?: 'movie' | 'episode'
+  url?: string
+  group?: string
+  seriesId?: number
+  seriesName?: string
+  season?: number
+  episodeNum?: number
 }
 
 export async function loadContinueWatching(): Promise<ContinueWatchingEntry[]> {
