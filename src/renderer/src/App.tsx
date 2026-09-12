@@ -5,10 +5,15 @@ import { ItemListColumn, type ListableItem } from './components/ItemListColumn'
 import { SeriesView } from './components/SeriesView'
 import { ManageSourcesModal } from './components/ManageSourcesModal'
 import { VodDetailModal } from './components/VodDetailModal'
+import { PinPromptModal } from './components/PinPromptModal'
+import { ParentalLockSettingsModal } from './components/ParentalLockSettingsModal'
+import { EpgGridModal } from './components/EpgGridModal'
+import { IconGuide } from './components/Icons'
 import { PlayerPane, type PlayableItem } from './components/PlayerPane'
 import { useSources } from './hooks/useSources'
 import { useLibrary } from './hooks/useLibrary'
 import { useFavorites } from './hooks/useFavorites'
+import { useParentalLock } from './hooks/useParentalLock'
 import type { Channel, VodItem } from '../../shared/types'
 import { getVodStreamUrl } from './lib/xtream'
 
@@ -26,9 +31,13 @@ function App(): ReactElement {
   const { channels, vod, series, liveCategoryOrder, vodCategoryOrder, loading, error, reload } =
     useLibrary(activeSource)
   const { favoriteIds, toggleFavorite } = useFavorites()
+  const lockApi = useParentalLock()
 
   const [view, setView] = useState<ViewKey>('live')
   const [showManageSources, setShowManageSources] = useState(false)
+  const [showParentalLock, setShowParentalLock] = useState(false)
+  const [showEpgGrid, setShowEpgGrid] = useState(false)
+  const [pendingUnlock, setPendingUnlock] = useState<{ action: () => void } | null>(null)
   const [vodDetail, setVodDetail] = useState<VodItem | null>(null)
   const [playing, setPlaying] = useState<PlayableItem | null>(null)
   const [liveGroup, setLiveGroup] = useState(ALL_GROUP)
@@ -39,16 +48,58 @@ function App(): ReactElement {
     [channels, favoriteIds]
   )
 
+  const allGroups = useMemo(() => {
+    const set = new Set<string>([...liveCategoryOrder, ...vodCategoryOrder])
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'tr'))
+  }, [liveCategoryOrder, vodCategoryOrder])
+
+  const epgSourceChannels = useMemo(
+    () => (liveGroup === ALL_GROUP ? channels : channels.filter((c) => c.group === liveGroup)),
+    [channels, liveGroup]
+  )
+  const epgChannels = useMemo(
+    () =>
+      epgSourceChannels
+        .filter((c): c is Channel & { streamId: number } => c.streamId !== undefined)
+        .slice(0, 60)
+        .map((c) => ({ streamId: c.streamId, name: c.name, logo: c.logo, id: c.id, group: c.group })),
+    [epgSourceChannels]
+  )
+  const epgTruncated = epgSourceChannels.length > epgChannels.length
+
+  function onTuneFromEpg(channelId: string): void {
+    const ch = channels.find((c) => c.id === channelId)
+    if (ch) playChannel(ch)
+    setShowEpgGrid(false)
+  }
+
+  // Bir grup (kategori) kilitliyse işlemi hemen yapmak yerine PIN sorup
+  // bekletiyoruz; doğru PIN girilince orijinal işlem çalışır.
+  function guardedAction(group: string, action: () => void): void {
+    if (lockApi.isLocked(group)) {
+      setPendingUnlock({ action })
+    } else {
+      action()
+    }
+  }
+
   function playChannel(item: ListableItem): void {
     const channel = item as Channel
-    setPlaying({
-      id: channel.id,
-      name: channel.name,
-      group: channel.group,
-      url: channel.url,
-      streamId: channel.streamId,
-      isLive: true
+    guardedAction(channel.group, () => {
+      setPlaying({
+        id: channel.id,
+        name: channel.name,
+        group: channel.group,
+        url: channel.url,
+        streamId: channel.streamId,
+        isLive: true
+      })
     })
+  }
+
+  function openVodDetail(item: ListableItem): void {
+    const vodItem = item as VodItem
+    guardedAction(vodItem.group, () => setVodDetail(vodItem))
   }
 
   function playVod(item: VodItem): void {
@@ -88,6 +139,7 @@ function App(): ReactElement {
         activeSourceId={activeSourceId}
         onSourceChange={setActiveSourceId}
         onManageSources={() => setShowManageSources(true)}
+        onOpenParentalLock={() => setShowParentalLock(true)}
         onReload={reload}
         loading={loading}
       />
@@ -129,9 +181,10 @@ function App(): ReactElement {
                 <CategoryColumn
                   items={channels}
                   activeGroup={liveGroup}
-                  onSelectGroup={setLiveGroup}
+                  onSelectGroup={(g) => guardedAction(g, () => setLiveGroup(g))}
                   allLabel="Tüm kanallar"
                   orderedGroups={liveCategoryOrder}
+                  lockedGroups={lockApi.lockedGroups}
                 />
                 <ItemListColumn
                   items={channels}
@@ -142,6 +195,17 @@ function App(): ReactElement {
                   onToggleFavorite={toggleFavorite}
                   emptyTitle="Canlı kanal bulunamadı"
                   emptyHint="Bu kaynakta canlı yayın listesi yok."
+                  headerAction={
+                    activeSource?.type === 'xtream' ? (
+                      <button
+                        className="icon-btn"
+                        onClick={() => setShowEpgGrid(true)}
+                        title="TV Rehberi"
+                      >
+                        <IconGuide size={15} />
+                      </button>
+                    ) : undefined
+                  }
                 />
               </>
             )}
@@ -151,15 +215,16 @@ function App(): ReactElement {
                 <CategoryColumn
                   items={vod}
                   activeGroup={vodGroup}
-                  onSelectGroup={setVodGroup}
+                  onSelectGroup={(g) => guardedAction(g, () => setVodGroup(g))}
                   allLabel="Tüm filmler"
                   orderedGroups={vodCategoryOrder}
+                  lockedGroups={lockApi.lockedGroups}
                 />
                 <ItemListColumn
                   items={vod}
                   activeGroup={vodGroup}
                   selectedId={playing?.id}
-                  onSelect={(item) => setVodDetail(item as VodItem)}
+                  onSelect={openVodDetail}
                   emptyTitle="Film bulunamadı"
                   emptyHint="Filmler yalnızca Xtream Codes kaynaklarında listelenir."
                 />
@@ -209,6 +274,36 @@ function App(): ReactElement {
           source={activeSource}
           onClose={() => setVodDetail(null)}
           onPlay={playVod}
+        />
+      )}
+
+      {showParentalLock && (
+        <ParentalLockSettingsModal
+          api={lockApi}
+          allGroups={allGroups}
+          onClose={() => setShowParentalLock(false)}
+        />
+      )}
+
+      {showEpgGrid && activeSource?.type === 'xtream' && (
+        <EpgGridModal
+          source={activeSource}
+          channels={epgChannels}
+          categoryLabel={liveGroup === ALL_GROUP ? 'Tüm kanallar' : liveGroup}
+          truncated={epgTruncated}
+          onClose={() => setShowEpgGrid(false)}
+          onTuneChannel={onTuneFromEpg}
+        />
+      )}
+
+      {pendingUnlock && (
+        <PinPromptModal
+          onSubmit={(pin) => lockApi.tryUnlock(pin)}
+          onSuccess={() => {
+            pendingUnlock.action()
+            setPendingUnlock(null)
+          }}
+          onCancel={() => setPendingUnlock(null)}
         />
       )}
     </div>

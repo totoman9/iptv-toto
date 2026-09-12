@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactElement } from 'react'
-import { IconSearch } from './Icons'
+import { IconLock, IconSearch } from './Icons'
 
 export interface CategoryEntry {
   key: string
@@ -16,6 +16,9 @@ interface Props {
   // kategorileri en başa koyar; bu sırayı bozmamak için alfabetik sıralama
   // yerine bunu kullanıyoruz.
   orderedGroups?: string[]
+  // Kilitli kategori adları — sadece küçük bir kilit ikonu göstermek için;
+  // gerçek engelleme üst bileşendeki onSelectGroup çağrısında yapılır.
+  lockedGroups?: string[]
 }
 
 export const ALL_GROUP = '__all__'
@@ -25,7 +28,8 @@ export function CategoryColumn({
   activeGroup,
   onSelectGroup,
   allLabel = 'Tüm kanallar',
-  orderedGroups
+  orderedGroups,
+  lockedGroups
 }: Props): ReactElement {
   const [search, setSearch] = useState('')
 
@@ -81,7 +85,11 @@ export function CategoryColumn({
             onClick={() => onSelectGroup(c.key)}
           >
             <span className="category-row-label">{c.label}</span>
-            <span className="category-count">{c.count}</span>
+            {lockedGroups?.includes(c.key) ? (
+              <IconLock size={12} className="category-lock-icon" />
+            ) : (
+              <span className="category-count">{c.count}</span>
+            )}
           </div>
         ))}
       </div>

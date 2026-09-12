@@ -259,6 +259,18 @@ textarea {
   width: 360px;
 }
 
+.pane-search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px;
+}
+
+.pane-search-row .pane-search {
+  margin: 0;
+  flex: 1;
+}
+
 .pane-search {
   display: flex;
   align-items: center;
@@ -805,6 +817,241 @@ textarea {
   margin: 0 0 8px;
 }
 
+/* ---------- Ebeveyn kilidi ---------- */
+.modal-pin {
+  width: 360px;
+}
+
+.pin-modal-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 14px;
+}
+
+.pin-input {
+  width: 100%;
+  text-align: center;
+  letter-spacing: 0.5em;
+  font-size: 22px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  outline: none;
+  margin-bottom: 6px;
+}
+
+.pin-input:focus {
+  border-color: var(--primary);
+}
+
+.lock-group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+  margin-bottom: 4px;
+}
+
+.lock-group-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  text-align: left;
+  padding: 9px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lock-group-row:hover {
+  background: var(--surface-hover);
+}
+
+.lock-group-row.locked {
+  color: var(--danger);
+  border-color: rgba(220, 38, 38, 0.3);
+  background: rgba(220, 38, 38, 0.06);
+}
+
+.category-lock-icon {
+  color: var(--danger);
+  margin-left: 6px;
+  flex-shrink: 0;
+}
+
+/* ---------- TV Rehberi (EPG) ızgarası ---------- */
+.epg-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+}
+
+.epg-overlay-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.epg-overlay-header h2 {
+  margin: 0 0 2px;
+  font-size: 16px;
+}
+
+.epg-truncated-notice {
+  padding: 8px 22px;
+  font-size: 11.5px;
+  color: var(--text-faint);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.epg-grid-body {
+  flex: 1;
+  display: flex;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.epg-channel-col {
+  flex-shrink: 0;
+  width: 200px;
+  border-right: 1px solid var(--border-soft);
+}
+
+.epg-channel-col-spacer {
+  height: 34px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.epg-channel-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border-soft);
+  overflow: hidden;
+}
+
+.epg-channel-cell span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.epg-channel-logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-faint);
+  overflow: hidden;
+}
+
+.epg-channel-logo img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.epg-timeline-scroll {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.epg-timeline-inner {
+  position: relative;
+}
+
+.epg-hour-ruler {
+  position: relative;
+  height: 34px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.epg-hour-mark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  padding-left: 6px;
+  font-size: 11px;
+  color: var(--text-faint);
+  border-left: 1px solid var(--border-soft);
+}
+
+.epg-now-line {
+  position: absolute;
+  top: 34px;
+  bottom: 0;
+  width: 2px;
+  background: var(--live);
+  z-index: 3;
+}
+
+.epg-timeline-row {
+  position: relative;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.epg-program-block {
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-align: left;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: default;
+}
+
+.epg-program-block.now {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.22), rgba(217, 70, 239, 0.14));
+  border-color: var(--primary);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.epg-no-data {
+  padding: 0 12px;
+  line-height: 56px;
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
 /* ---------- Embedded player pane ---------- */
 .player-pane {
   display: flex;
@@ -1056,6 +1303,62 @@ textarea {
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
+}
+
+.tracks-menu-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.tracks-menu {
+  position: absolute;
+  bottom: 42px;
+  right: 0;
+  min-width: 170px;
+  background: rgba(15, 12, 24, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  z-index: 5;
+}
+
+.tracks-menu-section + .tracks-menu-section {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tracks-menu-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--player-text-faint);
+  padding: 2px 8px 6px;
+}
+
+.tracks-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--player-text-dim);
+  font-size: 12.5px;
+  padding: 7px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.tracks-menu-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--player-text);
+}
+
+.tracks-menu-item.active {
+  color: var(--primary-light);
+  font-weight: 600;
 }
 
 /* Oynatıcı üzerindeki ikon düğmeleri her zaman koyu/camsı görünmeli

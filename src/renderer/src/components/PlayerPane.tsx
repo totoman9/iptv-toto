@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react'
 import type { EpgProgram, SourceConfig } from '../../../shared/types'
-import { attachStream, type AttachedPlayer } from '../lib/playerEngine'
+import { attachStream, type AttachedPlayer, type TrackInfo } from '../lib/playerEngine'
 import { useStreamStats } from '../hooks/useStreamStats'
 import { getShortEpg } from '../lib/xtream'
 import { getProgress, saveProgress } from '../lib/continueWatching'
@@ -11,6 +11,7 @@ import {
   IconPause,
   IconPlay,
   IconRefresh,
+  IconSettings,
   IconVolume,
   IconWarning
 } from './Icons'
@@ -78,10 +79,36 @@ export function PlayerPane({ item, source }: Props): ReactElement {
   const [duration, setDuration] = useState(0)
   const [controlsVisible, setControlsVisible] = useState(true)
   const [retryTick, setRetryTick] = useState(0)
+  const [audioTracks, setAudioTracks] = useState<TrackInfo[]>([])
+  const [subtitleTracks, setSubtitleTracks] = useState<TrackInfo[]>([])
+  const [currentAudio, setCurrentAudio] = useState(-1)
+  const [currentSubtitle, setCurrentSubtitle] = useState(-1)
+  const [tracksMenuOpen, setTracksMenuOpen] = useState(false)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const resumedForUrl = useRef<string | null>(null)
 
   const stats = useStreamStats(videoRef, player)
+
+  // Ses/altyazı parçaları yalnızca HLS (.m3u8) yayınlarında ve manifest
+  // ayrıştırıldıktan bir süre sonra belli olur; birkaç saniye kısa aralıklarla
+  // yoklayıp bulununca duruyoruz (sürekli yoklamaya gerek yok, akış boyunca
+  // parça listesi değişmez).
+  useEffect(() => {
+    setAudioTracks([])
+    setSubtitleTracks([])
+    setTracksMenuOpen(false)
+    if (!player) return
+    let ticks = 0
+    const iv = setInterval(() => {
+      ticks += 1
+      setAudioTracks(player.getAudioTracks())
+      setSubtitleTracks(player.getSubtitleTracks())
+      setCurrentAudio(player.getCurrentAudioTrack())
+      setCurrentSubtitle(player.getCurrentSubtitleTrack())
+      if (ticks >= 10) clearInterval(iv)
+    }, 500)
+    return () => clearInterval(iv)
+  }, [player])
 
   // Ses seviyesini bir kere, uygulama açılışında hatırlanan değere ayarla
   // (video elementi tek örnek olduğu için kanal/film değişse de korunur).
@@ -472,6 +499,65 @@ export function PlayerPane({ item, source }: Props): ReactElement {
                     onChange={onVolumeChange}
                   />
                 </div>
+
+                {(audioTracks.length > 1 || subtitleTracks.length > 0) && (
+                  <div className="tracks-menu-wrap">
+                    <button
+                      className="icon-btn"
+                      onClick={() => setTracksMenuOpen((v) => !v)}
+                      title="Ses / Altyazı"
+                    >
+                      <IconSettings size={15} />
+                    </button>
+                    {tracksMenuOpen && (
+                      <div className="tracks-menu">
+                        {audioTracks.length > 1 && (
+                          <div className="tracks-menu-section">
+                            <div className="tracks-menu-title">Ses</div>
+                            {audioTracks.map((t) => (
+                              <button
+                                key={t.id}
+                                className={`tracks-menu-item ${currentAudio === t.id ? 'active' : ''}`}
+                                onClick={() => {
+                                  player?.setAudioTrack(t.id)
+                                  setCurrentAudio(t.id)
+                                }}
+                              >
+                                {t.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {subtitleTracks.length > 0 && (
+                          <div className="tracks-menu-section">
+                            <div className="tracks-menu-title">Altyazı</div>
+                            <button
+                              className={`tracks-menu-item ${currentSubtitle === -1 ? 'active' : ''}`}
+                              onClick={() => {
+                                player?.setSubtitleTrack(-1)
+                                setCurrentSubtitle(-1)
+                              }}
+                            >
+                              Kapalı
+                            </button>
+                            {subtitleTracks.map((t) => (
+                              <button
+                                key={t.id}
+                                className={`tracks-menu-item ${currentSubtitle === t.id ? 'active' : ''}`}
+                                onClick={() => {
+                                  player?.setSubtitleTrack(t.id)
+                                  setCurrentSubtitle(t.id)
+                                }}
+                              >
+                                {t.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <button className="icon-btn" onClick={toggleFullscreen} title="Tam ekran">
                   <IconExpand size={15} />

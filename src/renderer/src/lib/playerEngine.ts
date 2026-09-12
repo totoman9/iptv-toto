@@ -12,9 +12,32 @@ export interface StreamInfo {
   nominalFps?: number
 }
 
+export interface TrackInfo {
+  id: number
+  label: string
+}
+
+interface EngineHandle {
+  destroy: () => void
+  getAudioTracks?: () => TrackInfo[]
+  getSubtitleTracks?: () => TrackInfo[]
+  getCurrentAudioTrack?: () => number
+  getCurrentSubtitleTrack?: () => number
+  setAudioTrack?: (id: number) => void
+  setSubtitleTrack?: (id: number) => void
+}
+
 export interface AttachedPlayer {
   kind: EngineKind
   getInfo: () => StreamInfo
+  // Yalnızca HLS yayınlarında (ve yayının birden fazla ses/altyazı parçası
+  // sunduğu durumlarda) dolu liste döner; desteklenmiyorsa boş dizi.
+  getAudioTracks: () => TrackInfo[]
+  getSubtitleTracks: () => TrackInfo[]
+  getCurrentAudioTrack: () => number
+  getCurrentSubtitleTrack: () => number
+  setAudioTrack: (id: number) => void
+  setSubtitleTrack: (id: number) => void
   destroy: () => void
 }
 
@@ -44,11 +67,12 @@ function attachHls(
   url: string,
   onInfo: (info: StreamInfo) => void,
   onFatal: () => void
-): { destroy: () => void } {
+): EngineHandle {
   // enableWorker: false — bu Electron sürümünde worker açıkken mpegts/hls
   // akışı bazen tamamen donuyor (init segmenti alınıp hiç veri iletilmiyor).
   // Ana iş parçacığında biraz daha CPU harcasa da güvenilir çalışıyor.
   const hls = new Hls({ maxBufferLength: 30, enableWorker: false })
+  hls.subtitleDisplay = true
   hls.loadSource(url)
   hls.attachMedia(video)
   hls.on(Hls.Events.LEVEL_SWITCHED, (_evt, data) => {
@@ -67,7 +91,22 @@ function attachHls(
     if (data.fatal) onFatal()
   })
   video.play().catch(() => {})
-  return { destroy: () => hls.destroy() }
+  return {
+    destroy: () => hls.destroy(),
+    getAudioTracks: () =>
+      hls.audioTracks.map((t, i) => ({ id: i, label: t.name || t.lang || `Ses ${i + 1}` })),
+    getSubtitleTracks: () =>
+      hls.subtitleTracks.map((t, i) => ({ id: i, label: t.name || t.lang || `Altyazı ${i + 1}` })),
+    getCurrentAudioTrack: () => hls.audioTrack,
+    getCurrentSubtitleTrack: () => hls.subtitleTrack,
+    setAudioTrack: (id) => {
+      hls.audioTrack = id
+    },
+    setSubtitleTrack: (id) => {
+      hls.subtitleTrack = id
+      hls.subtitleDisplay = id !== -1
+    }
+  }
 }
 
 function attachMpegts(
@@ -75,7 +114,7 @@ function attachMpegts(
   url: string,
   onInfo: (info: StreamInfo) => void,
   onFatal: () => void
-): { destroy: () => void } {
+): EngineHandle {
   const player = mpegts.createPlayer(
     { type: 'mse', isLive: true, url },
     {
@@ -116,6 +155,9 @@ function attachMpegts(
         /* ignore */
       }
     }
+    // mpegts.js (.ts) bu sürümde ses/altyazı parçası değiştirmeyi
+    // desteklemiyor — bu yüzden get*Tracks tanımlanmıyor, üstteki
+    // sarmalayıcı bunun için boş liste döner.
   }
 }
 
@@ -126,7 +168,7 @@ export function attachStream(
 ): AttachedPlayer {
   let info: StreamInfo = {}
   let currentKind: EngineKind = detectKind(url)
-  let current: { destroy: () => void } | null = null
+  let current: EngineHandle | null = null
   let triedAlternate = false
 
   function tryUrl(targetUrl: string, kind: EngineKind): void {
@@ -177,6 +219,12 @@ export function attachStream(
       return currentKind
     },
     getInfo: () => info,
+    getAudioTracks: () => current?.getAudioTracks?.() || [],
+    getSubtitleTracks: () => current?.getSubtitleTracks?.() || [],
+    getCurrentAudioTrack: () => current?.getCurrentAudioTrack?.() ?? -1,
+    getCurrentSubtitleTrack: () => current?.getCurrentSubtitleTrack?.() ?? -1,
+    setAudioTrack: (id) => current?.setAudioTrack?.(id),
+    setSubtitleTrack: (id) => current?.setSubtitleTrack?.(id),
     destroy: () => current?.destroy()
   }
 }

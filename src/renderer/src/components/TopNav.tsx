@@ -2,6 +2,7 @@ import type { ComponentType, ReactElement } from 'react'
 import type { SourceConfig } from '../../../shared/types'
 import {
   IconLiveTv,
+  IconLock,
   IconMovie,
   IconRefresh,
   IconSeries,
@@ -18,6 +19,7 @@ interface Props {
   activeSourceId: string | null
   onSourceChange: (id: string) => void
   onManageSources: () => void
+  onOpenParentalLock: () => void
   onReload: () => void
   loading: boolean
 }
@@ -36,6 +38,7 @@ export function TopNav({
   activeSourceId,
   onSourceChange,
   onManageSources,
+  onOpenParentalLock,
   onReload,
   loading
 }: Props): ReactElement {
@@ -74,6 +77,9 @@ export function TopNav({
         </select>
       )}
 
+      <button className="icon-btn" onClick={onOpenParentalLock} title="Ebeveyn Kilidi">
+        <IconLock size={14} />
+      </button>
       <button
         className={`icon-btn ${loading ? 'icon-btn-spinning' : ''}`}
         onClick={onReload}

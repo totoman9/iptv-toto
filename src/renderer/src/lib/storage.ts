@@ -5,7 +5,9 @@ const KEYS = {
   sources: 'sources',
   activeSourceId: 'active-source-id',
   favorites: 'favorites',
-  continueWatching: 'continue-watching'
+  continueWatching: 'continue-watching',
+  parentalPin: 'parental-pin',
+  parentalLockedGroups: 'parental-locked-groups'
 } as const
 
 export async function loadSources(): Promise<SourceConfig[]> {
@@ -55,4 +57,23 @@ export async function loadContinueWatching(): Promise<ContinueWatchingEntry[]> {
 
 export async function saveContinueWatching(entries: ContinueWatchingEntry[]): Promise<void> {
   await window.iptv.store.write(KEYS.continueWatching, entries)
+}
+
+// ---------- Ebeveyn kilidi ----------
+
+export async function loadParentalPin(): Promise<string | null> {
+  return window.iptv.store.read<string>(KEYS.parentalPin)
+}
+
+export async function saveParentalPin(pin: string | null): Promise<void> {
+  await window.iptv.store.write(KEYS.parentalPin, pin)
+}
+
+export async function loadLockedGroups(): Promise<string[]> {
+  const data = await window.iptv.store.read<string[]>(KEYS.parentalLockedGroups)
+  return data || []
+}
+
+export async function saveLockedGroups(groups: string[]): Promise<void> {
+  await window.iptv.store.write(KEYS.parentalLockedGroups, groups)
 }

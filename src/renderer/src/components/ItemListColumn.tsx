@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactElement } from 'react'
+import { useMemo, useState, type ReactElement, type ReactNode } from 'react'
 import { List, type RowComponentProps } from 'react-window'
 import { ALL_GROUP } from './CategoryColumn'
 import { IconSearch, IconStar } from './Icons'
@@ -67,6 +67,7 @@ interface Props {
   onToggleFavorite?: (id: string) => void
   emptyTitle: string
   emptyHint: string
+  headerAction?: ReactNode
 }
 
 export function ItemListColumn({
@@ -77,7 +78,8 @@ export function ItemListColumn({
   favoriteIds,
   onToggleFavorite,
   emptyTitle,
-  emptyHint
+  emptyHint,
+  headerAction
 }: Props): ReactElement {
   const [search, setSearch] = useState('')
 
@@ -92,13 +94,16 @@ export function ItemListColumn({
 
   return (
     <div className="pane pane-items">
-      <div className="pane-search">
-        <IconSearch size={14} />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={`${filtered.length} öğede ara`}
-        />
+      <div className="pane-search-row">
+        <div className="pane-search">
+          <IconSearch size={14} />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={`${filtered.length} öğede ara`}
+          />
+        </div>
+        {headerAction}
       </div>
       {filtered.length === 0 ? (
         <div className="empty-state empty-state-compact">

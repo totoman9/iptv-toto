@@ -182,6 +182,36 @@ export function IconInfo({ size, ...rest }: IconProps): ReactElement {
   )
 }
 
+export function IconLock({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <rect x="5" y="10.5" width="14" height="10" rx="2.2" />
+      <path d="M8 10.5V7.2a4 4 0 0 1 8 0v3.3" />
+      <circle cx="12" cy="15" r="1.3" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+export function IconUnlock({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <rect x="5" y="10.5" width="14" height="10" rx="2.2" />
+      <path d="M8 10.5V7.2a4 4 0 0 1 7.4-2.1" />
+      <circle cx="12" cy="15" r="1.3" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+export function IconGuide({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <rect x="3" y="4.5" width="18" height="15" rx="2" />
+      <path d="M3 9.5h18M8 4.5v-1.3M16 4.5v-1.3" />
+      <path d="M6.5 13h4M6.5 16h7" />
+    </svg>
+  )
+}
+
 export function IconPlayCircle({ size, ...rest }: IconProps): ReactElement {
   return (
     <svg {...base(size)} {...rest}>

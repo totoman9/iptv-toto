@@ -292,6 +292,36 @@ export async function getShortEpg(
   }))
 }
 
+export interface EpgGridChannel {
+  streamId: number
+  name: string
+  logo?: string
+  programs: EpgProgram[]
+}
+
+// Tam TV rehberi ızgarası için birden fazla kanalın programını çeker.
+// Sunucu aynı anda çok sayıda isteği kaldıramayabildiği için (bkz.
+// get_live_streams/get_vod_streams'teki sıralı yaklaşım) burada da her
+// kanalı sırayla, aralarında küçük bir gecikmeyle sorguluyoruz.
+export async function getEpgGrid(
+  cfg: XtreamSourceConfig,
+  channels: { streamId: number; name: string; logo?: string }[],
+  onProgress?: (done: number, total: number) => void
+): Promise<EpgGridChannel[]> {
+  const results: EpgGridChannel[] = []
+  for (let i = 0; i < channels.length; i++) {
+    const ch = channels[i]
+    try {
+      const programs = await getShortEpg(cfg, ch.streamId, 8)
+      results.push({ streamId: ch.streamId, name: ch.name, logo: ch.logo, programs })
+    } catch {
+      results.push({ streamId: ch.streamId, name: ch.name, logo: ch.logo, programs: [] })
+    }
+    onProgress?.(i + 1, channels.length)
+  }
+  return results
+}
+
 function parseXtreamTime(value: string): number {
   // Xtream bazen unix saniye, bazen "YYYY-MM-DD HH:mm:ss" döner
   const asNumber = Number(value)
