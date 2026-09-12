@@ -4,20 +4,21 @@ import { getSeriesSeasons } from '../lib/xtream'
 
 interface Props {
   series: SeriesItem[]
-  search: string
   source: SourceConfig | null
+  playingId?: string
   onPlayEpisode: (title: string, group: string, url: string) => void
 }
 
-export function SeriesView({ series, search, source, onPlayEpisode }: Props): ReactElement {
+export function SeriesView({ series, source, playingId, onPlayEpisode }: Props): ReactElement {
+  const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<SeriesItem | null>(null)
   const [seasons, setSeasons] = useState<SeriesSeason[]>([])
   const [loading, setLoading] = useState(false)
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
+    const q = search.trim().toLocaleLowerCase('tr')
     if (!q) return series
-    return series.filter((s) => s.name.toLowerCase().includes(q))
+    return series.filter((s) => s.name.toLocaleLowerCase('tr').includes(q))
   }, [series, search])
 
   useEffect(() => {
@@ -40,74 +41,83 @@ export function SeriesView({ series, search, source, onPlayEpisode }: Props): Re
 
   if (series.length === 0) {
     return (
-      <div className="empty-state">
-        <h3>Henüz dizi yok</h3>
-        <p>Diziler yalnızca Xtream Codes kaynaklarında listelenir.</p>
+      <div className="pane pane-items">
+        <div className="empty-state empty-state-compact">
+          <h3>Henüz dizi yok</h3>
+          <p>Diziler yalnızca Xtream Codes kaynaklarında listelenir.</p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="series-layout">
-      <div className="series-list">
-        {filtered.map((s) => (
-          <div
-            key={s.id}
-            className={`series-list-item ${selected?.id === s.id ? 'active' : ''}`}
-            onClick={() => setSelected(s)}
-          >
-            {s.logo ? (
-              <img src={s.logo} alt="" />
-            ) : (
-              <div
-                style={{
-                  width: 40,
-                  height: 56,
-                  borderRadius: 6,
-                  background: 'var(--bg-elevated)'
-                }}
-              />
-            )}
-            <div style={{ fontSize: 12.5, fontWeight: 600 }}>{s.name}</div>
-          </div>
-        ))}
+    <>
+      <div className="pane pane-categories">
+        <div className="pane-search">
+          <span>🔍</span>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={`${series.length} dizide ara`}
+          />
+        </div>
+        <div className="pane-list category-list">
+          {filtered.map((s) => (
+            <div
+              key={s.id}
+              className={`series-row ${selected?.id === s.id ? 'active' : ''}`}
+              onClick={() => setSelected(s)}
+            >
+              {s.logo ? (
+                <img src={s.logo} alt="" />
+              ) : (
+                <div className="series-row-fallback" />
+              )}
+              <span>{s.name}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div style={{ overflowY: 'auto' }}>
+      <div className="pane pane-items">
         {!selected && (
-          <div className="empty-state">
+          <div className="empty-state empty-state-compact">
             <h3>Bir dizi seç</h3>
             <p>Sezon ve bölümleri görmek için soldan bir dizi seç.</p>
           </div>
         )}
 
         {selected && loading && (
-          <div className="empty-state">
+          <div className="empty-state empty-state-compact">
             <div className="spinner" />
             <p>Bölümler yükleniyor…</p>
           </div>
         )}
 
-        {selected &&
-          !loading &&
-          seasons.map((season) => (
-            <div className="season-block" key={season.season}>
-              <div className="season-title">Sezon {season.season}</div>
-              {season.episodes.map((ep) => (
-                <div
-                  className="episode-row"
-                  key={ep.id}
-                  onClick={() => onPlayEpisode(`${selected.name} · ${ep.title}`, selected.group, ep.url)}
-                >
-                  <span>
-                    {ep.episodeNum}. {ep.title}
-                  </span>
-                  <span>▶</span>
-                </div>
-              ))}
-            </div>
-          ))}
+        {selected && !loading && (
+          <div className="pane-list episode-scroll">
+            {seasons.map((season) => (
+              <div className="season-block" key={season.season}>
+                <div className="season-title">Sezon {season.season}</div>
+                {season.episodes.map((ep) => (
+                  <div
+                    className={`episode-row ${playingId === ep.url ? 'active' : ''}`}
+                    key={ep.id}
+                    onClick={() =>
+                      onPlayEpisode(`${selected.name} · ${ep.title}`, selected.group, ep.url)
+                    }
+                  >
+                    <span>
+                      {ep.episodeNum}. {ep.title}
+                    </span>
+                    <span>▶</span>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-    </div>
+    </>
   )
 }

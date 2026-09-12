@@ -36,10 +36,14 @@ export function useStreamStats(
       const now = performance.now()
       const elapsed = now - lastSampleRef.current
       if (elapsed >= 1000) {
-        const fps = Math.round((frameCountRef.current * 1000) / elapsed)
+        const measuredFps = Math.round((frameCountRef.current * 1000) / elapsed)
         frameCountRef.current = 0
         lastSampleRef.current = now
         const info = player?.getInfo() || {}
+        // Yayının kendi bildirdiği kare hızı varsa onu göster (pencere odakta
+        // değilken tarayıcı render hızını kısabilir, bu yüzden ölçülen değer
+        // her zaman güvenilir olmayabilir).
+        const fps = info.nominalFps ? Math.round(info.nominalFps) : measuredFps
         setStats({
           width: video.videoWidth,
           height: video.videoHeight,

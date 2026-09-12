@@ -20,13 +20,19 @@
     "directories": {
       "buildResources": "build"
     },
-    "files": ["out/**/*"],
+    "files": [
+      "out/**/*"
+    ],
     "mac": {
-      "target": ["dmg"],
+      "target": [
+        "dmg"
+      ],
       "category": "public.app-category.entertainment"
     },
     "win": {
-      "target": ["nsis"]
+      "target": [
+        "nsis"
+      ]
     }
   },
   "dependencies": {
@@ -34,6 +40,7 @@
     "mpegts.js": "^1.8.2",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "react-window": "^2.3.1",
     "sax": "^1.6.1"
   },
   "devDependencies": {

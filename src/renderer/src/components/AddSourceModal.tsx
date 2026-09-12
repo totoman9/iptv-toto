@@ -57,7 +57,7 @@ export function AddSourceModal({ onClose, onAdd }: Props): ReactElement {
       return
     }
 
-    onAdd(cfg)
+    onAdd({ ...cfg, liveExtension: result.liveExtension })
   }
 
   return (

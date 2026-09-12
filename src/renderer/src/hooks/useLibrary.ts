@@ -29,41 +29,58 @@ export function useLibrary(source: SourceConfig | null): Library {
     }
 
     let cancelled = false
-    setLoading(true)
     setError(null)
+    setChannels([])
+    setVod([])
+    setSeries([])
+    setLoading(true)
 
     async function load(): Promise<void> {
-      try {
-        if (source!.type === 'm3u') {
+      if (source!.type === 'm3u') {
+        try {
           const res = await window.iptv.http.fetchText(source!.url, { timeoutMs: 30000 })
           if (!res.ok || !res.data) throw new Error(res.error || 'Liste indirilemedi')
-          const parsed = parseM3U(res.data)
+          if (!cancelled) setChannels(parseM3U(res.data))
+        } catch (err) {
           if (!cancelled) {
-            setChannels(parsed)
-            setVod([])
-            setSeries([])
+            setError(err instanceof Error ? err.message : 'Liste indirilemedi')
           }
-        } else {
-          const [liveRes, vodRes, seriesRes] = await Promise.allSettled([
-            getLiveChannels(source!),
-            getVodItems(source!),
-            getSeriesList(source!)
-          ])
-          if (!cancelled) {
-            setChannels(liveRes.status === 'fulfilled' ? liveRes.value : [])
-            setVod(vodRes.status === 'fulfilled' ? vodRes.value : [])
-            setSeries(seriesRes.status === 'fulfilled' ? seriesRes.value : [])
-            if (liveRes.status === 'rejected') {
-              throw liveRes.reason
-            }
-          }
+        } finally {
+          if (!cancelled) setLoading(false)
         }
+        return
+      }
+
+      // Xtream panelleri genelde binlerce kanal/film/dizi döndürür ve aynı anda
+      // birden fazla isteği kaldıramayabilir (bazı hesaplar tek bağlantıya
+      // sınırlı). Bu yüzden canlı/film/dizi listelerini sırayla çekiyoruz;
+      // canlı liste gelir gelmez ekranda görünür, film ve dizi arka planda
+      // yüklenmeye devam eder.
+      try {
+        const live = await getLiveChannels(source!)
+        if (cancelled) return
+        setChannels(live)
+        setLoading(false)
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'İçerik yüklenirken bir hata oluştu')
+          setError(err instanceof Error ? err.message : 'Canlı kanallar yüklenemedi')
+          setLoading(false)
         }
-      } finally {
-        if (!cancelled) setLoading(false)
+        return
+      }
+
+      try {
+        const vodItems = await getVodItems(source!)
+        if (!cancelled) setVod(vodItems)
+      } catch {
+        // Film listesi alınamadıysa sessizce boş bırak, canlı yayın etkilenmesin
+      }
+
+      try {
+        const seriesItems = await getSeriesList(source!)
+        if (!cancelled) setSeries(seriesItems)
+      } catch {
+        // Dizi listesi alınamadıysa sessizce boş bırak
       }
     }
 

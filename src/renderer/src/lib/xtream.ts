@@ -65,44 +65,64 @@ function apiUrl(cfg: XtreamSourceConfig, action: string, extra = ''): string {
 
 export async function testXtreamLogin(
   cfg: XtreamSourceConfig
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; liveExtension?: 'm3u8' | 'ts' }> {
   const url = `${cleanHost(cfg.host)}/player_api.php?username=${encodeURIComponent(
     cfg.username
   )}&password=${encodeURIComponent(cfg.password)}`
-  const res = await window.iptv.http.fetchJson<{ user_info?: { auth: number } }>(url)
+  const res = await window.iptv.http.fetchJson<{
+    user_info?: { auth: number; allowed_output_formats?: string[] }
+  }>(url)
   if (!res.ok) return { ok: false, error: res.error || 'Sunucuya bağlanılamadı' }
   if (res.data?.user_info?.auth !== 1) {
     return { ok: false, error: 'Kullanıcı adı veya şifre hatalı görünüyor' }
   }
-  return { ok: true }
+  // Bazı hesaplar yalnızca .ts çıktısına izin verir (m3u8 vermez). Hesabın
+  // izin verdiği formatlara bakıp doğru olanı seçiyoruz.
+  const formats = (res.data.user_info.allowed_output_formats || []).map((f) => f.toLowerCase())
+  const liveExtension = !formats.includes('m3u8') && formats.includes('ts') ? 'ts' : 'm3u8'
+  return { ok: true, liveExtension }
 }
 
+// Bazı Xtream panelleri onbinlerce kanal/film/dizi barındırır ve aynı anda
+// birden fazla isteği kaldıramayabilir (tek bağlantıya sınırlı hesaplarda
+// görüldü). Bu yüzden her liste için kategori + içerik isteğini art arda
+// (paralel değil) atıyor, büyük listeler için de uzun bir zaman aşımı
+// tanıyoruz.
+const BIG_LIST_TIMEOUT_MS = 45000
+
 export async function getLiveChannels(cfg: XtreamSourceConfig): Promise<Channel[]> {
-  const [catsRes, streamsRes] = await Promise.all([
-    window.iptv.http.fetchJson<XtreamCategory[]>(apiUrl(cfg, 'get_live_categories')),
-    window.iptv.http.fetchJson<XtreamLiveStream[]>(apiUrl(cfg, 'get_live_streams'))
-  ])
+  const catsRes = await window.iptv.http.fetchJson<XtreamCategory[]>(
+    apiUrl(cfg, 'get_live_categories')
+  )
+  const streamsRes = await window.iptv.http.fetchJson<XtreamLiveStream[]>(
+    apiUrl(cfg, 'get_live_streams'),
+    { timeoutMs: BIG_LIST_TIMEOUT_MS }
+  )
 
   const catMap = new Map<string, string>()
   for (const c of catsRes.data || []) catMap.set(c.category_id, c.category_name)
 
   const host = cleanHost(cfg.host)
+  const ext = cfg.liveExtension || 'm3u8'
   return (streamsRes.data || []).map((s) => ({
     id: `xtream-live-${s.stream_id}`,
     name: s.name,
     logo: s.stream_icon,
     group: catMap.get(s.category_id) || 'Diğer',
-    url: `${host}/live/${cfg.username}/${cfg.password}/${s.stream_id}.m3u8`,
+    url: `${host}/live/${cfg.username}/${cfg.password}/${s.stream_id}.${ext}`,
     epgChannelId: s.epg_channel_id,
     streamId: s.stream_id
   }))
 }
 
 export async function getVodItems(cfg: XtreamSourceConfig): Promise<VodItem[]> {
-  const [catsRes, streamsRes] = await Promise.all([
-    window.iptv.http.fetchJson<XtreamCategory[]>(apiUrl(cfg, 'get_vod_categories')),
-    window.iptv.http.fetchJson<XtreamVodStream[]>(apiUrl(cfg, 'get_vod_streams'))
-  ])
+  const catsRes = await window.iptv.http.fetchJson<XtreamCategory[]>(
+    apiUrl(cfg, 'get_vod_categories')
+  )
+  const streamsRes = await window.iptv.http.fetchJson<XtreamVodStream[]>(
+    apiUrl(cfg, 'get_vod_streams'),
+    { timeoutMs: BIG_LIST_TIMEOUT_MS }
+  )
 
   const catMap = new Map<string, string>()
   for (const c of catsRes.data || []) catMap.set(c.category_id, c.category_name)
@@ -123,10 +143,13 @@ export function getVodStreamUrl(cfg: XtreamSourceConfig, item: VodItem): string 
 }
 
 export async function getSeriesList(cfg: XtreamSourceConfig): Promise<SeriesItem[]> {
-  const [catsRes, seriesRes] = await Promise.all([
-    window.iptv.http.fetchJson<XtreamCategory[]>(apiUrl(cfg, 'get_series_categories')),
-    window.iptv.http.fetchJson<XtreamSeries[]>(apiUrl(cfg, 'get_series'))
-  ])
+  const catsRes = await window.iptv.http.fetchJson<XtreamCategory[]>(
+    apiUrl(cfg, 'get_series_categories')
+  )
+  const seriesRes = await window.iptv.http.fetchJson<XtreamSeries[]>(
+    apiUrl(cfg, 'get_series'),
+    { timeoutMs: BIG_LIST_TIMEOUT_MS }
+  )
 
   const catMap = new Map<string, string>()
   for (const c of catsRes.data || []) catMap.set(c.category_id, c.category_name)

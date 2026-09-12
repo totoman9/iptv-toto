@@ -16,6 +16,9 @@ export interface XtreamSourceConfig {
   host: string // örn: http://sunucu.com:8080
   username: string
   password: string
+  // Hesabın canlı yayın için desteklediği format (bazı paneller yalnızca .ts
+  // verir, .m3u8 vermez). Bilinmiyorsa 'm3u8' varsayılır.
+  liveExtension?: 'm3u8' | 'ts'
 }
 
 export type SourceConfig = M3USourceConfig | XtreamSourceConfig
