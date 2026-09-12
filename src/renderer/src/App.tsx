@@ -104,68 +104,80 @@ function App(): ReactElement {
               Tekrar Dene
             </button>
           </div>
-        ) : view === 'live' ? (
-          <div className="browse-row">
-            <CategoryColumn
-              items={channels}
-              activeGroup={liveGroup}
-              onSelectGroup={setLiveGroup}
-              allLabel="Tüm kanallar"
-              orderedGroups={liveCategoryOrder}
-            />
-            <ItemListColumn
-              items={channels}
-              activeGroup={liveGroup}
-              selectedId={playing?.id}
-              onSelect={playChannel}
-              favoriteIds={favoriteIds}
-              onToggleFavorite={toggleFavorite}
-              emptyTitle="Canlı kanal bulunamadı"
-              emptyHint="Bu kaynakta canlı yayın listesi yok."
-            />
-            <PlayerPane item={playing} source={activeSource} />
-          </div>
-        ) : view === 'vod' ? (
-          <div className="browse-row">
-            <CategoryColumn
-              items={vod}
-              activeGroup={vodGroup}
-              onSelectGroup={setVodGroup}
-              allLabel="Tüm filmler"
-              orderedGroups={vodCategoryOrder}
-            />
-            <ItemListColumn
-              items={vod}
-              activeGroup={vodGroup}
-              selectedId={playing?.id}
-              onSelect={playVod}
-              emptyTitle="Film bulunamadı"
-              emptyHint="Filmler yalnızca Xtream Codes kaynaklarında listelenir."
-            />
-            <PlayerPane item={playing} source={activeSource} />
-          </div>
-        ) : view === 'series' ? (
-          <div className="browse-row browse-row-series">
-            <SeriesView
-              series={series}
-              source={activeSource}
-              onPlayEpisode={playEpisode}
-              playingId={playing?.id}
-            />
-            <PlayerPane item={playing} source={activeSource} />
-          </div>
         ) : (
-          <div className="browse-row browse-row-no-categories">
-            <ItemListColumn
-              items={favoriteChannels}
-              activeGroup={ALL_GROUP}
-              selectedId={playing?.id}
-              onSelect={playChannel}
-              favoriteIds={favoriteIds}
-              onToggleFavorite={toggleFavorite}
-              emptyTitle="Favori kanalın yok"
-              emptyHint="Canlı TV listesinde kanalların üzerindeki yıldıza tıklayarak favorilere ekleyebilirsin."
-            />
+          // Oynatıcı burada TEK bir yerde, tüm sekmeler için ortak render
+          // ediliyor. Önceden her sekmenin kendi <PlayerPane> kopyası vardı;
+          // sekme değiştirince React onu yok edip yeniden kuruyordu, bu da
+          // yayının resetlenip ekranın bir an simsiyah kalmasına yol
+          // açıyordu. Tek örnek + aynı JSX konumu = sekme değişse de aynı
+          // <video> ve bağlantı canlı kalır.
+          <div
+            className={`browse-row ${view === 'series' ? 'browse-row-series' : ''} ${view === 'favorites' ? 'browse-row-no-categories' : ''}`}
+          >
+            {view === 'live' && (
+              <>
+                <CategoryColumn
+                  items={channels}
+                  activeGroup={liveGroup}
+                  onSelectGroup={setLiveGroup}
+                  allLabel="Tüm kanallar"
+                  orderedGroups={liveCategoryOrder}
+                />
+                <ItemListColumn
+                  items={channels}
+                  activeGroup={liveGroup}
+                  selectedId={playing?.id}
+                  onSelect={playChannel}
+                  favoriteIds={favoriteIds}
+                  onToggleFavorite={toggleFavorite}
+                  emptyTitle="Canlı kanal bulunamadı"
+                  emptyHint="Bu kaynakta canlı yayın listesi yok."
+                />
+              </>
+            )}
+
+            {view === 'vod' && (
+              <>
+                <CategoryColumn
+                  items={vod}
+                  activeGroup={vodGroup}
+                  onSelectGroup={setVodGroup}
+                  allLabel="Tüm filmler"
+                  orderedGroups={vodCategoryOrder}
+                />
+                <ItemListColumn
+                  items={vod}
+                  activeGroup={vodGroup}
+                  selectedId={playing?.id}
+                  onSelect={playVod}
+                  emptyTitle="Film bulunamadı"
+                  emptyHint="Filmler yalnızca Xtream Codes kaynaklarında listelenir."
+                />
+              </>
+            )}
+
+            {view === 'series' && (
+              <SeriesView
+                series={series}
+                source={activeSource}
+                onPlayEpisode={playEpisode}
+                playingId={playing?.id}
+              />
+            )}
+
+            {view === 'favorites' && (
+              <ItemListColumn
+                items={favoriteChannels}
+                activeGroup={ALL_GROUP}
+                selectedId={playing?.id}
+                onSelect={playChannel}
+                favoriteIds={favoriteIds}
+                onToggleFavorite={toggleFavorite}
+                emptyTitle="Favori kanalın yok"
+                emptyHint="Canlı TV listesinde kanalların üzerindeki yıldıza tıklayarak favorilere ekleyebilirsin."
+              />
+            )}
+
             <PlayerPane item={playing} source={activeSource} />
           </div>
         )}
