@@ -470,9 +470,13 @@ export function PlayerPane({
     }
     let cancelled = false
     const load = (): void => {
-      getShortEpg(source, item.streamId!, 6).then((programs) => {
-        if (!cancelled) setEpg(programs.filter((p) => p.end > Date.now()))
-      })
+      getShortEpg(source, item.streamId!, 6)
+        .then((programs) => {
+          if (!cancelled) setEpg(programs.filter((p) => p.end > Date.now()))
+        })
+        .catch(() => {
+          /* program bilgisi alınamadı; bilgi paneli "program bilgisi yok" der */
+        })
     }
     load()
     // Program değişimlerini yakalamak için ara ara tazele

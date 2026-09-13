@@ -20,6 +20,8 @@ interface XtreamLiveStream {
   stream_icon?: string
   category_id: string
   epg_channel_id?: string
+  tv_archive?: number | string
+  tv_archive_duration?: number | string
 }
 
 interface XtreamVodStream {
@@ -153,7 +155,8 @@ export async function getLiveChannels(cfg: XtreamSourceConfig): Promise<LiveChan
     group: catMap.get(s.category_id) || 'Diğer',
     url: `${host}/live/${cfg.username}/${cfg.password}/${s.stream_id}.${ext}`,
     epgChannelId: s.epg_channel_id,
-    streamId: s.stream_id
+    streamId: s.stream_id,
+    archiveDays: Number(s.tv_archive) === 1 ? toNumber(s.tv_archive_duration) || 1 : undefined
   }))
   const categoryOrder = (catsRes.data || []).map((c) => c.category_name)
   return { channels, categoryOrder }
@@ -324,14 +327,53 @@ export async function getShortEpg(
   const res = await window.iptv.http.fetchJson<{ epg_listings?: XtreamShortEpgEntry[] }>(
     apiUrl(cfg, 'get_short_epg', `&stream_id=${streamId}&limit=${limit}`)
   )
+  // Sunucu hata verdiyse (ör. çok sık istek yüzünden geçici engel) boş
+  // program listesiyle karıştırılmasın diye hata fırlat
+  if (!res.ok) throw new Error(res.error || `Rehber alınamadı (${res.status ?? 'bağlantı yok'})`)
   const listings = res.data?.epg_listings || []
-  return listings.map((entry) => ({
-    title: decodeBase64Safe(entry.title),
-    description: entry.description ? decodeBase64Safe(entry.description) : undefined,
-    start: parseXtreamTime(entry.start_timestamp),
-    end: parseXtreamTime(entry.stop_timestamp)
-  }))
+  return dedupePrograms(
+    listings.map((entry) => ({
+      title: decodeBase64Safe(entry.title),
+      description: entry.description ? decodeBase64Safe(entry.description) : undefined,
+      start: parseXtreamTime(entry.start_timestamp),
+      end: parseXtreamTime(entry.stop_timestamp)
+    }))
+  )
 }
+
+// Bazı sağlayıcılar aynı saate iki program yazıyor (ör. "Dizi 22:00–02:15" ve
+// "Evlilik Güzeldir 22:00–01:30"); rehberde üst üste biniyordu. Çakışanlardan
+// daha kısa (daha belirgin) olanı tutuyoruz.
+export function dedupePrograms(list: EpgProgram[]): EpgProgram[] {
+  const sorted = [...list].sort((a, b) => a.start - b.start || a.end - a.start - (b.end - b.start))
+  const out: EpgProgram[] = []
+  for (const p of sorted) {
+    const last = out[out.length - 1]
+    if (last && p.start < last.end - 60_000) continue
+    out.push(p)
+  }
+  return out
+}
+
+// Geriye dönük izleme (catch-up) adresi. Sağlayıcı bu kanalda arşiv tutuyorsa
+// geçmiş bir programı baştan oynatır.
+export function getTimeshiftUrl(
+  cfg: XtreamSourceConfig,
+  streamId: number,
+  start: number,
+  end: number
+): string {
+  const d = new Date(start)
+  const pad = (n: number): string => String(n).padStart(2, '0')
+  const stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}:${pad(d.getHours())}-${pad(d.getMinutes())}`
+  const minutes = Math.max(1, Math.round((end - start) / 60000))
+  return `${cleanHost(cfg.host)}/timeshift/${cfg.username}/${cfg.password}/${minutes}/${stamp}/${streamId}.ts`
+}
+
+// Rehber istekleri arasındaki bekleme. IPTV panellerinin çoğu kısa sürede çok
+// istek atan adresi geçici olarak engelliyor (flood koruması); bu yüzden
+// istekleri seyrek atıyoruz.
+export const EPG_REQUEST_GAP_MS = 400
 
 export interface EpgGridChannel {
   streamId: number
@@ -350,15 +392,25 @@ export async function getEpgGrid(
   onProgress?: (done: number, total: number) => void
 ): Promise<EpgGridChannel[]> {
   const results: EpgGridChannel[] = []
+  let failuresInRow = 0
   for (let i = 0; i < channels.length; i++) {
     const ch = channels[i]
+    // Sunucu art arda hata veriyorsa (geçici engel) daha fazla istek atma
+    if (failuresInRow >= 3) {
+      results.push({ streamId: ch.streamId, name: ch.name, logo: ch.logo, programs: [] })
+      continue
+    }
     try {
       const programs = await getShortEpg(cfg, ch.streamId, 8)
       results.push({ streamId: ch.streamId, name: ch.name, logo: ch.logo, programs })
+      failuresInRow = 0
     } catch {
       results.push({ streamId: ch.streamId, name: ch.name, logo: ch.logo, programs: [] })
+      failuresInRow++
     }
     onProgress?.(i + 1, channels.length)
+    // Sunucuyu yormamak için istekler arasında kısa bir ara
+    await new Promise((r) => setTimeout(r, EPG_REQUEST_GAP_MS))
   }
   return results
 }

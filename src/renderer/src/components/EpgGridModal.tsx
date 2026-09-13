@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { EpgProgram, SourceConfig } from '../../../shared/types'
 import { getEpgGrid, type EpgGridChannel } from '../lib/xtream'
-import { IconClose, IconLiveTv, IconRecord } from './Icons'
+import { IconBell, IconClose, IconLiveTv, IconPlay, IconRecord } from './Icons'
 
 const PX_PER_MIN = 3.2
 const WINDOW_BEFORE_MIN = 15
@@ -10,13 +10,24 @@ const ROW_HEIGHT = 56
 
 interface Props {
   source: SourceConfig
-  channels: { streamId: number; name: string; logo?: string; id: string; group: string }[]
+  channels: {
+    streamId: number
+    name: string
+    logo?: string
+    id: string
+    group: string
+    archiveDays?: number
+  }[]
   categoryLabel: string
   truncated: boolean
   onClose: () => void
   onTuneChannel: (channelId: string) => void
   // İleri saatteki programı kaydet; sonuç mesajını döner
   onRecordProgram?: (streamId: number, program: EpgProgram) => Promise<string>
+  isReminded?: (streamId: number, start: number) => boolean
+  onToggleReminder?: (streamId: number, program: EpgProgram) => void
+  // Sağlayıcı arşiv tutuyorsa geçmiş programı baştan izle
+  onWatchArchive?: (streamId: number, program: EpgProgram) => void
 }
 
 function formatHour(d: Date): string {
@@ -30,7 +41,10 @@ export function EpgGridModal({
   truncated,
   onClose,
   onTuneChannel,
-  onRecordProgram
+  onRecordProgram,
+  isReminded,
+  onToggleReminder,
+  onWatchArchive
 }: Props): ReactElement {
   const [rows, setRows] = useState<EpgGridChannel[] | null>(null)
   const [selected, setSelected] = useState<{ streamId: number; channel: string; program: EpgProgram } | null>(null)
@@ -162,7 +176,10 @@ export function EpgGridModal({
                         title={`${p.title}\n${formatHour(new Date(p.start))}–${formatHour(new Date(p.end))}`}
                         onClick={() => {
                           if (isNow) onTuneChannel(channelIdFor(row.streamId, channels))
-                          else if (p.start > Date.now() && onRecordProgram) {
+                          else if (
+                            p.start > Date.now() ||
+                            (onWatchArchive && hasArchive(row.streamId, channels))
+                          ) {
                             setSelected({ streamId: row.streamId, channel: row.name, program: p })
                             setActionMessage(null)
                           }
@@ -207,7 +224,27 @@ export function EpgGridModal({
               >
                 Kapat
               </button>
-              {!actionMessage && onRecordProgram && (
+              {selected.program.end <= Date.now() && onWatchArchive && (
+                <button
+                  className="btn-primary"
+                  onClick={() => {
+                    onWatchArchive(selected.streamId, selected.program)
+                    setSelected(null)
+                  }}
+                >
+                  <IconPlay size={12} /> Baştan izle
+                </button>
+              )}
+              {selected.program.start > Date.now() && onToggleReminder && (
+                <button
+                  className={`btn-secondary ${isReminded?.(selected.streamId, selected.program.start) ? 'is-reminded' : ''}`}
+                  onClick={() => onToggleReminder(selected.streamId, selected.program)}
+                >
+                  <IconBell size={13} />{' '}
+                  {isReminded?.(selected.streamId, selected.program.start) ? 'Hatırlatılacak' : 'Hatırlat'}
+                </button>
+              )}
+              {!actionMessage && onRecordProgram && selected.program.start > Date.now() && (
                 <button
                   className="btn-primary"
                   onClick={async () => {
@@ -224,6 +261,10 @@ export function EpgGridModal({
       )}
     </div>
   )
+}
+
+function hasArchive(streamId: number, channels: { streamId: number; archiveDays?: number }[]): boolean {
+  return (channels.find((c) => c.streamId === streamId)?.archiveDays ?? 0) > 0
 }
 
 function channelIdFor(

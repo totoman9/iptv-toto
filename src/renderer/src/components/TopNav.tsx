@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ComponentType, type ReactElement } fr
 import type { SourceConfig } from '../../../shared/types'
 import { ACCENTS, type Accent, type Theme } from '../lib/theme'
 import {
+  IconGuide,
   IconLiveTv,
   IconLock,
   IconMoon,
@@ -16,7 +17,7 @@ import {
   IconSun
 } from './Icons'
 
-export type ViewKey = 'live' | 'vod' | 'series' | 'favorites' | 'recordings'
+export type ViewKey = 'live' | 'vod' | 'series' | 'favorites' | 'guide' | 'recordings'
 
 interface Props {
   view: ViewKey
@@ -41,6 +42,7 @@ const TABS: { key: ViewKey; label: string; Icon: ComponentType<{ size?: number }
   { key: 'vod', label: 'Filmler', Icon: IconMovie },
   { key: 'series', label: 'Diziler', Icon: IconSeries },
   { key: 'favorites', label: 'Favoriler', Icon: IconStar },
+  { key: 'guide', label: 'Rehber', Icon: IconGuide },
   { key: 'recordings', label: 'Kayıtlar', Icon: IconRecord }
 ]
 

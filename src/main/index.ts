@@ -247,6 +247,15 @@ ipcMain.handle('window:setCompact', (event, on: boolean) => {
   return true
 })
 
+// Hatırlatma bildirimine tıklanınca uygulamayı öne getir
+ipcMain.on('window:focus', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  if (!win) return
+  if (win.isMinimized()) win.restore()
+  win.show()
+  win.focus()
+})
+
 // ---------- Ekran görüntüsü ----------
 
 async function screenshotsDir(): Promise<string> {

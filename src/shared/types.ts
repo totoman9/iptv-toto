@@ -32,6 +32,8 @@ export interface Channel {
   epgChannelId?: string
   // Xtream'e özgü, EPG/detay çağrıları için
   streamId?: number
+  // Sağlayıcı geriye dönük izleme (catch-up) veriyorsa kaç günlük arşiv var
+  archiveDays?: number
 }
 
 export interface VodItem {

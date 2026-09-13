@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactElement } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { TopNav, type ViewKey } from './components/TopNav'
 import { CategoryColumn, ALL_GROUP } from './components/CategoryColumn'
 import { ItemListColumn, type ListableItem, type ListViewMode } from './components/ItemListColumn'
@@ -12,6 +12,7 @@ import { FavoriteFoldersColumn } from './components/FavoriteFoldersColumn'
 import { FolderMenuButton } from './components/FolderMenuButton'
 import { RecordingsView } from './components/RecordingsView'
 import { SearchOverlay, type SearchKind } from './components/SearchOverlay'
+import { GuideView } from './components/GuideView'
 import { IconGuide } from './components/Icons'
 import { PlayerPane, type PlayerMode } from './components/PlayerPane'
 import type { ChannelDrawerData } from './components/ChannelDrawer'
@@ -33,6 +34,12 @@ import { useFavorites } from './hooks/useFavorites'
 import { useParentalLock } from './hooks/useParentalLock'
 import { useCategoryPrefs } from './hooks/useCategoryPrefs'
 import { useRecordings } from './hooks/useRecordings'
+import { useEpgIndex } from './hooks/useEpgIndex'
+import { useReminders } from './hooks/useReminders'
+import { REMINDER_LEAD_MS, type Reminder } from './lib/reminders'
+import { fold } from './lib/search'
+import { getTimeshiftUrl } from './lib/xtream'
+import type { IndexedChannel } from './lib/epgIndex'
 import type { Channel, EpgProgram, PlayableItem, RecordingEntry } from '../../shared/types'
 
 const LIST_VIEW_KEY = 'iptv-toto-live-view'
@@ -79,6 +86,11 @@ function groupsWithCounts(items: { group: string }[], order: string[]): { name: 
   return [...known, ...extra].map((name) => ({ name, count: counts.get(name) || 0 }))
 }
 
+interface NoticeAction {
+  label: string
+  run: () => void
+}
+
 interface MediaOpenRequest {
   kind: 'vod' | 'series'
   id: string
@@ -111,11 +123,15 @@ function App(): ReactElement {
     error,
     reload
   } = useLibrary(activeSource)
+  // Bildirimdeki "Kanala geç" gibi sonradan çalışan eylemler güncel listeyi görsün
+  const channelsRef = useRef(channels)
+  channelsRef.current = channels
   const favorites = useFavorites()
   const { favoriteIds, toggleFavorite, folders } = favorites
   const lockApi = useParentalLock()
   const categoryPrefs = useCategoryPrefs(activeSourceId)
   const { entries: recordings, active: activeRecording } = useRecordings()
+  const reminders = useReminders()
 
   const [view, setView] = useState<ViewKey>('live')
   const [showManageSources, setShowManageSources] = useState(false)
@@ -137,7 +153,7 @@ function App(): ReactElement {
   const [accent, setAccent] = useState<Accent>(loadAccent)
   // Mini pencere: uygulama küçülüp köşede her zaman üstte kalır
   const [compact, setCompact] = useState(false)
-  const [notice, setNotice] = useState<string | null>(null)
+  const [notice, setNoticeState] = useState<{ text: string; action?: NoticeAction } | null>(null)
 
   const isLocked = lockApi.isLocked
 
@@ -154,6 +170,24 @@ function App(): ReactElement {
     () => applyCategoryOrder(seriesCategoryOrder, seriesPrefs),
     [seriesCategoryOrder, seriesPrefs]
   )
+
+  // ----- Rehber dizini (şimdi yayında, maç merkezi, program araması) -----
+  const epgIndex = useEpgIndex(activeSource, channels, liveOrder, favoriteIds)
+  const programHits = useMemo(() => {
+    const now = Date.now()
+    return epgIndex.channels
+      .filter((ch) => !isLocked(ch.group))
+      .flatMap((ch) =>
+        ch.programs
+          .filter((p) => p.end > now)
+          .map((p) => ({ key: `${ch.streamId}-${p.start}`, channel: ch, program: p, folded: fold(p.title) }))
+      )
+  }, [epgIndex.channels, isLocked])
+  const channelByStream = useMemo(() => {
+    const map = new Map<number, Channel>()
+    for (const c of channels) if (c.streamId !== undefined) map.set(c.streamId, c)
+    return map
+  }, [channels])
 
   useEffect(() => {
     if (liveGroup !== ALL_GROUP && livePrefs.hidden.includes(liveGroup)) setLiveGroup(ALL_GROUP)
@@ -185,7 +219,14 @@ function App(): ReactElement {
       epgSourceChannels
         .filter((c): c is Channel & { streamId: number } => c.streamId !== undefined)
         .slice(0, 60)
-        .map((c) => ({ streamId: c.streamId, name: c.name, logo: c.logo, id: c.id, group: c.group })),
+        .map((c) => ({
+          streamId: c.streamId,
+          name: c.name,
+          logo: c.logo,
+          id: c.id,
+          group: c.group,
+          archiveDays: c.archiveDays
+        })),
     [epgSourceChannels]
   )
   const epgTruncated = epgSourceChannels.length > epgChannels.length
@@ -218,9 +259,28 @@ function App(): ReactElement {
   // ----- Bildirim şeridi -----
   useEffect(() => {
     if (!notice) return
-    const t = setTimeout(() => setNotice(null), 8000)
+    const t = setTimeout(() => setNoticeState(null), notice.action ? 25000 : 8000)
     return () => clearTimeout(t)
   }, [notice])
+
+  // Hatırlatıcılar: program başlamadan 5 dakika önce bildirim
+  useEffect(() => {
+    const check = (): void => {
+      // Kanal listesi yüklenmeden bildirme ("Kanala geç" çalışabilsin)
+      if (channelsRef.current.length === 0) return
+      const now = Date.now()
+      for (const r of reminders.reminders) {
+        if (!r.notified && r.start - REMINDER_LEAD_MS <= now && r.end > now) {
+          reminders.markNotified(r.id)
+          fireReminder(r)
+        }
+      }
+    }
+    check()
+    const iv = setInterval(check, 15000)
+    return () => clearInterval(iv)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reminders.reminders, channels.length > 0])
 
   // ⌘K / Ctrl+K: her yerde ara
   useEffect(() => {
@@ -352,6 +412,69 @@ function App(): ReactElement {
     if (next && next.id !== playing.id) playChannel(next)
   }
 
+  function setNotice(text: string | null, action?: NoticeAction): void {
+    setNoticeState(text ? { text, action } : null)
+  }
+
+  // ----- Rehber: izle, hatırlat, arşivden izle -----
+  function tuneChannelById(channelId: string): void {
+    const ch = channelsRef.current.find((c) => c.id === channelId)
+    if (!ch) return
+    setView('live')
+    playChannel(ch)
+  }
+
+  function toggleReminderFor(
+    ch: { channelId: string; streamId?: number; name: string; logo?: string },
+    p: EpgProgram
+  ): void {
+    const was = reminders.has(ch.channelId, p.start)
+    reminders.toggle({
+      channelId: ch.channelId,
+      streamId: ch.streamId,
+      channelName: ch.name,
+      logo: ch.logo,
+      title: p.title,
+      start: p.start,
+      end: p.end
+    })
+    setNotice(
+      was
+        ? `“${p.title}” hatırlatıcısı kaldırıldı.`
+        : `“${p.title}” başlamadan 5 dakika önce haber vereceğim (uygulama açık olmalı).`
+    )
+  }
+
+  function fireReminder(r: Reminder): void {
+    const mins = Math.max(0, Math.round((r.start - Date.now()) / 60000))
+    const when = mins > 0 ? `${mins} dakika sonra` : 'şimdi'
+    const text = `${r.title} — ${r.channelName} kanalında ${when} başlıyor.`
+    try {
+      const n = new Notification('IPTV Toto · Hatırlatma', { body: text })
+      n.onclick = () => {
+        window.iptv.window.focus()
+        tuneChannelById(r.channelId)
+      }
+    } catch {
+      /* sistem bildirimi gösterilemedi; uygulama içi bildirim yeterli */
+    }
+    setNotice(text, { label: 'Kanala geç', run: () => tuneChannelById(r.channelId) })
+  }
+
+  function watchArchive(streamId: number, p: EpgProgram): void {
+    const ch = channelByStream.get(streamId)
+    if (!ch || activeSource?.type !== 'xtream') return
+    playFromBrowser({
+      id: `archive-${streamId}-${p.start}`,
+      name: `${ch.name} · ${p.title}`,
+      group: ch.group,
+      url: getTimeshiftUrl(activeSource, streamId, p.start, p.end),
+      isLive: false,
+      logo: ch.logo,
+      kind: 'recording'
+    })
+  }
+
   // ----- Kayıt -----
   async function toggleRecordCurrent(info: { programTitle?: string; end?: number }): Promise<void> {
     const current = playing
@@ -445,7 +568,7 @@ function App(): ReactElement {
   }
 
   const noSourceYet = sources.length === 0
-  const isMediaView = view === 'vod' || view === 'series' || view === 'recordings'
+  const isMediaView = view === 'vod' || view === 'series' || view === 'recordings' || view === 'guide'
   const hostMode: PlayerMode | 'hidden' = noSourceYet
     ? 'hidden'
     : theater && playing
@@ -569,6 +692,20 @@ function App(): ReactElement {
         />
       </>
     )
+  } else if (view === 'guide') {
+    leftArea = (
+      <GuideView
+        index={epgIndex}
+        favoriteIds={favoriteIds}
+        isLocked={isLocked}
+        reminders={reminders.reminders}
+        isReminded={reminders.has}
+        onToggleReminder={(ch: IndexedChannel, p) => toggleReminderFor(ch, p)}
+        onRemoveReminder={reminders.remove}
+        onWatch={tuneChannelById}
+        onRecord={(ch, p) => recordProgram(ch.streamId, p)}
+      />
+    )
   } else if (view === 'recordings') {
     leftArea = (
       <RecordingsView
@@ -678,6 +815,15 @@ function App(): ReactElement {
           onClose={() => setShowEpgGrid(false)}
           onTuneChannel={onTuneFromEpg}
           onRecordProgram={recordProgram}
+          isReminded={(streamId, start) => {
+            const ch = channelByStream.get(streamId)
+            return !!ch && reminders.has(ch.id, start)
+          }}
+          onToggleReminder={(streamId, p) => {
+            const ch = channelByStream.get(streamId)
+            if (ch) toggleReminderFor({ channelId: ch.id, streamId, name: ch.name, logo: ch.logo }, p)
+          }}
+          onWatchArchive={watchArchive}
         />
       )}
 
@@ -702,6 +848,9 @@ function App(): ReactElement {
           isLocked={isLocked}
           onPick={openFromSearch}
           onClose={() => setSearchOpen(false)}
+          programs={programHits}
+          isReminded={reminders.has}
+          onToggleReminder={(ch, p) => toggleReminderFor(ch, p)}
         />
       )}
 
@@ -717,8 +866,20 @@ function App(): ReactElement {
       )}
 
       {notice && (
-        <div className="app-notice" onClick={() => setNotice(null)}>
-          {notice}
+        <div className="app-notice" onClick={() => setNoticeState(null)}>
+          <span>{notice.text}</span>
+          {notice.action && (
+            <button
+              className="app-notice-action"
+              onClick={(e) => {
+                e.stopPropagation()
+                notice.action!.run()
+                setNoticeState(null)
+              }}
+            >
+              {notice.action.label}
+            </button>
+          )}
         </div>
       )}
     </div>

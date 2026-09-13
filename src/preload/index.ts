@@ -42,7 +42,8 @@ const api = {
     }> => ipcRenderer.invoke('proxy:liveInfo')
   },
   window: {
-    setCompact: (on: boolean): Promise<boolean> => ipcRenderer.invoke('window:setCompact', on)
+    setCompact: (on: boolean): Promise<boolean> => ipcRenderer.invoke('window:setCompact', on),
+    focus: (): void => ipcRenderer.send('window:focus')
   },
   media: {
     saveScreenshot: (bytes: Uint8Array, title: string): Promise<ClipResult> =>

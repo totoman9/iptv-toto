@@ -1,9 +1,17 @@
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
-import type { Channel, SeriesItem, VodItem } from '../../../shared/types'
+import type { Channel, EpgProgram, SeriesItem, VodItem } from '../../../shared/types'
+import type { IndexedChannel } from '../lib/epgIndex'
 import { fold } from '../lib/search'
-import { IconLiveTv, IconMovie, IconSearch, IconSeries } from './Icons'
+import { IconBell, IconGuide, IconLiveTv, IconMovie, IconSearch, IconSeries } from './Icons'
 
 export type SearchKind = 'live' | 'vod' | 'series'
+
+export interface ProgramHit {
+  key: string
+  channel: IndexedChannel
+  program: EpgProgram
+  folded: string
+}
 
 interface Props {
   channels: Channel[]
@@ -12,6 +20,18 @@ interface Props {
   isLocked: (group: string) => boolean
   onPick: (kind: SearchKind, id: string) => void
   onClose: () => void
+  // Rehberden toplanan yaklaşan programlar
+  programs?: ProgramHit[]
+  isReminded?: (channelId: string, start: number) => boolean
+  onToggleReminder?: (channel: IndexedChannel, program: EpgProgram) => void
+}
+
+const pad2 = (n: number): string => String(n).padStart(2, '0')
+function programTime(p: EpgProgram, now: number): string {
+  if (p.start <= now) return 'CANLI'
+  const d = new Date(p.start)
+  const sameDay = new Date().toDateString() === d.toDateString()
+  return `${sameDay ? '' : `${pad2(d.getDate())}.${pad2(d.getMonth() + 1)} `}${pad2(d.getHours())}:${pad2(d.getMinutes())}`
 }
 
 type Indexed<T> = readonly (readonly [string, T])[]
@@ -33,7 +53,17 @@ function pick<T extends { group: string }>(
 }
 
 // Her yerde arama (⌘K): kanal, film ve dizileri tek kutudan arar.
-export function SearchOverlay({ channels, vod, series, isLocked, onPick, onClose }: Props): ReactElement {
+export function SearchOverlay({
+  channels,
+  vod,
+  series,
+  isLocked,
+  onPick,
+  onClose,
+  programs = [],
+  isReminded,
+  onToggleReminder
+}: Props): ReactElement {
   const [query, setQuery] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -54,14 +84,27 @@ export function SearchOverlay({ channels, vod, series, isLocked, onPick, onClose
   const results = useMemo(() => {
     const q = fold(query.trim())
     if (q.length < 2) return null
+    const now = Date.now()
+    const progs: ProgramHit[] = []
+    for (const h of programs) {
+      if (h.program.end > now && h.folded.includes(q)) {
+        progs.push(h)
+        if (progs.length >= 10) break
+      }
+    }
+    progs.sort((a, b) => a.program.start - b.program.start)
     return {
       live: pick(index.live, q, 12, isLocked),
+      programs: progs,
       vod: pick(index.vod, q, 18, isLocked),
       series: pick(index.series, q, 18, isLocked)
     }
-  }, [query, index, isLocked])
+  }, [query, index, isLocked, programs])
 
-  const total = results ? results.live.length + results.vod.length + results.series.length : 0
+  const total = results
+    ? results.live.length + results.programs.length + results.vod.length + results.series.length
+    : 0
+  const nowMs = Date.now()
 
   function pickFirst(): void {
     if (!results) return
@@ -114,6 +157,43 @@ export function SearchOverlay({ channels, vod, series, isLocked, onPick, onClose
                     </button>
                   ))}
                 </div>
+              </section>
+            )}
+
+            {results.programs.length > 0 && (
+              <section>
+                <div className="search-section-title">
+                  <IconGuide size={14} /> Programlar
+                </div>
+                {results.programs.map(({ key, channel, program }) => {
+                  const live = program.start <= nowMs
+                  const reminded = isReminded?.(channel.channelId, program.start)
+                  return (
+                    <div
+                      key={key}
+                      className="search-program"
+                      onClick={() => onPick('live', channel.channelId)}
+                      title={live ? 'Kanalı aç' : 'Kanalı aç (program henüz başlamadı)'}
+                    >
+                      <span className="search-program-time">{programTime(program, nowMs)}</span>
+                      <span className="search-program-main">
+                        <span className="search-program-title">{program.title}</span>
+                        <span className="search-program-channel">{channel.name}</span>
+                      </span>
+                      {!live && onToggleReminder && (
+                        <button
+                          className={`btn-secondary btn-sm ${reminded ? 'is-reminded' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onToggleReminder(channel, program)
+                          }}
+                        >
+                          <IconBell size={12} /> {reminded ? 'Hatırlatılacak' : 'Hatırlat'}
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
               </section>
             )}
 
