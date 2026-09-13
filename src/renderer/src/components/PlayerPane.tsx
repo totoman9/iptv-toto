@@ -18,12 +18,14 @@ import {
 } from '../lib/bufferSetting'
 import { getShortEpg } from '../lib/xtream'
 import { getProgress, saveProgress } from '../lib/continueWatching'
+import { addWatchTime } from '../lib/library'
 import {
   IconArrowLeft,
   IconCamera,
   IconChannels,
   IconClose,
   IconExpand,
+  IconGrid,
   IconKeyboard,
   IconLiveTv,
   IconMiniWindow,
@@ -77,6 +79,8 @@ interface Props {
   onRecordToggle?: (info: { programTitle?: string; end?: number }) => void
   // Başka bir kanal kaydediliyorsa o kaydın adı (bu kanal açılamaz)
   blockedByRecording?: string
+  // Çoklu ekranı aç (canlı yayında)
+  onOpenMultiView?: () => void
 }
 
 const VOLUME_STORAGE_KEY = 'iptv-toto-volume'
@@ -165,7 +169,8 @@ export function PlayerPane({
   onToggleCompact,
   recording = false,
   onRecordToggle,
-  blockedByRecording
+  blockedByRecording,
+  onOpenMultiView
 }: Props): ReactElement {
   const videoRef = useRef<HTMLVideoElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -664,6 +669,16 @@ export function PlayerPane({
     return () => window.removeEventListener('keydown', onKeyDown)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item, mode, player, drawerOpen, drawer, onPrev, onNext, panelOpen, moreOpen, helpOpen, compact, liveMeta, picture.settings])
+
+  // İzleme istatistikleri: oynarken 15 sn'de bir süre ekle
+  useEffect(() => {
+    if (!item) return
+    const iv = setInterval(() => {
+      const v = videoRef.current
+      if (v && !v.paused && v.readyState >= 3) addWatchTime(item, 15)
+    }, 15000)
+    return () => clearInterval(iv)
+  }, [item])
 
   // İnternetten indirilen altyazı: videoya <track> olarak eklenir
   useEffect(() => {
@@ -1175,6 +1190,16 @@ export function PlayerPane({
                             void togglePip()
                           }}
                         />
+                        {item.isLive && onOpenMultiView && (
+                          <MoreItem
+                            icon={<IconGrid size={14} />}
+                            label="Çoklu ekran (2–4 kanal)"
+                            onClick={() => {
+                              setMoreOpen(false)
+                              onOpenMultiView()
+                            }}
+                          />
+                        )}
                         {onToggleCompact && !isFullscreen && (
                           <MoreItem
                             icon={<IconMiniWindow size={14} />}

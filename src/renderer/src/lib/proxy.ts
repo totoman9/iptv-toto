@@ -32,6 +32,11 @@ export function localFileUrl(path: string): string {
   return `http://127.0.0.1:${port}/file?p=${encodeURIComponent(path)}`
 }
 
+// Çoklu ekran: her ekran (slot) sunucuya kendi bağlantısını açar
+export function multiViewUrl(url: string, slot: number): string {
+  return `http://127.0.0.1:${port}/mv?u=${encodeURIComponent(url)}&slot=${slot}`
+}
+
 export function isProxyAvailable(): boolean {
   return port > 0
 }

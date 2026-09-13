@@ -13,10 +13,15 @@ import { clearProgress, isFinished, progressRatio } from '../../lib/continueWatc
 import { useProgress } from '../../hooks/useProgress'
 import { getVodStreamUrl } from '../../lib/xtream'
 import { CategoryColumn, ALL_GROUP } from '../CategoryColumn'
+import { usePersisted } from '../../lib/persisted'
+import { followStore, getPreviousVisit, watchlistStore } from '../../lib/library'
+import { cleanTitle } from '../../lib/omdb'
 import {
   IconArrowLeft,
   IconChevronRight,
+  IconDice,
   IconEdit,
+  IconFilter,
   IconGrid,
   IconMovie,
   IconPlay,
@@ -43,6 +48,8 @@ interface Entry {
   year?: string
   added?: number
   backdrop?: string
+  genres?: string[]
+  updated?: number
   vod?: VodItem
   series?: SeriesItem
 }
@@ -64,6 +71,36 @@ interface Props {
 }
 
 const ROW_LIMIT = 30
+
+interface Filters {
+  genre: string | null
+  year: 'all' | '2020' | '2010' | '2000' | 'old'
+  rating: number
+  sort: 'default' | 'rating' | 'year' | 'added' | 'az'
+}
+
+const DEFAULT_FILTERS: Filters = { genre: null, year: 'all', rating: 0, sort: 'default' }
+
+const YEAR_OPTIONS: [Filters['year'], string][] = [
+  ['all', 'Tüm yıllar'],
+  ['2020', '2020 ve sonrası'],
+  ['2010', '2010–2019'],
+  ['2000', '2000–2009'],
+  ['old', '2000 öncesi']
+]
+const RATING_OPTIONS: [number, string][] = [
+  [0, 'Tüm puanlar'],
+  [6, '6 ve üzeri'],
+  [7, '7 ve üzeri'],
+  [8, '8 ve üzeri']
+]
+const SORT_OPTIONS: [Filters['sort'], string][] = [
+  ['default', 'Önerilen sıra'],
+  ['rating', 'Puana göre'],
+  ['year', 'Yeniden eskiye (yıl)'],
+  ['added', 'Son eklenen'],
+  ['az', 'A–Z']
+]
 const layoutKey = (k: Kind): string => `iptv-toto-media-layout-${k}`
 
 function loadLayout(k: Kind): Layout {
@@ -216,6 +253,10 @@ export function MediaBrowser({
   const [layout, setLayout] = useState<Layout>(() => loadLayout(kind))
   const [search, setSearch] = useState('')
   const [gridGroup, setGridGroup] = useState(ALL_GROUP)
+  const [filterOpen, setFilterOpen] = useState(false)
+  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
+  const watchlist = usePersisted(watchlistStore)
+  const followed = usePersisted(followStore)
   const { entries: progressEntries, byId: progressById } = useProgress()
 
   const entries = useMemo<Entry[]>(
@@ -228,6 +269,7 @@ export function MediaBrowser({
             group: v.group,
             rating: v.rating,
             added: v.added,
+            year: cleanTitle(v.name).year,
             vod: v
           }))
         : series.map((s) => ({
@@ -238,6 +280,8 @@ export function MediaBrowser({
             rating: s.rating,
             year: s.year,
             backdrop: s.backdrop,
+            genres: s.genre ? s.genre.split(/[,/]/).map((g) => g.trim()).filter(Boolean) : undefined,
+            updated: s.updated,
             series: s
           })),
     [kind, vod, series]
@@ -425,6 +469,41 @@ export function MediaBrowser({
       })
     }
 
+    // Takip ettiğin diziler (yeni bölüm rozetiyle)
+    if (kind === 'series' && followed.length > 0) {
+      const cards = followed.flatMap((f) => {
+        const e = entriesById.get(`xtream-series-${f.seriesId}`)
+        return e ? [{ ...toCard(e), badge: f.newCount > 0 ? `${f.newCount} yeni bölüm` : undefined }] : []
+      })
+      if (cards.length) rows.push({ type: 'row', key: 'followed', title: 'Takip ettiğin diziler', cards, onOpen: openDetail })
+    }
+
+    // İzleme listem
+    const listCards = watchlist
+      .filter((w) => w.kind === kind)
+      .flatMap((w) => {
+        const e = entriesById.get(w.id)
+        return e ? [toCard(e)] : []
+      })
+    if (listCards.length) rows.push({ type: 'row', key: 'watchlist', title: 'İzleme listem', cards: listCards, onOpen: openDetail })
+
+    // Son ziyaretinden beri eklenenler
+    const since = getPreviousVisit(kind)
+    if (since) {
+      const stamp = (e: Entry): number => (kind === 'vod' ? e.added : e.updated) || 0
+      const fresh = entries.filter((e) => stamp(e) * 1000 > since).sort((a, b) => stamp(b) - stamp(a))
+      if (fresh.length) {
+        rows.push({
+          type: 'row',
+          key: 'new-since',
+          title: 'Son ziyaretinden beri eklenenler',
+          count: fresh.length,
+          cards: fresh.slice(0, ROW_LIMIT).map(toCard),
+          onOpen: openDetail
+        })
+      }
+    }
+
     if (recent.length > 0) {
       rows.push({
         type: 'row',
@@ -449,7 +528,7 @@ export function MediaBrowser({
     }
     return rows
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind, entries, orderedGroups, byGroup, continueList, progressById, seriesLatest, lockedGroups, route])
+  }, [kind, entries, orderedGroups, byGroup, continueList, progressById, seriesLatest, lockedGroups, route, watchlist, followed])
 
   const searchResults = useMemo(() => {
     const q = search.trim().toLocaleLowerCase('tr')
@@ -464,6 +543,70 @@ export function MediaBrowser({
     return out
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, entries, progressById, seriesLatest, lockedGroups])
+
+  // ----- Filtreler, "Ne izlesem?", benzer içerikler -----
+  const filterActive =
+    filters.genre !== null || filters.year !== 'all' || filters.rating > 0 || filters.sort !== 'default'
+
+  const topGenres = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const e of entries) for (const g of e.genres || []) counts.set(g, (counts.get(g) || 0) + 1)
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 14)
+      .map(([g]) => g)
+  }, [entries])
+
+  const filtered = useMemo(() => {
+    if (!filterActive) return []
+    const yearOk = (y?: string): boolean => {
+      if (filters.year === 'all') return true
+      const n = y ? parseInt(y, 10) : NaN
+      if (!Number.isFinite(n)) return false
+      if (filters.year === '2020') return n >= 2020
+      if (filters.year === '2010') return n >= 2010 && n < 2020
+      if (filters.year === '2000') return n >= 2000 && n < 2010
+      return n < 2000
+    }
+    const list = entries.filter(
+      (e) =>
+        !isLocked(e.group) &&
+        (!filters.genre || e.genres?.includes(filters.genre)) &&
+        yearOk(e.year) &&
+        (filters.rating === 0 || (e.rating ?? 0) >= filters.rating)
+    )
+    const stamp = (e: Entry): number => (e.added ?? e.updated) || 0
+    if (filters.sort === 'rating') list.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
+    else if (filters.sort === 'year') list.sort((a, b) => parseInt(b.year || '0', 10) - parseInt(a.year || '0', 10))
+    else if (filters.sort === 'added') list.sort((a, b) => stamp(b) - stamp(a))
+    else if (filters.sort === 'az') list.sort((a, b) => a.name.localeCompare(b.name, 'tr'))
+    return list
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterActive, filters, entries, lockedGroups])
+
+  function pickRandom(): void {
+    const base = filterActive ? filtered : entries
+    const pool = base.filter(
+      (e) => !isLocked(e.group) && e.logo && (!e.rating || e.rating >= 6.5) && !progressById.get(e.id)
+    )
+    const from = pool.length ? pool : base.filter((e) => !isLocked(e.group))
+    const choice = from[Math.floor(Math.random() * from.length)]
+    if (choice) openDetail(choice.id)
+  }
+
+  function similarTo(e: Entry): PosterCardData[] {
+    const genres = new Set(e.genres || [])
+    return entries
+      .filter((x) => x.id !== e.id && !isLocked(x.group) && (x.group === e.group || x.genres?.some((g) => genres.has(g))))
+      .map((x) => ({
+        x,
+        score:
+          (x.group === e.group ? 2 : 0) + (x.genres?.filter((g) => genres.has(g)).length || 0) + (x.rating || 0) / 4
+      }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 18)
+      .map(({ x }) => toCard(x))
+  }
 
   function switchLayout(next: Layout): void {
     setLayout(next)
@@ -491,6 +634,8 @@ export function MediaBrowser({
             progress={progressById.get(v.id)}
             onBack={back}
             onPlay={(fromStart, imdbId) => playMovie(v, fromStart, imdbId)}
+            similar={similarTo(e)}
+            onOpenSimilar={openDetail}
           />
         </div>
       )
@@ -505,6 +650,8 @@ export function MediaBrowser({
             entries={progressEntries}
             onBack={back}
             onPlayEpisode={(ep, fromStart, all, imdbId) => playEpisode(s, ep, fromStart, all, imdbId)}
+            similar={similarTo(e)}
+            onOpenSimilar={openDetail}
           />
         </div>
       )
@@ -539,6 +686,16 @@ export function MediaBrowser({
           <IconEdit size={14} />
         </button>
       )}
+      <button
+        className={`icon-btn ${filterOpen || filterActive ? 'icon-btn-on' : ''}`}
+        onClick={() => setFilterOpen((v) => !v)}
+        title="Filtrele ve sırala: tür, yıl, puan"
+      >
+        <IconFilter size={15} />
+      </button>
+      <button className="icon-btn" onClick={pickRandom} title="Ne izlesem? Beğenebileceğin rastgele bir öneri">
+        <IconDice size={15} />
+      </button>
       <div className="seg-toggle">
         <button
           className={layout === 'showcase' ? 'active' : ''}
@@ -557,6 +714,73 @@ export function MediaBrowser({
       </div>
     </div>
   )
+
+  const filterBar = filterOpen ? (
+    <div className="filter-bar">
+      {topGenres.length > 0 && (
+        <div className="filter-chips">
+          <button
+            className={`chip-btn ${!filters.genre ? 'active' : ''}`}
+            onClick={() => setFilters((f) => ({ ...f, genre: null }))}
+          >
+            Tüm türler
+          </button>
+          {topGenres.map((g) => (
+            <button
+              key={g}
+              className={`chip-btn ${filters.genre === g ? 'active' : ''}`}
+              onClick={() => setFilters((f) => ({ ...f, genre: f.genre === g ? null : g }))}
+            >
+              {g}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="filter-selects">
+        <select
+          className="source-select"
+          value={filters.year}
+          onChange={(ev) => setFilters((f) => ({ ...f, year: ev.target.value as Filters['year'] }))}
+          title="Yapım yılı"
+        >
+          {YEAR_OPTIONS.map(([v, l]) => (
+            <option key={v} value={v}>
+              {l}
+            </option>
+          ))}
+        </select>
+        <select
+          className="source-select"
+          value={filters.rating}
+          onChange={(ev) => setFilters((f) => ({ ...f, rating: Number(ev.target.value) }))}
+          title="En düşük puan"
+        >
+          {RATING_OPTIONS.map(([v, l]) => (
+            <option key={v} value={v}>
+              {l}
+            </option>
+          ))}
+        </select>
+        <select
+          className="source-select"
+          value={filters.sort}
+          onChange={(ev) => setFilters((f) => ({ ...f, sort: ev.target.value as Filters['sort'] }))}
+          title="Sıralama"
+        >
+          {SORT_OPTIONS.map(([v, l]) => (
+            <option key={v} value={v}>
+              {l}
+            </option>
+          ))}
+        </select>
+        {filterActive && (
+          <button className="btn-secondary btn-sm" onClick={() => setFilters(DEFAULT_FILTERS)}>
+            Filtreyi temizle
+          </button>
+        )}
+      </div>
+    </div>
+  ) : null
 
   if (entries.length === 0) {
     return (
@@ -592,6 +816,15 @@ export function MediaBrowser({
           “{search.trim()}” için {searchResults.length} sonuç
         </div>
         <PosterGrid items={searchResults} onOpen={openDetail} emptyText="Sonuç bulunamadı" />
+      </>
+    )
+  } else if (filterActive) {
+    body = (
+      <>
+        <div className="media-page-sub">
+          Filtreye uyan {filtered.length.toLocaleString('tr-TR')} {label}
+        </div>
+        <PosterGrid items={filtered.map(toCard)} onOpen={openDetail} emptyText="Bu filtreye uyan içerik yok" />
       </>
     )
   } else if (layout === 'grid') {
@@ -644,6 +877,7 @@ export function MediaBrowser({
   return (
     <div className="media-browser">
       {toolbar}
+      {filterBar}
       {body}
     </div>
   )

@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import { initProxy } from './lib/proxy'
 import { initSettings } from './lib/settings'
+import { initLibraryStores } from './lib/library'
 import { applyAccent, applyTheme, loadAccent, loadTheme } from './lib/theme'
 import './styles/global.css'
 import './styles/player.css'
@@ -22,7 +23,7 @@ applyAccent(loadAccent())
 
 // Yerel canlı yayın aktarıcısının portunu uygulama açılmadan önce al
 // (oynatıcı motoru bunu senkron olarak kullanıyor).
-Promise.all([initProxy(), initSettings()]).finally(() => {
+Promise.all([initProxy(), initSettings(), initLibraryStores()]).finally(() => {
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
       <App />

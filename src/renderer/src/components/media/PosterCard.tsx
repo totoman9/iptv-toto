@@ -10,6 +10,8 @@ export interface PosterCardData {
   // 0..1 — izleme ilerlemesi (kaldığın yer)
   progress?: number
   locked?: boolean
+  // Sol üstte küçük etiket (ör. "3 yeni bölüm")
+  badge?: string
 }
 
 export function PosterCard({
@@ -37,6 +39,7 @@ export function PosterCard({
             <IconLock size={20} />
           </div>
         )}
+        {data.badge && <span className="poster-badge">{data.badge}</span>}
         {data.rating && data.rating > 0 ? (
           <span className="poster-rating">★ {data.rating.toFixed(1)}</span>
         ) : null}

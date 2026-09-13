@@ -43,6 +43,7 @@ interface XtreamSeries {
   genre?: string
   releaseDate?: string
   backdrop_path?: string[] | string
+  last_modified?: string | number
 }
 
 function toNumber(v: string | number | undefined): number | undefined {
@@ -67,6 +68,7 @@ interface XtreamSeriesInfo {
     releaseDate?: string
     rating?: string | number
     cover?: string
+    youtube_trailer?: string
   }
   episodes: Record<string, XtreamSeriesInfoEpisode[]>
 }
@@ -85,6 +87,22 @@ function cleanHost(host: string): string {
 function apiUrl(cfg: XtreamSourceConfig, action: string, extra = ''): string {
   const host = cleanHost(cfg.host)
   return `${host}/player_api.php?username=${encodeURIComponent(cfg.username)}&password=${encodeURIComponent(cfg.password)}&action=${action}${extra}`
+}
+
+// Hesabın aynı anda izin verdiği bağlantı sayısı (çoklu ekran için)
+export async function getAccountInfo(
+  cfg: XtreamSourceConfig
+): Promise<{ maxConnections?: number; activeConnections?: number }> {
+  const url = `${cleanHost(cfg.host)}/player_api.php?username=${encodeURIComponent(
+    cfg.username
+  )}&password=${encodeURIComponent(cfg.password)}`
+  const res = await window.iptv.http.fetchJson<{
+    user_info?: { max_connections?: string | number; active_cons?: string | number }
+  }>(url)
+  return {
+    maxConnections: toNumber(res.data?.user_info?.max_connections),
+    activeConnections: toNumber(res.data?.user_info?.active_cons)
+  }
 }
 
 export async function testXtreamLogin(
@@ -206,6 +224,7 @@ export function getVodStreamUrl(cfg: XtreamSourceConfig, item: VodItem): string 
 
 interface XtreamMediaInfo {
   o_name?: string
+  youtube_trailer?: string
   plot?: string
   cast?: string
   director?: string
@@ -231,7 +250,8 @@ function mapMediaInfo(info: XtreamMediaInfo | undefined): MediaDetails {
     durationText: info.duration || undefined,
     coverBig: info.cover_big || info.movie_image || info.backdrop_path?.[0] || undefined,
     backdrop: info.backdrop_path?.[0] || undefined,
-    originalName: info.o_name || undefined
+    originalName: info.o_name || undefined,
+    trailer: info.youtube_trailer || undefined
   }
 }
 
@@ -274,7 +294,8 @@ export async function getSeriesList(cfg: XtreamSourceConfig): Promise<SeriesList
       rating: toNumber(s.rating),
       genre: s.genre || undefined,
       year: s.releaseDate ? String(s.releaseDate).slice(0, 4) : undefined,
-      backdrop: backdrop || undefined
+      backdrop: backdrop || undefined,
+      updated: toNumber(s.last_modified)
     }
   })
   const categoryOrder = (catsRes.data || []).map((c) => c.category_name)
@@ -320,7 +341,8 @@ export async function getSeriesSeasons(
         genre: info.genre || undefined,
         releaseDate: info.releaseDate || undefined,
         rating: info.rating !== undefined ? String(info.rating) : undefined,
-        coverBig: info.cover || undefined
+        coverBig: info.cover || undefined,
+        trailer: info.youtube_trailer || undefined
       }
     : {}
 

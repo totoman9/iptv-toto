@@ -15,7 +15,12 @@ import { SearchOverlay, type SearchKind } from './components/SearchOverlay'
 import { GuideView } from './components/GuideView'
 import { SettingsModal } from './components/SettingsModal'
 import { GlobalTooltip } from './components/GlobalTooltip'
-import { IconGuide } from './components/Icons'
+import { WatchlistView } from './components/WatchlistView'
+import { StatsView } from './components/StatsView'
+import { MultiView } from './components/MultiView'
+import { useFollowChecker } from './hooks/useFollowChecker'
+import { watchlistStore } from './lib/library'
+import { IconGrid, IconGuide } from './components/Icons'
 import { PlayerPane, type PlayerMode } from './components/PlayerPane'
 import type { ChannelDrawerData } from './components/ChannelDrawer'
 import {
@@ -40,7 +45,7 @@ import { useEpgIndex } from './hooks/useEpgIndex'
 import { useReminders } from './hooks/useReminders'
 import { REMINDER_LEAD_MS, type Reminder } from './lib/reminders'
 import { fold } from './lib/search'
-import { getTimeshiftUrl } from './lib/xtream'
+import { getAccountInfo, getTimeshiftUrl } from './lib/xtream'
 import type { IndexedChannel } from './lib/epgIndex'
 import type { Channel, EpgProgram, PlayableItem, RecordingEntry } from '../../shared/types'
 
@@ -136,6 +141,23 @@ function App(): ReactElement {
   const { entries: recordings, active: activeRecording } = useRecordings()
   const reminders = useReminders()
 
+  // Takip edilen dizilere yeni bölüm gelince haber ver
+  useFollowChecker(activeSource, (s, added) => {
+    const text = `“${s.name}” dizisine ${added} yeni bölüm eklendi.`
+    try {
+      new Notification('IPTV Toto · Yeni bölüm', { body: text })
+    } catch {
+      /* sistem bildirimi gösterilemedi */
+    }
+    setNotice(text, {
+      label: 'Diziye git',
+      run: () => {
+        setView('series')
+        setMediaOpen({ kind: 'series', id: `xtream-series-${s.seriesId}`, nonce: Date.now() })
+      }
+    })
+  })
+
   const [view, setView] = useState<ViewKey>('live')
   const [showManageSources, setShowManageSources] = useState(false)
   const [showParentalLock, setShowParentalLock] = useState(false)
@@ -157,6 +179,12 @@ function App(): ReactElement {
   const [accent, setAccent] = useState<Accent>(loadAccent)
   // Mini pencere: uygulama küçülüp köşede her zaman üstte kalır
   const [compact, setCompact] = useState(false)
+  // Çoklu ekran açıkken: başlangıç kanalı, hesabın bağlantı sınırı, kapanınca dönülecek yayın
+  const [multiView, setMultiView] = useState<{
+    start: Channel | null
+    maxSlots: number | null
+    resume: PlayableItem | null
+  } | null>(null)
   const [notice, setNoticeState] = useState<{ text: string; action?: NoticeAction } | null>(null)
 
   const isLocked = lockApi.isLocked
@@ -487,6 +515,30 @@ function App(): ReactElement {
     })
   }
 
+  // ----- Çoklu ekran -----
+  async function openMultiView(): Promise<void> {
+    if (activeRecording) {
+      setNotice('Kayıt sürerken çoklu ekran açılamaz (hesabın bağlantısı kayıtta kullanılıyor).')
+      return
+    }
+    const start = playing?.isLive ? (channels.find((c) => c.id === playing.id) ?? null) : null
+    let maxSlots: number | null = null
+    if (activeSource?.type === 'xtream') {
+      maxSlots = (await getAccountInfo(activeSource).catch(() => ({ maxConnections: undefined }))).maxConnections ?? null
+    }
+    const resume = playing
+    // Ana oynatıcı durur: ekranlar hesabın bağlantılarını kullanacak
+    setTheater(false)
+    setPlaying(null)
+    setMultiView({ start, maxSlots, resume })
+  }
+
+  function closeMultiView(): void {
+    const resume = multiView?.resume ?? null
+    setMultiView(null)
+    if (resume?.isLive) setPlaying(resume)
+  }
+
   // ----- Kayıt -----
   async function toggleRecordCurrent(info: { programTitle?: string; end?: number }): Promise<void> {
     const current = playing
@@ -580,7 +632,13 @@ function App(): ReactElement {
   }
 
   const noSourceYet = sources.length === 0
-  const isMediaView = view === 'vod' || view === 'series' || view === 'recordings' || view === 'guide'
+  const isMediaView =
+    view === 'vod' ||
+    view === 'series' ||
+    view === 'recordings' ||
+    view === 'guide' ||
+    view === 'watchlist' ||
+    view === 'stats'
   const hostMode: PlayerMode | 'hidden' = noSourceYet
     ? 'hidden'
     : theater && playing
@@ -654,11 +712,24 @@ function App(): ReactElement {
             viewMode={listView}
             onViewModeChange={changeListView}
             headerAction={
-              activeSource?.type === 'xtream' ? (
-                <button className="icon-btn" onClick={() => setShowEpgGrid(true)} title="TV Rehberi">
-                  <IconGuide size={15} />
+              <>
+                {activeSource?.type === 'xtream' && (
+                  <button
+                    className="icon-btn"
+                    onClick={() => setShowEpgGrid(true)}
+                    title="TV rehberi: kanalların program akışı"
+                  >
+                    <IconGuide size={15} />
+                  </button>
+                )}
+                <button
+                  className="icon-btn"
+                  onClick={() => void openMultiView()}
+                  title="Çoklu ekran: 2–4 kanalı aynı anda izle"
+                >
+                  <IconGrid size={15} />
                 </button>
-              ) : undefined
+              </>
             }
           />
         </>
@@ -705,6 +776,19 @@ function App(): ReactElement {
         />
       </>
     )
+  } else if (view === 'watchlist') {
+    leftArea = (
+      <WatchlistView
+        isLocked={isLocked}
+        onOpen={(e) => {
+          setView(e.kind)
+          setMediaOpen({ kind: e.kind, id: e.id, nonce: Date.now() })
+        }}
+        onRemove={(id) => watchlistStore.set(watchlistStore.get().filter((x) => x.id !== id))}
+      />
+    )
+  } else if (view === 'stats') {
+    leftArea = <StatsView />
   } else if (view === 'guide') {
     leftArea = (
       <GuideView
@@ -797,6 +881,7 @@ function App(): ReactElement {
               recording={recordingThis}
               onRecordToggle={playing?.isLive ? (info) => void toggleRecordCurrent(info) : undefined}
               blockedByRecording={blockedBy}
+              onOpenMultiView={playing?.isLive ? () => void openMultiView() : undefined}
             />
           </div>
         </div>
@@ -878,6 +963,16 @@ function App(): ReactElement {
             setPendingUnlock(null)
           }}
           onCancel={() => setPendingUnlock(null)}
+        />
+      )}
+
+      {multiView && (
+        <MultiView
+          channels={unlockedChannels}
+          favorites={favoriteChannels.filter((c) => !isLocked(c.group))}
+          start={multiView.start}
+          maxSlots={multiView.maxSlots}
+          onClose={closeMultiView}
         />
       )}
 

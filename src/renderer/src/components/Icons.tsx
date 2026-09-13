@@ -478,3 +478,43 @@ export function IconLibrary({ size, ...rest }: IconProps): ReactElement {
     </svg>
   )
 }
+
+export function IconBookmark({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <path d="M6.5 4h11a1 1 0 0 1 1 1v15l-6.5-4-6.5 4V5a1 1 0 0 1 1-1Z" />
+    </svg>
+  )
+}
+
+export function IconChart({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <path d="M4 20h16" />
+      <rect x="6" y="11" width="3" height="6" rx="0.8" />
+      <rect x="11" y="6" width="3" height="11" rx="0.8" />
+      <rect x="16" y="9" width="3" height="8" rx="0.8" />
+    </svg>
+  )
+}
+
+export function IconFilter({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <path d="M4 6h16M7 12h10M10 18h4" />
+    </svg>
+  )
+}
+
+export function IconDice({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <rect x="4" y="4" width="16" height="16" rx="3.5" />
+      <circle cx="9" cy="9" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="15" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="9" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="9" cy="15" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}

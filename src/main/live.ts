@@ -534,6 +534,86 @@ function handleRemux(target: string, back: number, res: http.ServerResponse): vo
   res.on('close', () => proc.kill('SIGKILL'))
 }
 
+// ---------- Çoklu ekran ----------
+// Ek ekranlar ana oturumdan bağımsızdır: her biri sunucuya kendi bağlantısını
+// açar (hesabın bağlantı sınırı arayüzde kontrol edilir).
+const multiViewProcs = new Map<number, ChildProcess>()
+
+function handleMultiView(target: string, slot: number, res: http.ServerResponse): void {
+  const bin = ffmpegPath()
+  if (!bin) {
+    res.writeHead(503)
+    res.end()
+    return
+  }
+  multiViewProcs.get(slot)?.kill('SIGKILL')
+  const proc = spawn(
+    bin,
+    [
+      '-hide_banner',
+      '-nostats',
+      '-loglevel',
+      'error',
+      '-fflags',
+      '+genpts+discardcorrupt',
+      '-user_agent',
+      USER_AGENT,
+      '-reconnect',
+      '1',
+      '-reconnect_streamed',
+      '1',
+      '-reconnect_delay_max',
+      '5',
+      '-probesize',
+      '1000000',
+      '-analyzeduration',
+      '1500000',
+      '-rw_timeout',
+      '15000000',
+      '-i',
+      target,
+      '-map',
+      '0:v:0',
+      '-map',
+      '0:a:0?',
+      '-c:v',
+      'copy',
+      '-c:a',
+      'aac',
+      '-b:a',
+      '128k',
+      '-f',
+      'mp4',
+      '-movflags',
+      'frag_keyframe+empty_moov+default_base_moof',
+      '-frag_duration',
+      '500000',
+      '-flush_packets',
+      '1',
+      'pipe:1'
+    ],
+    { stdio: ['ignore', 'pipe', 'ignore'] }
+  )
+  multiViewProcs.set(slot, proc)
+  proc.stdout.on('data', (chunk: Buffer) => {
+    if (!res.headersSent) res.writeHead(200, { 'Content-Type': 'video/mp4', 'Cache-Control': 'no-cache' })
+    if (!res.write(chunk)) {
+      proc.stdout.pause()
+      res.once('drain', () => proc.stdout.resume())
+    }
+  })
+  proc.on('error', () => {
+    if (!res.headersSent) res.writeHead(502)
+    res.end()
+  })
+  proc.on('close', () => {
+    if (multiViewProcs.get(slot) === proc) multiViewProcs.delete(slot)
+    if (!res.headersSent) res.writeHead(502)
+    res.end()
+  })
+  res.on('close', () => proc.kill('SIGKILL'))
+}
+
 let started = false
 
 export function initLive(): void {
@@ -549,6 +629,9 @@ export function initLive(): void {
         handleRemux(target, back, res)
       } else if (target && reqUrl.pathname === '/live') {
         void handleLive(target, back, res)
+      } else if (target && reqUrl.pathname === '/mv') {
+        const slot = Math.max(0, Math.min(3, Number(reqUrl.searchParams.get('slot')) || 0))
+        handleMultiView(target, slot, res)
       } else if (reqUrl.pathname === '/file') {
         void serveFile(reqUrl.searchParams.get('p'), req, res)
       } else {

@@ -10,9 +10,20 @@ import type { ContinueWatchingEntry } from '../../lib/storage'
 import { getSeriesSeasons } from '../../lib/xtream'
 import { isFinished, progressRatio } from '../../lib/continueWatching'
 import { formatTime, minutesLeft } from '../../lib/format'
-import { IconArrowLeft, IconCheck, IconPlay } from '../Icons'
+import { IconArrowLeft, IconBell, IconBookmark, IconCheck, IconPlay, IconPlayCircle } from '../Icons'
+import { usePersisted } from '../../lib/persisted'
+import {
+  followStore,
+  markSeriesSeen,
+  toggleFollow,
+  toggleWatchlist,
+  watchlistStore,
+  youtubeId
+} from '../../lib/library'
+import type { PosterCardData } from './PosterCard'
+import { SimilarRow } from './SimilarRow'
 import { useImdb } from '../../hooks/useImdb'
-import { seasonRatings, type ImdbEpisode } from '../../lib/omdb'
+import { cleanTitle, seasonRatings, type ImdbEpisode } from '../../lib/omdb'
 import { ImdbBadge, episodeRatingClass } from './ImdbBadge'
 
 interface Props {
@@ -22,11 +33,21 @@ interface Props {
   onBack: () => void
   // all: dizinin tüm bölümleri (sıradaki bölüme otomatik geçiş için)
   onPlayEpisode: (ep: SeriesEpisode, fromStart: boolean, all: SeriesEpisode[], seriesImdbId?: string) => void
+  similar?: PosterCardData[]
+  onOpenSimilar?: (id: string) => void
 }
 
 export const episodeProgressId = (ep: SeriesEpisode): string => `episode-${ep.id}`
 
-export function SeriesDetail({ item, source, entries, onBack, onPlayEpisode }: Props): ReactElement {
+export function SeriesDetail({
+  item,
+  source,
+  entries,
+  onBack,
+  onPlayEpisode,
+  similar,
+  onOpenSimilar
+}: Props): ReactElement {
   const [seasons, setSeasons] = useState<SeriesSeason[]>([])
   const [details, setDetails] = useState<MediaDetails>({})
   const [loading, setLoading] = useState(true)
@@ -106,6 +127,14 @@ export function SeriesDetail({ item, source, entries, onBack, onPlayEpisode }: P
   }, [imdb.info?.imdbId, season?.season, season?.episodes.length])
   const poster = details.coverBig || item.logo
   const bg = item.backdrop || poster
+  const inList = usePersisted(watchlistStore).some((w) => w.id === item.id)
+  const following = usePersisted(followStore).find((f) => f.seriesId === item.seriesId)
+
+  // Takip edilen dizinin sayfası açıldı: yeni bölümler görülmüş sayılır
+  useEffect(() => {
+    if (following && allEpisodes.length > 0) markSeriesSeen(item.seriesId, allEpisodes.length)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allEpisodes.length, !!following])
 
   return (
     <div className="detail-page">
@@ -142,8 +171,8 @@ export function SeriesDetail({ item, source, entries, onBack, onPlayEpisode }: P
               </p>
             )}
 
-            {target && (
-              <div className="detail-actions">
+            <div className="detail-actions">
+              {target && (
                 <button className="btn-light" onClick={() => onPlayEpisode(target.ep, false, allEpisodes, imdb.info?.imdbId)}>
                   <IconPlay size={14} />
                   {target.mode === 'resume'
@@ -152,8 +181,34 @@ export function SeriesDetail({ item, source, entries, onBack, onPlayEpisode }: P
                       ? ` Sonraki bölüm · S${target.ep.season} B${target.ep.episodeNum}`
                       : ' İzlemeye başla'}
                 </button>
-              </div>
-            )}
+              )}
+              <button
+                className={`btn-glass ${following ? 'is-on' : ''}`}
+                onClick={() => toggleFollow(item, allEpisodes.length)}
+                title={following ? 'Takibi bırak' : 'Yeni bölüm eklenince haber ver'}
+              >
+                <IconBell size={14} /> {following ? 'Takiptesin' : 'Takip et'}
+              </button>
+              <button
+                className="btn-glass"
+                onClick={() =>
+                  toggleWatchlist({ id: item.id, kind: 'series', name: item.name, logo: item.logo, group: item.group })
+                }
+                title={inList ? 'İzleme listenden çıkar' : 'Sonra izlemek için listene ekle'}
+              >
+                {inList ? <IconCheck size={14} /> : <IconBookmark size={14} />} {inList ? 'Listemde' : 'Listeme ekle'}
+              </button>
+              <button
+                className="btn-glass"
+                onClick={() => {
+                  const id = youtubeId(details.trailer)
+                  void window.iptv.media.openTrailer(id ? { id } : { query: `${cleanTitle(item.name).title} dizi fragman` })
+                }}
+                title={youtubeId(details.trailer) ? 'Fragmanı izle' : "Fragmanı YouTube'da ara"}
+              >
+                <IconPlayCircle size={14} /> Fragman
+              </button>
+            </div>
             {target?.mode === 'resume' && target.entry && (
               <div className="detail-progress-wrap">
                 <div className="detail-progress">
@@ -226,6 +281,9 @@ export function SeriesDetail({ item, source, entries, onBack, onPlayEpisode }: P
             )
           })}
         </div>
+        {similar && similar.length > 0 && onOpenSimilar && (
+          <SimilarRow title="Benzer diziler" cards={similar} onOpen={onOpenSimilar} />
+        )}
       </div>
     </div>
   )

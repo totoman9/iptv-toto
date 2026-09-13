@@ -4,7 +4,11 @@ import type { ContinueWatchingEntry } from '../../lib/storage'
 import { getVodDetails } from '../../lib/xtream'
 import { isFinished, progressRatio } from '../../lib/continueWatching'
 import { formatTime, minutesLeft } from '../../lib/format'
-import { IconArrowLeft, IconPlay } from '../Icons'
+import { IconArrowLeft, IconBookmark, IconCheck, IconPlay, IconPlayCircle } from '../Icons'
+import { usePersisted } from '../../lib/persisted'
+import { toggleWatchlist, watchlistStore, youtubeId } from '../../lib/library'
+import type { PosterCardData } from './PosterCard'
+import { SimilarRow } from './SimilarRow'
 import { useImdb } from '../../hooks/useImdb'
 import { cleanTitle } from '../../lib/omdb'
 import { ImdbBadge } from './ImdbBadge'
@@ -16,9 +20,19 @@ interface Props {
   onBack: () => void
   // imdbId: biliniyorsa oynatıcıya iletilir (internetten altyazı bulmak için)
   onPlay: (fromStart: boolean, imdbId?: string) => void
+  similar?: PosterCardData[]
+  onOpenSimilar?: (id: string) => void
 }
 
-export function MovieDetail({ item, source, progress, onBack, onPlay }: Props): ReactElement {
+export function MovieDetail({
+  item,
+  source,
+  progress,
+  onBack,
+  onPlay,
+  similar,
+  onOpenSimilar
+}: Props): ReactElement {
   const [details, setDetails] = useState<MediaDetails>({})
   const [loading, setLoading] = useState(true)
 
@@ -47,6 +61,7 @@ export function MovieDetail({ item, source, progress, onBack, onPlay }: Props): 
   const resumable = !!progress && !isFinished(progress) && progress.positionSeconds > 5
   const poster = details.coverBig || item.logo
   const bg = details.backdrop || poster
+  const inList = usePersisted(watchlistStore).some((w) => w.id === item.id)
 
   return (
     <div className="detail-page">
@@ -101,6 +116,25 @@ export function MovieDetail({ item, source, progress, onBack, onPlay }: Props): 
                   <IconPlay size={14} /> Oynat
                 </button>
               )}
+              <button
+                className="btn-glass"
+                onClick={() =>
+                  toggleWatchlist({ id: item.id, kind: 'vod', name: item.name, logo: item.logo, group: item.group })
+                }
+                title={inList ? 'İzleme listenden çıkar' : 'Sonra izlemek için listene ekle'}
+              >
+                {inList ? <IconCheck size={14} /> : <IconBookmark size={14} />} {inList ? 'Listemde' : 'Listeme ekle'}
+              </button>
+              <button
+                className="btn-glass"
+                onClick={() => {
+                  const id = youtubeId(details.trailer)
+                  void window.iptv.media.openTrailer(id ? { id } : { query: `${details.originalName || cleanTitle(item.name).title} fragman` })
+                }}
+                title={youtubeId(details.trailer) ? 'Fragmanı izle' : "Fragmanı YouTube'da ara"}
+              >
+                <IconPlayCircle size={14} /> Fragman
+              </button>
             </div>
 
             {resumable && (
@@ -116,6 +150,11 @@ export function MovieDetail({ item, source, progress, onBack, onPlay }: Props): 
           </div>
         </div>
       </div>
+      {similar && similar.length > 0 && onOpenSimilar && (
+        <div className="detail-body">
+          <SimilarRow title="Benzer filmler" cards={similar} onOpen={onOpenSimilar} />
+        </div>
+      )}
     </div>
   )
 }

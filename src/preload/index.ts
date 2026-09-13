@@ -50,6 +50,8 @@ const api = {
   media: {
     saveScreenshot: (bytes: Uint8Array, title: string): Promise<ClipResult> =>
       ipcRenderer.invoke('media:saveScreenshot', bytes, title),
+    openTrailer: (arg: { id?: string; query?: string }): Promise<boolean> =>
+      ipcRenderer.invoke('media:openTrailer', arg),
     capturePage: (
       rect: { x: number; y: number; width: number; height: number },
       title: string

@@ -58,6 +58,8 @@ export interface SeriesItem {
   genre?: string
   year?: string
   backdrop?: string
+  // Sağlayıcıda son güncellenme (yeni bölüm eklenmesi) zamanı, unix sn
+  updated?: number
 }
 
 export interface SeriesEpisode {
@@ -86,6 +88,8 @@ export interface MediaDetails {
   backdrop?: string
   // Filmin orijinal adı (IMDb eşleştirmesi için)
   originalName?: string
+  // YouTube fragman kimliği/adresi
+  trailer?: string
 }
 
 // Oynatıcıya verilen öğe. kind/series* alanları "kaldığın yerden devam"

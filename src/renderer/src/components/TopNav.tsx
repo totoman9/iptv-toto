@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, type ComponentType, type ReactElement, typ
 import type { SourceConfig } from '../../../shared/types'
 import { ACCENTS, type Accent, type Theme } from '../lib/theme'
 import {
+  IconBookmark,
+  IconChart,
   IconChevronDown,
   IconGuide,
   IconLibrary,
@@ -19,7 +21,7 @@ import {
   IconSun
 } from './Icons'
 
-export type ViewKey = 'live' | 'vod' | 'series' | 'guide' | 'favorites' | 'recordings'
+export type ViewKey = 'live' | 'vod' | 'series' | 'guide' | 'favorites' | 'watchlist' | 'recordings' | 'stats'
 
 interface Props {
   view: ViewKey
@@ -51,7 +53,9 @@ const MAIN_TABS: { key: ViewKey; label: string; Icon: IconType; hint: string }[]
 
 const LIBRARY_ITEMS: { key: ViewKey; label: string; Icon: IconType; hint: string }[] = [
   { key: 'favorites', label: 'Favori kanallar', Icon: IconStar, hint: 'Favori kanalların ve klasörlerin' },
-  { key: 'recordings', label: 'Kayıtlar', Icon: IconRecord, hint: 'Kaydettiğin ve planladığın programlar' }
+  { key: 'watchlist', label: 'İzleme listem', Icon: IconBookmark, hint: 'Sonra izlemek için ayırdığın film ve diziler' },
+  { key: 'recordings', label: 'Kayıtlar', Icon: IconRecord, hint: 'Kaydettiğin ve planladığın programlar' },
+  { key: 'stats', label: 'İstatistikler', Icon: IconChart, hint: 'Ne kadar ve neyi izlediğin' }
 ]
 
 // Dışarı tıklayınca kapanan açılır menü
@@ -113,7 +117,7 @@ function LibraryMenu({
       <button
         className={`topnav-tab ${current ? 'active' : ''}`}
         onClick={() => setOpen((v) => !v)}
-        title="Kitaplığım: favori kanallar, kayıtlar"
+        title="Kitaplığım: favori kanallar, izleme listesi, kayıtlar, istatistikler"
       >
         <IconLibrary size={16} /> Kitaplığım
         {recordingActive && <span className="tab-rec-dot" />}

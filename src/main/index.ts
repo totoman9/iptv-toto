@@ -248,6 +248,25 @@ ipcMain.handle('window:setCompact', (event, on: boolean) => {
   return true
 })
 
+// Fragman: YouTube videosunu ayrı bir pencerede aç (kimlik yoksa tarayıcıda ara)
+ipcMain.handle('media:openTrailer', async (_event, arg: { id?: string; query?: string }) => {
+  if (arg.id && /^[\w-]{11}$/.test(arg.id)) {
+    const win = new BrowserWindow({
+      width: 1100,
+      height: 650,
+      backgroundColor: '#000000',
+      title: 'Fragman',
+      autoHideMenuBar: true
+    })
+    await win.loadURL(`https://www.youtube.com/watch?v=${arg.id}`)
+    return true
+  }
+  if (arg.query) {
+    await shell.openExternal(`https://www.youtube.com/results?search_query=${encodeURIComponent(arg.query)}`)
+  }
+  return true
+})
+
 // Hatırlatma bildirimine tıklanınca uygulamayı öne getir
 ipcMain.on('window:focus', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender)
@@ -337,7 +356,10 @@ function createWindow(): void {
 app.whenReady().then(() => {
   // Video segment isteklerinde de aynı User-Agent'ı kullan (bazı sunucular kontrol eder)
   session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
-    details.requestHeaders['User-Agent'] = USER_AGENT
+    // YouTube (fragman penceresi) kendi tarayıcı kimliğiyle çalışsın
+    if (!/(youtube\.com|youtu\.be|ytimg\.com|googlevideo\.com|google\.com|gstatic\.com|ggpht\.com)/.test(details.url)) {
+      details.requestHeaders['User-Agent'] = USER_AGENT
+    }
     callback({ requestHeaders: details.requestHeaders })
   })
 
