@@ -17,7 +17,8 @@ interface Props {
   source: SourceConfig | null
   entries: ContinueWatchingEntry[]
   onBack: () => void
-  onPlayEpisode: (ep: SeriesEpisode, fromStart: boolean) => void
+  // all: dizinin tüm bölümleri (sıradaki bölüme otomatik geçiş için)
+  onPlayEpisode: (ep: SeriesEpisode, fromStart: boolean, all: SeriesEpisode[]) => void
 }
 
 export const episodeProgressId = (ep: SeriesEpisode): string => `episode-${ep.id}`
@@ -119,7 +120,7 @@ export function SeriesDetail({ item, source, entries, onBack, onPlayEpisode }: P
 
             {target && (
               <div className="detail-actions">
-                <button className="btn-light" onClick={() => onPlayEpisode(target.ep, false)}>
+                <button className="btn-light" onClick={() => onPlayEpisode(target.ep, false, allEpisodes)}>
                   <IconPlay size={14} />
                   {target.mode === 'resume'
                     ? ` Devam et · S${target.ep.season} B${target.ep.episodeNum}`
@@ -169,7 +170,7 @@ export function SeriesDetail({ item, source, entries, onBack, onPlayEpisode }: P
             const finished = entry ? isFinished(entry) : false
             const ratio = progressRatio(entry)
             return (
-              <button key={ep.id} className="episode-item" onClick={() => onPlayEpisode(ep, false)}>
+              <button key={ep.id} className="episode-item" onClick={() => onPlayEpisode(ep, false, allEpisodes)}>
                 <span className="episode-num">{ep.episodeNum}</span>
                 <span className="episode-main">
                   <span className="episode-title">{ep.title}</span>

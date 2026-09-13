@@ -20,9 +20,11 @@ export function proxiedLiveUrl(url: string): string {
 }
 
 // Canlı yayını ffmpeg ile parçalı MP4'e çevirip veren adres (tarayıcının
-// kendi oynatıcısı doğrudan oynatır)
-export function remuxedLiveUrl(url: string): string {
-  return `http://127.0.0.1:${port}/remux?u=${encodeURIComponent(url)}`
+// kendi oynatıcısı doğrudan oynatır). backSec > 0: canlının o kadar
+// saniye gerisinden (arabellekten) başlat — canlı yayını geri sarma.
+export function remuxedLiveUrl(url: string, backSec = 0): string {
+  const back = backSec > 0 ? `&back=${Math.round(backSec)}` : ''
+  return `http://127.0.0.1:${port}/remux?u=${encodeURIComponent(url)}${back}`
 }
 
 export function isProxyAvailable(): boolean {

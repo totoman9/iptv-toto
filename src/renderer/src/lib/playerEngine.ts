@@ -1,6 +1,7 @@
 import Hls from 'hls.js'
 import mpegts from 'mpegts.js'
 import { isProxyAvailable, isRemuxAvailable, proxiedLiveUrl, remuxedLiveUrl } from './proxy'
+import { bufferTargetSec, startBufferSec } from './bufferSetting'
 
 export type EngineKind = 'hls' | 'mpegts' | 'native'
 
@@ -11,6 +12,9 @@ export interface StreamInfo {
   // Yayının kendi bildirdiği (nominal) kare hızı — pencere odakta değilken
   // tarayıcının kısabileceği gerçek render hızından daha güvenilirdir.
   nominalFps?: number
+  // Canlı yayında: geri sarılabilecek süre ve şu an canlının kaç sn gerisinde
+  rewindableSec?: number
+  behindLiveSec?: number
 }
 
 export interface TrackInfo {
@@ -27,6 +31,7 @@ export type ClipMode = 'proxy' | 'hls' | 'none'
 interface EngineHandle {
   destroy: () => void
   clipMode: ClipMode
+  canRewind?: boolean
   getHlsClip?: (seconds: number) => Uint8Array | null
   getAudioTracks?: () => TrackInfo[]
   getSubtitleTracks?: () => TrackInfo[]
@@ -39,6 +44,8 @@ interface EngineHandle {
 export interface AttachedPlayer {
   kind: EngineKind
   clipMode: ClipMode
+  // Canlı yayın arabellekten geri sarılabiliyor mu (yerel aktarıcı yolu)
+  canRewind: boolean
   getInfo: () => StreamInfo
   getHlsClip: (seconds: number) => Uint8Array | null
   // Yalnızca HLS yayınlarında (ve yayının birden fazla ses/altyazı parçası
@@ -255,9 +262,11 @@ function attachRemux(
   url: string,
   onInfo: (info: StreamInfo) => void,
   // played: yayın hiç görüntü verdi mi (verdiyse bağlantı sonradan koptu)
-  onFatal: (played: boolean) => void
+  onFatal: (played: boolean) => void,
+  // > 0: canlının bu kadar saniye gerisinden başla (geri sarma)
+  backSec = 0
 ): EngineHandle {
-  const src = remuxedLiveUrl(url)
+  const src = remuxedLiveUrl(url, backSec)
   let done = false
   const fail = (): void => {
     if (done) return
@@ -271,7 +280,22 @@ function attachRemux(
   video.addEventListener('error', onError)
   video.addEventListener('ended', onError)
   video.src = src
-  video.play().catch(() => {})
+
+  // Tampon ayarına göre, oynatmaya başlamadan önce yeterli yedek biriktir
+  // (en fazla 9 sn beklenir).
+  const startedAt = performance.now()
+  let started = false
+  const tryStart = (behind: number): void => {
+    if (started || done) return
+    if (behind >= startBufferSec(video) || performance.now() - startedAt > 9000) {
+      started = true
+      video.play().catch(() => {})
+    }
+  }
+  if (startBufferSec(video) === 0) {
+    started = true
+    video.play().catch(() => {})
+  }
 
   // Yedek yastığı: sunucu veriyi düzensiz aralıklarla gönderdiğinde elde az
   // veri varken kısa bir gecikme görüntüyü dondurur. Elimizdeki gerçek yedek
@@ -280,16 +304,21 @@ function attachRemux(
   // Yedek azsa oynatmayı fark edilmeyecek kadar yavaşlatıp (%3) yaklaşık
   // 4 sn biriktiriyoruz; çok birikirse (ör. uzun duraklatmadan sonra)
   // hafifçe hızlanıp canlıya yaklaşıyoruz.
-  const pace = (outTimeSec?: number): void => {
-    if (outTimeSec === undefined || video.paused || video.readyState < 3) return
+  // behind: canlının toplam kaç sn gerisindeyiz (kuyrukta bekleyen veri dahil)
+  const pace = (outTimeSec: number | undefined, behind: number): void => {
+    if (!started || outTimeSec === undefined || video.paused || video.readyState < 3) return
     const cushion = outTimeSec - video.currentTime
+    const target = bufferTargetSec(video)
     const current = video.playbackRate
     let rate = 1
     if (cushion < 1.5) rate = 0.92
-    else if (cushion < 3) rate = 0.97
-    else if (cushion < 4.5) rate = current < 1 ? 0.97 : 1
-    else if (cushion > 12) rate = 1.05
-    else if (cushion > 8) rate = current > 1 ? 1.05 : 1
+    else if (behind < target * 0.4) rate = 0.95
+    else if (behind < target * 0.75) rate = 0.97
+    else if (behind < target) rate = current < 1 ? 0.97 : 1
+    else if (behind > target + 8) rate = 1.05
+    else if (behind > target + 4) rate = current > 1 ? 1.05 : 1
+    // Kullanıcı bilerek geri sardıysa canlıya yetişmek için hızlanma
+    if (backSec > 0 && rate > 1) rate = 1
     if (current !== rate) video.playbackRate = rate
   }
 
@@ -298,21 +327,28 @@ function attachRemux(
       .liveInfo()
       .then((i) => {
         if (done) return
+        const cushion =
+          i.outTimeSec !== undefined ? Math.max(0, i.outTimeSec - video.currentTime) : 0
+        const behind = (i.queuedSec ?? 0) + cushion
         onInfo({
           bitrateKbps: i.bitrateKbps,
           videoCodec: i.videoCodec,
           audioCodec: i.audioCodec,
-          nominalFps: i.fps
+          nominalFps: i.fps,
+          rewindableSec: i.ringSec,
+          behindLiveSec: i.outTimeSec !== undefined ? behind : undefined
         })
-        pace(i.outTimeSec)
+        tryStart(behind)
+        pace(i.outTimeSec, behind)
       })
       .catch(() => {})
   }
-  const infoTimer = setInterval(pollInfo, 1000)
+  const infoTimer = setInterval(pollInfo, 500)
   pollInfo()
 
   return {
     clipMode: 'proxy',
+    canRewind: true,
     destroy: () => {
       done = true
       clearInterval(infoTimer)
@@ -329,10 +365,14 @@ function attachRemux(
 export function attachStream(
   video: HTMLVideoElement,
   url: string,
-  onFatalError: (message: string) => void
+  onFatalError: (message: string) => void,
+  options: { liveBackSec?: number } = {}
 ): AttachedPlayer {
   let info: StreamInfo = {}
   let currentKind: EngineKind = detectKind(url)
+  // Canlı aktarıcıyı kullanmayan içerik (film/dizi, HLS) açılıyorsa önceki
+  // canlı yayının sunucu bağlantısını hemen bırak (tek bağlantılı hesaplar).
+  if (!(currentKind === 'mpegts' && isProxyAvailable())) window.iptv.proxy.releaseLive()
   let current: EngineHandle | null = null
   let triedAlternate = false
 
@@ -377,20 +417,26 @@ export function attachStream(
       // Hiç açılamadıysa (ör. tarayıcının çözemediği bir codec) aynı adresi
       // mpegts.js ile dene; o da olmazsa normal yedek zinciri devam eder.
       let lastReconnect = 0
-      const startRemux = (): void => {
-        current = attachRemux(video, targetUrl, onInfo, (played) => {
-          current?.destroy()
-          if (played && Date.now() - lastReconnect > 15_000) {
-            lastReconnect = Date.now()
-            startRemux()
-          } else if (!played && mpegts.isSupported()) {
-            current = attachMpegts(video, targetUrl, onInfo, onFatal)
-          } else {
-            onFatal()
-          }
-        })
+      const startRemux = (backSec: number): void => {
+        current = attachRemux(
+          video,
+          targetUrl,
+          onInfo,
+          (played) => {
+            current?.destroy()
+            if (played && Date.now() - lastReconnect > 15_000) {
+              lastReconnect = Date.now()
+              startRemux(0)
+            } else if (!played && mpegts.isSupported()) {
+              current = attachMpegts(video, targetUrl, onInfo, onFatal)
+            } else {
+              onFatal()
+            }
+          },
+          backSec
+        )
       }
-      startRemux()
+      startRemux(options.liveBackSec ?? 0)
     } else if (kind === 'mpegts' && mpegts.isSupported()) {
       current = attachMpegts(video, targetUrl, onInfo, onFatal)
     } else {
@@ -407,6 +453,9 @@ export function attachStream(
     },
     get clipMode() {
       return current?.clipMode ?? 'none'
+    },
+    get canRewind() {
+      return current?.canRewind ?? false
     },
     getInfo: () => info,
     getHlsClip: (seconds) => current?.getHlsClip?.(seconds) ?? null,

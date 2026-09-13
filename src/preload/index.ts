@@ -24,13 +24,27 @@ const api = {
   proxy: {
     getPort: (): Promise<number> => ipcRenderer.invoke('proxy:getPort'),
     canRemux: (): Promise<boolean> => ipcRenderer.invoke('proxy:canRemux'),
+    releaseLive: (): void => ipcRenderer.send('proxy:releaseLive'),
     liveInfo: (): Promise<{
       videoCodec?: string
       audioCodec?: string
       fps?: number
       bitrateKbps?: number
       outTimeSec?: number
+      ringSec?: number
+      queuedSec?: number
     }> => ipcRenderer.invoke('proxy:liveInfo')
+  },
+  window: {
+    setCompact: (on: boolean): Promise<boolean> => ipcRenderer.invoke('window:setCompact', on)
+  },
+  media: {
+    saveScreenshot: (bytes: Uint8Array, title: string): Promise<ClipResult> =>
+      ipcRenderer.invoke('media:saveScreenshot', bytes, title),
+    capturePage: (
+      rect: { x: number; y: number; width: number; height: number },
+      title: string
+    ): Promise<ClipResult> => ipcRenderer.invoke('media:capturePage', rect, title)
   },
   clips: {
     saveLive: (title: string, seconds?: number, latencySec?: number): Promise<ClipResult> =>

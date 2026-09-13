@@ -2,23 +2,41 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactElement } fr
 import type { ClipResult, EpgProgram, PlayableItem, SourceConfig } from '../../../shared/types'
 import { attachStream, type AttachedPlayer, type TrackInfo } from '../lib/playerEngine'
 import { ChannelDrawer, type ChannelDrawerData } from './ChannelDrawer'
+import { PlayerSettingsPanel } from './PlayerSettingsPanel'
+import { ShortcutHelp } from './ShortcutHelp'
 import { useStreamStats } from '../hooks/useStreamStats'
+import { usePictureSettings } from '../hooks/usePictureSettings'
+import { pictureFilter } from '../lib/pictureSettings'
+import { loadLeveling, saveLeveling, setVolumeLeveling } from '../lib/audioLeveling'
+import {
+  getBufferMode,
+  looksUhd,
+  setBufferMode,
+  setLargeBufferHint,
+  type BufferMode
+} from '../lib/bufferSetting'
 import { getShortEpg } from '../lib/xtream'
 import { getProgress, saveProgress } from '../lib/continueWatching'
 import {
   IconArrowLeft,
+  IconCamera,
   IconChannels,
   IconClose,
   IconExpand,
+  IconKeyboard,
   IconLiveTv,
+  IconMiniWindow,
   IconMute,
   IconPause,
+  IconPip,
   IconPlay,
   IconRefresh,
+  IconRewind,
   IconScissors,
   IconSettings,
   IconSkipNext,
   IconSkipPrev,
+  IconSliders,
   IconStar,
   IconVolume,
   IconWarning
@@ -44,9 +62,19 @@ interface Props {
   onPrev?: () => void
   onNext?: () => void
   drawer?: ChannelDrawerData
+  // Oynatmayı tamamen durdur (uyku zamanlayıcısı)
+  onStop?: () => void
+  // Başka bir öğeyi oynat (dizide sıradaki bölüm)
+  onPlayItem?: (item: PlayableItem) => void
+  // Mini pencere (her zaman üstte)
+  compact?: boolean
+  onToggleCompact?: () => void
 }
 
 const VOLUME_STORAGE_KEY = 'iptv-toto-volume'
+// Sıradaki bölüm kartı, bölümün son bu kadar saniyesinde çıkar
+const NEXT_EPISODE_LEAD_SEC = 25
+const NEXT_EPISODE_COUNTDOWN = 10
 
 function loadStoredVolume(): { volume: number; muted: boolean } {
   try {
@@ -85,10 +113,10 @@ function formatClock(ms: number): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-type ClipState =
+type ToastState =
   | { status: 'idle' }
-  | { status: 'saving' }
-  | { status: 'done'; path: string }
+  | { status: 'saving'; label: string }
+  | { status: 'done'; path: string; label: string }
   | { status: 'error'; error: string }
 
 export function PlayerPane({
@@ -101,7 +129,11 @@ export function PlayerPane({
   onExpand,
   onPrev,
   onNext,
-  drawer
+  drawer,
+  onStop,
+  onPlayItem,
+  compact = false,
+  onToggleCompact
 }: Props): ReactElement {
   const videoRef = useRef<HTMLVideoElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -124,13 +156,27 @@ export function PlayerPane({
   const [currentAudio, setCurrentAudio] = useState(-1)
   const [currentSubtitle, setCurrentSubtitle] = useState(-1)
   const [tracksMenuOpen, setTracksMenuOpen] = useState(false)
-  const [clip, setClip] = useState<ClipState>({ status: 'idle' })
+  const [toast, setToast] = useState<ToastState>({ status: 'idle' })
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [panelOpen, setPanelOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
+  const [speed, setSpeed] = useState(1)
+  const [leveling, setLeveling] = useState(loadLeveling)
+  const [bufferMode, setBufferModeState] = useState<BufferMode>(getBufferMode)
+  const [sleepAt, setSleepAt] = useState<number | null>(null)
+  const [clockNow, setClockNow] = useState(() => Date.now())
+  // Canlı yayını geri sarma: hangi kanal için kaç saniye geriden oynatılıyor
+  const [rewind, setRewind] = useState<{ url: string; back: number }>({ url: '', back: 0 })
+  const [liveMeta, setLiveMeta] = useState<{ behind?: number; rewindable?: number }>({})
+  const [nextDismissedFor, setNextDismissedFor] = useState<string | null>(null)
+  const [countdown, setCountdown] = useState<number | null>(null)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const clipTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const resumedForUrl = useRef<string | null>(null)
 
+  const picture = usePictureSettings()
   const stats = useStreamStats(videoRef, player)
+  const liveBack = item && rewind.url === item.url ? rewind.back : 0
 
   // Ses seviyesini bir kere, uygulama açılışında hatırlanan değere ayarla
   // (video elementi tek örnek olduğu için kanal/film değişse de korunur).
@@ -146,14 +192,21 @@ export function PlayerPane({
 
   useEffect(() => {
     setError(null)
-    setClip({ status: 'idle' })
+    setToast({ status: 'idle' })
     const video = videoRef.current
     if (!video || !item) {
-      if (video) video.removeAttribute('src')
+      if (video) {
+        video.removeAttribute('src')
+        video.load()
+      }
+      window.iptv.proxy.releaseLive()
       return
     }
 
-    const attached = attachStream(video, item.url, (message) => setError(message))
+    setLargeBufferHint(item.isLive && looksUhd(`${item.name} ${item.group}`))
+    const attached = attachStream(video, item.url, (message) => setError(message), {
+      liveBackSec: item.isLive ? liveBack : 0
+    })
     setPlayer(attached)
 
     return () => {
@@ -161,7 +214,7 @@ export function PlayerPane({
       setPlayer(null)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item?.url, retryTick])
+  }, [item?.url, retryTick, liveBack])
 
   useEffect(() => {
     errorRef.current = error
@@ -195,6 +248,17 @@ export function PlayerPane({
     }, 500)
     return () => clearInterval(iv)
   }, [player])
+
+  // Canlı yayında geri sarma bilgisi (canlının kaç sn gerisinde, ne kadar geri gidilebilir)
+  useEffect(() => {
+    setLiveMeta({})
+    if (!player || !item?.isLive) return
+    const iv = setInterval(() => {
+      const info = player.getInfo()
+      setLiveMeta({ behind: info.behindLiveSec, rewindable: info.rewindableSec })
+    }, 1000)
+    return () => clearInterval(iv)
+  }, [player, item?.isLive])
 
   // Kaldığın yerden devam et (canlı olmayan içerikler için)
   useEffect(() => {
@@ -290,6 +354,94 @@ export function PlayerPane({
     }
   }, [item?.url])
 
+  // Oynatma hızı (yalnızca film/dizi) — yeni içerikte normale döner
+  useEffect(() => {
+    setSpeed(1)
+  }, [item?.url])
+
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video || !item || item.isLive) return
+    const apply = (): void => {
+      video.playbackRate = speed
+    }
+    apply()
+    video.addEventListener('loadedmetadata', apply)
+    return () => video.removeEventListener('loadedmetadata', apply)
+  }, [speed, item])
+
+  // Ses seviyesi dengeleme
+  useEffect(() => {
+    const video = videoRef.current
+    if (video) {
+      try {
+        setVolumeLeveling(video, leveling)
+      } catch {
+        /* ses grafiği kurulamadı; ses normal şekilde çalmaya devam eder */
+      }
+    }
+    saveLeveling(leveling)
+  }, [leveling])
+
+  // Uyku zamanlayıcısı
+  useEffect(() => {
+    if (sleepAt === null) return
+    const iv = setInterval(() => {
+      const now = Date.now()
+      setClockNow(now)
+      if (now >= sleepAt) {
+        setSleepAt(null)
+        videoRef.current?.pause()
+        if (document.fullscreenElement) void document.exitFullscreen()
+        onStop?.()
+      }
+    }, 1000)
+    return () => clearInterval(iv)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sleepAt])
+
+  // ----- Sıradaki bölüm -----
+  const remaining = duration - currentTime
+  const showNext =
+    !!item?.nextEpisode &&
+    !item.isLive &&
+    duration > 60 &&
+    remaining <= NEXT_EPISODE_LEAD_SEC &&
+    nextDismissedFor !== item.id
+
+  function playNextEpisode(): void {
+    if (!item?.nextEpisode) return
+    setCountdown(null)
+    onPlayItem?.(item.nextEpisode)
+  }
+
+  useEffect(() => {
+    if (!showNext) {
+      setCountdown(null)
+      return
+    }
+    setCountdown(NEXT_EPISODE_COUNTDOWN)
+    const iv = setInterval(() => setCountdown((c) => (c === null ? null : c - 1)), 1000)
+    return () => clearInterval(iv)
+  }, [showNext])
+
+  useEffect(() => {
+    if (countdown !== null && countdown <= 0) playNextEpisode()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [countdown])
+
+  // Bölüm kart çıkmadan biterse (ör. çok kısa jenerik) doğrudan geç
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video || !item?.nextEpisode || item.isLive) return
+    const onEnded = (): void => {
+      if (nextDismissedFor !== item.id) playNextEpisode()
+    }
+    video.addEventListener('ended', onEnded)
+    return () => video.removeEventListener('ended', onEnded)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item, nextDismissedFor])
+
   useEffect(() => {
     const onFs = (): void => {
       const fs = document.fullscreenElement === wrapRef.current
@@ -320,17 +472,18 @@ export function PlayerPane({
     }
   }, [item?.isLive, item?.streamId, source])
 
-  // Kontrolleri fare hareketsizken otomatik gizle (oynatılırken)
+  // Kontrolleri fare hareketsizken otomatik gizle (oynatılırken). Ayar
+  // paneli açıkken gizleme.
   useEffect(() => {
     function resetTimer(): void {
       setControlsVisible(true)
       if (hideTimer.current) clearTimeout(hideTimer.current)
-      if (isPlaying) {
+      if (isPlaying && !panelOpen) {
         hideTimer.current = setTimeout(() => setControlsVisible(false), 3200)
       }
     }
     const onLeave = (): void => {
-      if (isPlaying) setControlsVisible(false)
+      if (isPlaying && !panelOpen) setControlsVisible(false)
     }
     resetTimer()
     const el = wrapRef.current
@@ -341,11 +494,10 @@ export function PlayerPane({
       el?.removeEventListener('mouseleave', onLeave)
       if (hideTimer.current) clearTimeout(hideTimer.current)
     }
-  }, [isPlaying, item?.id])
+  }, [isPlaying, item?.id, panelOpen])
 
-  // Klavye kısayolları: boşluk/k=oynat-duraklat, yukarı/aşağı=ses, sol/sağ=sar
-  // (canlı olmayanlarda), m=sessiz, f=tam ekran, c=son 30 sn'yi kaydet.
-  // Mini moddayken (film/dizi ekranında gezinirken) kısayollar devre dışı.
+  // Klavye kısayolları (tam liste: ? tuşu). Mini moddayken (film/dizi
+  // ekranında gezinirken) kısayollar devre dışı.
   useEffect(() => {
     if (!item || mode === 'mini') return
     const currentItem = item
@@ -356,7 +508,7 @@ export function PlayerPane({
     }
 
     function onKeyDown(e: KeyboardEvent): void {
-      if (isTypingTarget(e.target)) return
+      if (isTypingTarget(e.target) || e.metaKey || e.ctrlKey) return
       const video = videoRef.current
       if (!video) return
 
@@ -373,10 +525,31 @@ export function PlayerPane({
           toggleFullscreen()
           break
         case 'c':
-          saveClip()
+          void saveClip()
+          break
+        case 's':
+          void takeScreenshot()
+          break
+        case 'p':
+          void togglePip()
+          break
+        case 'w':
+          onToggleCompact?.()
+          break
+        case 'g':
+          setPanelOpen((v) => !v)
+          break
+        case 'j':
+          rewindBy(10)
+          break
+        case '?':
+          setHelpOpen((v) => !v)
           break
         case 'Escape':
-          if (drawerOpen) setDrawerOpen(false)
+          if (helpOpen) setHelpOpen(false)
+          else if (panelOpen) setPanelOpen(false)
+          else if (drawerOpen) setDrawerOpen(false)
+          else if (compact) onToggleCompact?.()
           else if (mode === 'theater' && !document.fullscreenElement) onClose?.()
           break
         case 'l':
@@ -414,7 +587,7 @@ export function PlayerPane({
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item, mode, player, drawerOpen, drawer, onPrev, onNext])
+  }, [item, mode, player, drawerOpen, drawer, onPrev, onNext, panelOpen, helpOpen, compact, liveMeta, picture.settings])
 
   function retry(): void {
     setError(null)
@@ -424,9 +597,9 @@ export function PlayerPane({
   function toggleFullscreen(): void {
     if (!wrapRef.current) return
     if (document.fullscreenElement) {
-      document.exitFullscreen()
+      void document.exitFullscreen()
     } else {
-      wrapRef.current.requestFullscreen()
+      void wrapRef.current.requestFullscreen()
     }
   }
 
@@ -443,6 +616,17 @@ export function PlayerPane({
     video.muted = !video.muted
   }
 
+  async function togglePip(): Promise<void> {
+    const video = videoRef.current
+    if (!video) return
+    try {
+      if (document.pictureInPictureElement) await document.exitPictureInPicture()
+      else await video.requestPictureInPicture()
+    } catch {
+      showToast({ status: 'error', error: 'Resim içinde resim bu yayında açılamadı.' })
+    }
+  }
+
   function onVolumeChange(e: React.ChangeEvent<HTMLInputElement>): void {
     const video = videoRef.current
     if (!video) return
@@ -457,18 +641,34 @@ export function PlayerPane({
     video.currentTime = Number(e.target.value)
   }
 
-  function showClipResult(next: ClipState): void {
-    setClip(next)
-    if (clipTimer.current) clearTimeout(clipTimer.current)
+  function rewindBy(seconds: number): void {
+    if (!item?.isLive || !player?.canRewind) return
+    const behind = liveMeta.behind ?? 0
+    const max = Math.max(0, (liveMeta.rewindable ?? 0) - 3)
+    const target = Math.min(max, Math.round(behind + seconds))
+    if (target <= behind + 1) {
+      showToast({ status: 'error', error: 'Daha geriye gidilemiyor (en fazla ~2,5 dakika).' })
+      return
+    }
+    setRewind({ url: item.url, back: target })
+  }
+
+  function goLive(): void {
+    if (item) setRewind({ url: item.url, back: 0 })
+  }
+
+  function showToast(next: ToastState): void {
+    setToast(next)
+    if (toastTimer.current) clearTimeout(toastTimer.current)
     if (next.status === 'done' || next.status === 'error') {
-      clipTimer.current = setTimeout(() => setClip({ status: 'idle' }), 7000)
+      toastTimer.current = setTimeout(() => setToast({ status: 'idle' }), 7000)
     }
   }
 
   async function saveClip(): Promise<void> {
     const video = videoRef.current
-    if (!item || !player || !video || clip.status === 'saving') return
-    showClipResult({ status: 'saving' })
+    if (!item || !player || !video || toast.status === 'saving') return
+    showToast({ status: 'saving', label: 'Son 30 saniye kaydediliyor…' })
     let res: ClipResult
     try {
       if (!item.isLive) {
@@ -477,7 +677,8 @@ export function PlayerPane({
         // Oynatıcı canlının biraz gerisinden gösterir; kesit ekranda görülen
         // anın son 30 saniyesi olsun diye bu gecikmeyi de gönderiyoruz.
         const b = video.buffered
-        const latency = b.length ? Math.max(0, b.end(b.length - 1) - video.currentTime) : 0
+        const latency =
+          liveMeta.behind ?? (b.length ? Math.max(0, b.end(b.length - 1) - video.currentTime) : 0)
         res = await window.iptv.clips.saveLive(item.name, 30, latency)
       } else if (player.clipMode === 'hls') {
         const bytes = player.getHlsClip(30)
@@ -490,10 +691,42 @@ export function PlayerPane({
     } catch (err) {
       res = { ok: false, error: err instanceof Error ? err.message : 'Kesit kaydedilemedi' }
     }
-    showClipResult(
+    showToast(
       res.ok && res.path
-        ? { status: 'done', path: res.path }
+        ? { status: 'done', path: res.path, label: 'Kesit kaydedildi' }
         : { status: 'error', error: res.error || 'Kesit kaydedilemedi' }
+    )
+  }
+
+  // Videonun o anki karesini (görüntü ayarları uygulanmış haliyle) PNG olarak kaydet
+  async function takeScreenshot(): Promise<void> {
+    const video = videoRef.current
+    if (!item || !video || !video.videoWidth) return
+    let res: ClipResult
+    try {
+      const canvas = document.createElement('canvas')
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('canvas')
+      const filter = pictureFilter(picture.settings)
+      if (filter !== 'none') ctx.filter = filter
+      ctx.drawImage(video, 0, 0)
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
+      if (!blob) throw new Error('boş')
+      res = await window.iptv.media.saveScreenshot(new Uint8Array(await blob.arrayBuffer()), item.name)
+    } catch {
+      // Kare okunamadıysa ekranda görünen video alanını yakala
+      const r = video.getBoundingClientRect()
+      res = await window.iptv.media.capturePage(
+        { x: r.x, y: r.y, width: r.width, height: r.height },
+        item.name
+      )
+    }
+    showToast(
+      res.ok && res.path
+        ? { status: 'done', path: res.path, label: 'Ekran görüntüsü kaydedildi' }
+        : { status: 'error', error: res.error || 'Ekran görüntüsü alınamadı' }
     )
   }
 
@@ -504,11 +737,18 @@ export function PlayerPane({
       ? Math.min(100, Math.max(0, ((Date.now() - now.start) / (now.end - now.start)) * 100))
       : 0
 
-  const showOverlay = controlsVisible || !isPlaying
+  const showOverlay = controlsVisible || !isPlaying || panelOpen
   // Kenar bilgileri (başlık, EPG, istatistik) yan panelde alttaki bilgi
-  // alanında gösteriliyor; video üzerine yalnızca tam ekran/tam sayfa modunda.
-  const richOverlay = isFullscreen || mode === 'theater'
+  // alanında gösteriliyor; video üzerine yalnızca tam ekran/tam sayfa/mini pencerede.
+  const richOverlay = isFullscreen || mode === 'theater' || compact
   const stageStyle = { '--ar': aspect } as CSSProperties
+  const videoStyle: CSSProperties = {
+    filter: pictureFilter(picture.settings),
+    objectFit: picture.settings.fit
+  }
+  const isBehindLive = !!item?.isLive && liveBack > 0
+  const sleepMinutesLeft =
+    sleepAt !== null ? Math.max(1, Math.ceil((sleepAt - clockNow) / 60000)) : null
 
   const statsChips =
     stats.width > 0 ? (
@@ -530,19 +770,31 @@ export function PlayerPane({
       </div>
     ) : null
 
-  const clipToast =
-    clip.status !== 'idle' ? (
-      <div className={`clip-toast clip-toast-${clip.status}`}>
-        {clip.status === 'saving' && <span>Son 30 saniye kaydediliyor…</span>}
-        {clip.status === 'done' && (
+  const toastEl =
+    toast.status !== 'idle' ? (
+      <div className={`clip-toast clip-toast-${toast.status}`}>
+        {toast.status === 'saving' && <span>{toast.label}</span>}
+        {toast.status === 'done' && (
           <>
-            <span>Kesit kaydedildi</span>
-            <button onClick={() => window.iptv.shell.showItem(clip.path)}>Klasörde göster</button>
+            <span>{toast.label}</span>
+            <button onClick={() => window.iptv.shell.showItem(toast.path)}>Klasörde göster</button>
           </>
         )}
-        {clip.status === 'error' && <span>{clip.error}</span>}
+        {toast.status === 'error' && <span>{toast.error}</span>}
       </div>
     ) : null
+
+  const liveBadge = item?.isLive ? (
+    isBehindLive ? (
+      <button className="live-badge live-badge-behind" onClick={goLive} title="Canlı yayına dön">
+        −{formatTime(liveMeta.behind ?? liveBack)} · Canlıya dön
+      </button>
+    ) : (
+      <span className="live-badge">
+        <span className="live-dot" /> CANLI
+      </span>
+    )
+  ) : null
 
   return (
     <div className={`player-pane mode-${mode}`}>
@@ -554,7 +806,12 @@ export function PlayerPane({
           <video
             ref={videoRef}
             playsInline
-            onClick={() => (mode === 'mini' ? onExpand?.() : togglePlay())}
+            style={videoStyle}
+            onClick={() => {
+              if (mode === 'mini') onExpand?.()
+              else if (panelOpen) setPanelOpen(false)
+              else togglePlay()
+            }}
             onDoubleClick={() => mode !== 'mini' && toggleFullscreen()}
           />
 
@@ -606,7 +863,7 @@ export function PlayerPane({
           {item && !error && mode !== 'mini' && (
             <>
               <div className="player-topbar" style={{ opacity: showOverlay ? 1 : 0 }}>
-                {mode === 'theater' && (
+                {mode === 'theater' && !compact && (
                   <button className="icon-btn" onClick={onClose} title="Geri (Esc)">
                     <IconArrowLeft size={15} />
                   </button>
@@ -618,16 +875,12 @@ export function PlayerPane({
                   </div>
                 )}
                 <div className="topbar-spacer" />
-                {item.isLive && (
-                  <span className="live-badge">
-                    <span className="live-dot" /> CANLI
-                  </span>
-                )}
-                {richOverlay && statsChips}
+                {liveBadge}
+                {richOverlay && !compact && statsChips}
               </div>
 
               <div className="player-bottom" style={{ opacity: showOverlay ? 1 : 0 }}>
-                {richOverlay && item.isLive && now && (
+                {richOverlay && !compact && item.isLive && now && (
                   <div className="epg-strip">
                     <div className="epg-now">
                       <span className="epg-label">Şimdi</span>
@@ -661,6 +914,20 @@ export function PlayerPane({
                     </button>
                     {onNext && (
                       <button className="icon-btn" onClick={onNext} title="Sonraki kanal (→)">
+                        <IconSkipNext size={15} />
+                      </button>
+                    )}
+                    {item.isLive && player?.canRewind && (
+                      <button className="icon-btn" onClick={() => rewindBy(10)} title="10 sn geri sar (J)">
+                        <IconRewind size={16} />
+                      </button>
+                    )}
+                    {!item.isLive && item.nextEpisode && (
+                      <button
+                        className="icon-btn"
+                        onClick={playNextEpisode}
+                        title="Sonraki bölüm"
+                      >
                         <IconSkipNext size={15} />
                       </button>
                     )}
@@ -700,15 +967,31 @@ export function PlayerPane({
                   </div>
 
                   <button
-                    className={`icon-btn ${clip.status === 'saving' ? 'icon-btn-busy' : ''}`}
-                    onClick={saveClip}
+                    className={`icon-btn hide-compact ${toast.status === 'saving' ? 'icon-btn-busy' : ''}`}
+                    onClick={() => void saveClip()}
                     title="Son 30 saniyeyi kaydet (C)"
                   >
                     <IconScissors size={15} />
                   </button>
 
+                  <button
+                    className="icon-btn hide-compact"
+                    onClick={() => void takeScreenshot()}
+                    title="Ekran görüntüsü (S)"
+                  >
+                    <IconCamera size={15} />
+                  </button>
+
+                  <button
+                    className={`icon-btn ${panelOpen ? 'icon-btn-active' : ''}`}
+                    onClick={() => setPanelOpen((v) => !v)}
+                    title="Görüntü / ses / uyku ayarları (G)"
+                  >
+                    <IconSliders size={15} />
+                  </button>
+
                   {(audioTracks.length > 1 || subtitleTracks.length > 0) && (
-                    <div className="tracks-menu-wrap">
+                    <div className="tracks-menu-wrap hide-compact">
                       <button
                         className="icon-btn"
                         onClick={() => setTracksMenuOpen((v) => !v)}
@@ -766,6 +1049,24 @@ export function PlayerPane({
                     </div>
                   )}
 
+                  <button
+                    className="icon-btn hide-compact"
+                    onClick={() => void togglePip()}
+                    title="Resim içinde resim (P)"
+                  >
+                    <IconPip size={15} />
+                  </button>
+
+                  {onToggleCompact && !isFullscreen && (
+                    <button
+                      className={`icon-btn ${compact ? 'icon-btn-active' : ''}`}
+                      onClick={onToggleCompact}
+                      title={compact ? 'Normal pencereye dön (W)' : 'Mini pencere — her zaman üstte (W)'}
+                    >
+                      <IconMiniWindow size={15} />
+                    </button>
+                  )}
+
                   {drawer && isFullscreen && (
                     <button
                       className={`icon-btn ${drawerOpen ? 'icon-btn-active' : ''}`}
@@ -776,23 +1077,78 @@ export function PlayerPane({
                     </button>
                   )}
 
-                  <button className="icon-btn" onClick={toggleFullscreen} title="Tam ekran (F)">
-                    <IconExpand size={15} />
+                  <button
+                    className="icon-btn hide-compact"
+                    onClick={() => setHelpOpen(true)}
+                    title="Klavye kısayolları (?)"
+                  >
+                    <IconKeyboard size={15} />
                   </button>
+
+                  {!compact && (
+                    <button className="icon-btn" onClick={toggleFullscreen} title="Tam ekran (F)">
+                      <IconExpand size={15} />
+                    </button>
+                  )}
                 </div>
               </div>
 
-              {richOverlay && clipToast}
+              {richOverlay && toastEl}
             </>
+          )}
+
+          {item && panelOpen && mode !== 'mini' && (
+            <PlayerSettingsPanel
+              isLive={item.isLive}
+              picture={picture}
+              speed={speed}
+              onSpeedChange={setSpeed}
+              leveling={leveling}
+              onLevelingChange={setLeveling}
+              sleepMinutesLeft={sleepMinutesLeft}
+              onSleepChange={(m) => {
+                setClockNow(Date.now())
+                setSleepAt(m === null ? null : Date.now() + m * 60000)
+              }}
+              bufferMode={bufferMode}
+              onBufferModeChange={(m) => {
+                setBufferMode(m)
+                setBufferModeState(m)
+              }}
+              bufferSec={liveMeta.behind}
+              onClose={() => setPanelOpen(false)}
+            />
+          )}
+
+          {item && showNext && item.nextEpisode && mode !== 'mini' && (
+            <div className="next-episode-card">
+              <div className="next-episode-kicker">
+                Sıradaki bölüm{countdown !== null ? ` · ${Math.max(0, countdown)} sn` : ''}
+              </div>
+              <div className="next-episode-title">
+                S{item.nextEpisode.season} B{item.nextEpisode.episodeNum} ·{' '}
+                {item.nextEpisode.name.replace(`${item.nextEpisode.seriesName} · `, '')}
+              </div>
+              <div className="next-episode-actions">
+                <button className="btn-primary btn-sm" onClick={playNextEpisode}>
+                  <IconPlay size={12} /> Şimdi oynat
+                </button>
+                <button className="btn-secondary btn-sm" onClick={() => setNextDismissedFor(item.id)}>
+                  İptal
+                </button>
+              </div>
+            </div>
           )}
 
           {item && drawer && drawerOpen && isFullscreen && (
             <ChannelDrawer data={drawer} selectedId={item.id} onClose={() => setDrawerOpen(false)} />
           )}
+
+          {helpOpen && <ShortcutHelp onClose={() => setHelpOpen(false)} />}
         </div>
       </div>
 
-      {mode === 'docked' && item && (
+      {mode === 'docked' && item && !compact && (
         <div className="player-info">
           <div className="player-info-head">
             <div className="player-info-logo">
@@ -815,12 +1171,16 @@ export function PlayerPane({
                 <IconStar size={13} filled={isFavorite} /> {isFavorite ? 'Favoride' : 'Favori'}
               </button>
             )}
-            <button className="btn-secondary btn-sm" onClick={saveClip} disabled={clip.status === 'saving'}>
+            <button
+              className="btn-secondary btn-sm"
+              onClick={() => void saveClip()}
+              disabled={toast.status === 'saving'}
+            >
               <IconScissors size={13} /> Son 30 sn'yi kaydet
             </button>
           </div>
 
-          {clipToast}
+          {toastEl}
 
           {item.isLive && now && (
             <div className="player-info-now">

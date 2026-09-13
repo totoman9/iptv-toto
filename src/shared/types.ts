@@ -99,6 +99,8 @@ export interface PlayableItem {
   seriesName?: string
   season?: number
   episodeNum?: number
+  // Dizide sıradaki bölüm (bölüm bitince otomatik geçiş için)
+  nextEpisode?: PlayableItem
 }
 
 export interface EpgProgram {

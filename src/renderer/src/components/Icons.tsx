@@ -320,3 +320,62 @@ export function IconChannels({ size, ...rest }: IconProps): ReactElement {
     </svg>
   )
 }
+
+export function IconRewind({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1" />
+      <path d="M3.5 4v4.5H8" />
+      <text x="12" y="15.2" fontSize="7" fontWeight="700" textAnchor="middle" fill="currentColor" stroke="none">
+        10
+      </text>
+    </svg>
+  )
+}
+
+export function IconCamera({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <path d="M4 8h3l1.6-2.4h6.8L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" />
+      <circle cx="12" cy="13" r="3.4" />
+    </svg>
+  )
+}
+
+export function IconSliders({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1" />
+      <circle cx="15" cy="6" r="2" />
+      <circle cx="9" cy="12" r="2" />
+      <circle cx="17" cy="18" r="2" />
+    </svg>
+  )
+}
+
+export function IconPip({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <rect x="2.5" y="4.5" width="19" height="15" rx="2" />
+      <rect x="12" y="11.5" width="7" height="5.5" rx="1" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+export function IconMiniWindow({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <rect x="2.5" y="4.5" width="19" height="15" rx="2" />
+      <path d="M14 10.5h4.5M18.5 10.5V6M18.5 6l-5 4.5" />
+    </svg>
+  )
+}
+
+export function IconKeyboard({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <rect x="2.5" y="6" width="19" height="12" rx="2" />
+      <path d="M6 10h.01M9.5 10h.01M13 10h.01M16.5 10h.01M7 14h10" />
+    </svg>
+  )
+}

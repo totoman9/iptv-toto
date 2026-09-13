@@ -69,6 +69,8 @@ function App(): ReactElement {
   const [liveGroup, setLiveGroup] = useState(ALL_GROUP)
   const [listView, setListView] = useState<ListViewMode>(loadListView)
   const [theme, setTheme] = useState<Theme>(loadTheme)
+  // Mini pencere: uygulama küçülüp köşede her zaman üstte kalır
+  const [compact, setCompact] = useState(false)
 
   const favoriteChannels = useMemo(
     () => channels.filter((c) => favoriteIds.has(c.id)),
@@ -175,6 +177,20 @@ function App(): ReactElement {
     setTheme(next)
     applyTheme(next)
     saveTheme(next)
+  }
+
+  function setCompactMode(on: boolean): void {
+    setCompact(on)
+    document.body.classList.toggle('compact-mode', on)
+    void window.iptv.window.setCompact(on)
+  }
+
+  // Uyku zamanlayıcısı dolunca: oynatmayı tamamen durdur (sunucu bağlantısı da kapanır)
+  function stopPlayback(): void {
+    setTheater(false)
+    setPlaying(null)
+    setLiveBeforeTheater(null)
+    if (compact) setCompactMode(false)
   }
 
   function stepChannel(delta: number): void {
@@ -338,7 +354,7 @@ function App(): ReactElement {
             <PlayerPane
               item={playing}
               source={activeSource}
-              mode={hostMode === 'hidden' ? 'docked' : hostMode}
+              mode={compact || hostMode === 'hidden' ? 'docked' : hostMode}
               isFavorite={!!playing && favoriteIds.has(playing.id)}
               onToggleFavorite={playing?.isLive ? () => toggleFavorite(playing.id) : undefined}
               onClose={hostMode === 'theater' ? closeTheater : () => setPlaying(null)}
@@ -346,6 +362,10 @@ function App(): ReactElement {
               onPrev={hostMode === 'docked' && playing?.isLive ? () => stepChannel(-1) : undefined}
               onNext={hostMode === 'docked' && playing?.isLive ? () => stepChannel(1) : undefined}
               drawer={hostMode === 'docked' && playing?.isLive ? drawerData : undefined}
+              onStop={stopPlayback}
+              onPlayItem={setPlaying}
+              compact={compact}
+              onToggleCompact={() => setCompactMode(!compact)}
             />
           </div>
         </div>

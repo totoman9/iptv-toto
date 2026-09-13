@@ -305,11 +305,9 @@ export function MediaBrowser({
     })
   }
 
-  function playEpisode(s: SeriesItem, ep: SeriesEpisode, fromStart: boolean): void {
-    const id = episodeProgressId(ep)
-    if (fromStart) clearProgress(id)
-    onPlay({
-      id,
+  function episodeItem(s: SeriesItem, ep: SeriesEpisode): PlayableItem {
+    return {
+      id: episodeProgressId(ep),
       name: `${s.name} · ${ep.title}`,
       group: s.group,
       url: ep.url,
@@ -320,7 +318,26 @@ export function MediaBrowser({
       seriesName: s.name,
       season: ep.season,
       episodeNum: ep.episodeNum
-    })
+    }
+  }
+
+  function playEpisode(
+    s: SeriesItem,
+    ep: SeriesEpisode,
+    fromStart: boolean,
+    all: SeriesEpisode[] = []
+  ): void {
+    const item = episodeItem(s, ep)
+    if (fromStart) clearProgress(item.id)
+    // Sonraki bölümleri zincirle: bölüm bitince oynatıcı sıradakine geçer
+    const idx = all.findIndex((e) => e.id === ep.id)
+    let next: PlayableItem | undefined
+    if (idx >= 0) {
+      for (let i = all.length - 1; i > idx; i--) {
+        next = { ...episodeItem(s, all[i]), nextEpisode: next }
+      }
+    }
+    onPlay({ ...item, nextEpisode: next })
   }
 
   function openDetail(id: string): void {
@@ -468,7 +485,7 @@ export function MediaBrowser({
             source={source}
             entries={progressEntries}
             onBack={back}
-            onPlayEpisode={(ep, fromStart) => playEpisode(s, ep, fromStart)}
+            onPlayEpisode={(ep, fromStart, all) => playEpisode(s, ep, fromStart, all)}
           />
         </div>
       )
