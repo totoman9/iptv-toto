@@ -84,6 +84,8 @@ export interface MediaDetails {
   durationText?: string
   coverBig?: string
   backdrop?: string
+  // Filmin orijinal adı (IMDb eşleştirmesi için)
+  originalName?: string
 }
 
 // Oynatıcıya verilen öğe. kind/series* alanları "kaldığın yerden devam"

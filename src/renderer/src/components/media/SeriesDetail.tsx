@@ -11,6 +11,9 @@ import { getSeriesSeasons } from '../../lib/xtream'
 import { isFinished, progressRatio } from '../../lib/continueWatching'
 import { formatTime, minutesLeft } from '../../lib/format'
 import { IconArrowLeft, IconCheck, IconPlay } from '../Icons'
+import { useImdb } from '../../hooks/useImdb'
+import { seasonRatings, type ImdbEpisode } from '../../lib/omdb'
+import { ImdbBadge, episodeRatingClass } from './ImdbBadge'
 
 interface Props {
   item: SeriesItem
@@ -81,6 +84,26 @@ export function SeriesDetail({ item, source, entries, onBack, onPlayEpisode }: P
   }, [seasons, target, selectedSeason])
 
   const season = seasons.find((s) => s.season === selectedSeason) || seasons[0]
+
+  // IMDb: dizinin puanı ve seçili sezonun bölüm puanları
+  const imdb = useImdb([item.name], (details.releaseDate || item.year)?.slice(0, 4), 'series', !loading)
+  const [episodeRatings, setEpisodeRatings] = useState<Map<number, ImdbEpisode>>(new Map())
+  useEffect(() => {
+    setEpisodeRatings(new Map())
+    const imdbId = imdb.info?.imdbId
+    if (!imdbId || !season) return
+    let cancelled = false
+    seasonRatings(imdbId, season.season, season.episodes.length)
+      .then((list) => {
+        if (!cancelled) setEpisodeRatings(new Map(list.map((e) => [e.episode, e])))
+      })
+      .catch(() => {
+        /* bölüm puanları alınamadı; liste puansız görünür */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [imdb.info?.imdbId, season?.season, season?.episodes.length])
   const poster = details.coverBig || item.logo
   const bg = item.backdrop || poster
 
@@ -107,6 +130,7 @@ export function SeriesDetail({ item, source, entries, onBack, onPlayEpisode }: P
               {seasons.length > 0 && <span>{seasons.length} sezon</span>}
               {(details.rating || item.rating) && <span>★ {details.rating || item.rating}</span>}
             </div>
+            <ImdbBadge state={imdb} />
             {loading ? (
               <p className="detail-plot">Bölümler yükleniyor…</p>
             ) : (
@@ -169,9 +193,15 @@ export function SeriesDetail({ item, source, entries, onBack, onPlayEpisode }: P
             const entry = byEpisode.get(episodeProgressId(ep))
             const finished = entry ? isFinished(entry) : false
             const ratio = progressRatio(entry)
+            const rating = episodeRatings.get(ep.episodeNum)?.rating
             return (
               <button key={ep.id} className="episode-item" onClick={() => onPlayEpisode(ep, false, allEpisodes)}>
                 <span className="episode-num">{ep.episodeNum}</span>
+                {rating !== undefined && (
+                  <span className={`ep-rating ${episodeRatingClass(rating)}`} title="Bölümün IMDb puanı">
+                    ★ {rating.toFixed(1)}
+                  </span>
+                )}
                 <span className="episode-main">
                   <span className="episode-title">{ep.title}</span>
                   <span className="episode-sub">

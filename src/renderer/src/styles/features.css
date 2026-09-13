@@ -1135,3 +1135,142 @@
     gap: 6px;
   }
 }
+
+/* ---------- IMDb ---------- */
+.imdb-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 2px;
+  flex-wrap: wrap;
+}
+
+.imdb-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px 4px 4px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(245, 197, 24, 0.5);
+  color: #fff;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.imdb-badge:hover {
+  border-color: #f5c518;
+}
+
+.imdb-logo {
+  background: #f5c518;
+  color: #000;
+  font-weight: 900;
+  font-size: 12px;
+  padding: 3px 6px;
+  border-radius: 5px;
+  letter-spacing: -0.02em;
+}
+
+.imdb-badge b {
+  font-size: 16px;
+}
+
+.imdb-badge small {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 11.5px;
+}
+
+.score-chip {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 4px 9px;
+  border-radius: 8px;
+}
+
+.imdb-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.ep-rating {
+  flex-shrink: 0;
+  font-size: 11.5px;
+  font-weight: 800;
+  padding: 3px 7px;
+  border-radius: 7px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ep-rating-great {
+  background: rgba(22, 163, 74, 0.18);
+  color: #16a34a;
+}
+
+.ep-rating-good {
+  background: rgba(132, 204, 22, 0.18);
+  color: #65a30d;
+}
+
+.ep-rating-ok {
+  background: rgba(245, 158, 11, 0.18);
+  color: #d97706;
+}
+
+.ep-rating-low {
+  background: rgba(148, 163, 184, 0.2);
+  color: var(--text-faint);
+}
+
+/* ---------- Ayarlar ---------- */
+.modal.settings-modal {
+  width: min(560px, 92vw);
+  max-width: none;
+}
+
+.settings-section {
+  margin-top: 8px;
+}
+
+.settings-section-title {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--primary);
+  margin-bottom: 4px;
+}
+
+.settings-section a {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.settings-inline {
+  display: flex;
+  gap: 8px;
+}
+
+.settings-inline input {
+  flex: 1;
+}
+
+.settings-status {
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.settings-status-ok {
+  color: var(--success);
+}
+
+.settings-status-error {
+  color: var(--danger);
+}

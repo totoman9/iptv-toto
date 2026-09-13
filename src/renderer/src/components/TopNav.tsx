@@ -13,6 +13,7 @@ import {
   IconSearch,
   IconSeries,
   IconSettings,
+  IconSliders,
   IconStar,
   IconSun
 } from './Icons'
@@ -34,6 +35,7 @@ interface Props {
   accent: Accent
   onAccentChange: (accent: Accent) => void
   onOpenSearch: () => void
+  onOpenSettings: () => void
   recordingActive: boolean
 }
 
@@ -117,6 +119,7 @@ export function TopNav({
   accent,
   onAccentChange,
   onOpenSearch,
+  onOpenSettings,
   recordingActive
 }: Props): ReactElement {
   const shortcut = window.iptv?.platform === 'darwin' ? '⌘K' : 'Ctrl K'
@@ -168,6 +171,9 @@ export function TopNav({
         accent={accent}
         onAccentChange={onAccentChange}
       />
+      <button className="icon-btn" onClick={onOpenSettings} title="Ayarlar (IMDb puanları vb.)">
+        <IconSliders size={15} />
+      </button>
       <button className="icon-btn" onClick={onOpenParentalLock} title="Ebeveyn Kilidi">
         <IconLock size={14} />
       </button>

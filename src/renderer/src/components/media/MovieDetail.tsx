@@ -5,6 +5,9 @@ import { getVodDetails } from '../../lib/xtream'
 import { isFinished, progressRatio } from '../../lib/continueWatching'
 import { formatTime, minutesLeft } from '../../lib/format'
 import { IconArrowLeft, IconPlay } from '../Icons'
+import { useImdb } from '../../hooks/useImdb'
+import { cleanTitle } from '../../lib/omdb'
+import { ImdbBadge } from './ImdbBadge'
 
 interface Props {
   item: VodItem
@@ -37,6 +40,9 @@ export function MovieDetail({ item, source, progress, onBack, onPlay }: Props): 
     }
   }, [item.streamId, source])
 
+  const year = details.releaseDate?.slice(0, 4) || cleanTitle(item.name).year
+  const imdb = useImdb([details.originalName, item.name], year, 'movie', !loading)
+
   const resumable = !!progress && !isFinished(progress) && progress.positionSeconds > 5
   const poster = details.coverBig || item.logo
   const bg = details.backdrop || poster
@@ -62,6 +68,7 @@ export function MovieDetail({ item, source, progress, onBack, onPlay }: Props): 
               {details.durationText && <span>{details.durationText}</span>}
               {(details.rating || item.rating) && <span>★ {details.rating || item.rating}</span>}
             </div>
+            <ImdbBadge state={imdb} />
             {loading ? (
               <p className="detail-plot">Bilgiler yükleniyor…</p>
             ) : (

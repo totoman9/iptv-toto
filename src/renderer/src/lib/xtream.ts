@@ -199,6 +199,7 @@ export function getVodStreamUrl(cfg: XtreamSourceConfig, item: VodItem): string 
 }
 
 interface XtreamMediaInfo {
+  o_name?: string
   plot?: string
   cast?: string
   director?: string
@@ -223,7 +224,8 @@ function mapMediaInfo(info: XtreamMediaInfo | undefined): MediaDetails {
     rating: info.rating !== undefined ? String(info.rating) : undefined,
     durationText: info.duration || undefined,
     coverBig: info.cover_big || info.movie_image || info.backdrop_path?.[0] || undefined,
-    backdrop: info.backdrop_path?.[0] || undefined
+    backdrop: info.backdrop_path?.[0] || undefined,
+    originalName: info.o_name || undefined
   }
 }
 

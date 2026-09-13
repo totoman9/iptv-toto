@@ -13,6 +13,7 @@ import { FolderMenuButton } from './components/FolderMenuButton'
 import { RecordingsView } from './components/RecordingsView'
 import { SearchOverlay, type SearchKind } from './components/SearchOverlay'
 import { GuideView } from './components/GuideView'
+import { SettingsModal } from './components/SettingsModal'
 import { IconGuide } from './components/Icons'
 import { PlayerPane, type PlayerMode } from './components/PlayerPane'
 import type { ChannelDrawerData } from './components/ChannelDrawer'
@@ -137,6 +138,7 @@ function App(): ReactElement {
   const [showManageSources, setShowManageSources] = useState(false)
   const [showParentalLock, setShowParentalLock] = useState(false)
   const [showEpgGrid, setShowEpgGrid] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const [editSection, setEditSection] = useState<CategorySection | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
   const [mediaOpen, setMediaOpen] = useState<MediaOpenRequest | null>(null)
@@ -738,6 +740,7 @@ function App(): ReactElement {
         accent={accent}
         onAccentChange={changeAccent}
         onOpenSearch={() => setSearchOpen(true)}
+        onOpenSettings={() => setShowSettings(true)}
         recordingActive={!!activeRecording}
       />
 
@@ -797,6 +800,8 @@ function App(): ReactElement {
           onRemove={removeSource}
         />
       )}
+
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
 
       {showParentalLock && (
         <ParentalLockSettingsModal
