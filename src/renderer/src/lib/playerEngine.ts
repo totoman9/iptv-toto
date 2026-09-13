@@ -366,7 +366,8 @@ export function attachStream(
   video: HTMLVideoElement,
   url: string,
   onFatalError: (message: string) => void,
-  options: { liveBackSec?: number } = {}
+  // onStatus: bağlantı koptu ve sessizce yeniden bağlanılıyor bilgisi
+  options: { liveBackSec?: number; onStatus?: (status: 'reconnecting') => void } = {}
 ): AttachedPlayer {
   let info: StreamInfo = {}
   let currentKind: EngineKind = detectKind(url)
@@ -426,6 +427,7 @@ export function attachStream(
             current?.destroy()
             if (played && Date.now() - lastReconnect > 15_000) {
               lastReconnect = Date.now()
+              options.onStatus?.('reconnecting')
               startRemux(0)
             } else if (!played && mpegts.isSupported()) {
               current = attachMpegts(video, targetUrl, onInfo, onFatal)

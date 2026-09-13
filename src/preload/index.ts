@@ -4,7 +4,9 @@ import type {
   HttpResult,
   RecordingEntry,
   RecordingInput,
-  RecordingScheduleResult
+  RecordingScheduleResult,
+  SubtitleResult,
+  SubtitleSearchParams
 } from '../shared/types'
 
 const api = {
@@ -63,6 +65,23 @@ const api = {
   },
   shell: {
     showItem: (filePath: string): Promise<void> => ipcRenderer.invoke('shell:showItem', filePath)
+  },
+  subs: {
+    getConfig: (): Promise<{ hasApiKey: boolean; username: string; hasPassword: boolean }> =>
+      ipcRenderer.invoke('subs:getConfig'),
+    saveConfig: (patch: {
+      apiKey?: string
+      username?: string
+      password?: string
+      clear?: boolean
+    }): Promise<boolean> => ipcRenderer.invoke('subs:saveConfig', patch),
+    test: (): Promise<{ ok: boolean; error?: string; remaining?: number }> => ipcRenderer.invoke('subs:test'),
+    search: (
+      params: SubtitleSearchParams
+    ): Promise<{ ok: boolean; error?: string; items?: SubtitleResult[] }> =>
+      ipcRenderer.invoke('subs:search', params),
+    download: (fileId: number): Promise<{ ok: boolean; error?: string; vtt?: string; remaining?: number }> =>
+      ipcRenderer.invoke('subs:download', fileId)
   },
   recordings: {
     list: (): Promise<RecordingEntry[]> => ipcRenderer.invoke('rec:list'),

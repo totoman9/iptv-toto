@@ -451,3 +451,30 @@ export function IconBell({ size, ...rest }: IconProps): ReactElement {
     </svg>
   )
 }
+
+export function IconMore({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <circle cx="5.5" cy="12" r="1.6" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
+      <circle cx="18.5" cy="12" r="1.6" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+export function IconChevronDown({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <path d="M6 9.5 12 15l6-5.5" />
+    </svg>
+  )
+}
+
+export function IconLibrary({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <path d="M4.5 4.5v15M9 4.5v15" />
+      <path d="M13 5.2 16.6 4l3.9 14.6-3.6 1.1Z" />
+    </svg>
+  )
+}

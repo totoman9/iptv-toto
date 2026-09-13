@@ -1274,3 +1274,439 @@
 .settings-status-error {
   color: var(--danger);
 }
+
+/* ---------- Anlık açıklama etiketi (fare üstüne gelince) ---------- */
+.global-tip {
+  position: fixed;
+  z-index: 2147483000;
+  transform: translate(-50%, -100%);
+  max-width: 280px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(20, 16, 32, 0.96);
+  color: #f5f3ff;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+  pointer-events: none;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  animation: tip-in 0.12s ease-out;
+}
+
+.global-tip.is-below {
+  transform: translate(-50%, 0);
+}
+
+@keyframes tip-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ---------- Üst çubuk: açılır menüler ---------- */
+.dropdown-wrap {
+  position: relative;
+  -webkit-app-region: no-drag;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  z-index: 80;
+  min-width: 230px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dropdown-left {
+  left: 0;
+}
+
+.dropdown-right {
+  right: 0;
+}
+
+.account-menu {
+  width: 270px;
+}
+
+.menu-label {
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  padding: 8px 10px 4px;
+}
+
+.menu-sep {
+  height: 1px;
+  background: var(--border-soft);
+  margin: 6px 4px;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 10px;
+  border-radius: 9px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.menu-item:hover {
+  background: var(--surface);
+}
+
+.menu-item.is-active {
+  color: var(--primary);
+}
+
+.menu-item-icon {
+  width: 18px;
+  display: flex;
+  justify-content: center;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.menu-item.is-active .menu-item-icon {
+  color: var(--primary);
+}
+
+.menu-item-label {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.menu-radio {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+}
+
+.menu-radio.on {
+  border-color: var(--primary);
+  background: radial-gradient(circle, var(--primary) 0 45%, transparent 50%);
+}
+
+.menu-rec {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--live);
+}
+
+.menu-seg {
+  margin: 2px 6px 6px;
+  display: flex;
+}
+
+.menu-seg button {
+  flex: 1;
+  justify-content: center;
+}
+
+.menu-swatches {
+  padding: 2px 8px 6px;
+}
+
+.account-btn {
+  -webkit-app-region: no-drag;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 10px 0 4px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  max-width: 220px;
+}
+
+.account-btn:hover,
+.account-btn.is-open {
+  border-color: var(--primary);
+}
+
+.account-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--gradient);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.account-avatar.is-loading {
+  animation: pulse-opacity 1s ease-in-out infinite;
+}
+
+.account-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.topnav-search {
+  min-width: 190px;
+}
+
+.topnav-search kbd {
+  margin-left: auto;
+}
+
+.topnav-tab .tab-rec-dot {
+  margin-left: -2px;
+}
+
+/* ---------- Oynatıcı: "Diğer" menüsü ---------- */
+.more-menu-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.more-menu {
+  position: absolute;
+  right: 0;
+  bottom: 46px;
+  z-index: 8;
+  width: 262px;
+  background: rgba(15, 12, 24, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  padding: 6px;
+}
+
+.more-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--player-text);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 10px;
+  border-radius: 9px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.more-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.more-item-icon {
+  width: 18px;
+  display: flex;
+  justify-content: center;
+  color: var(--player-text-dim);
+}
+
+.more-item-label {
+  flex: 1;
+}
+
+.more-item kbd {
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--player-text-faint);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 5px;
+  padding: 1px 6px;
+}
+
+.player-pane-video-wrap:fullscreen .more-menu {
+  bottom: 56px;
+}
+
+/* ---------- Altyazı sekmesi ---------- */
+.sub-search-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.sub-search-row .settings-seg {
+  flex: 1;
+}
+
+.sub-results {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.sub-result {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  text-align: left;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--player-text);
+  border-radius: 9px;
+  padding: 7px 9px;
+  cursor: pointer;
+}
+
+.sub-result:hover {
+  border-color: var(--primary-light);
+}
+
+.sub-result-lang {
+  grid-row: span 2;
+  align-self: center;
+  font-size: 10.5px;
+  font-weight: 800;
+  background: rgba(var(--accent-rgb), 0.35);
+  border-radius: 6px;
+  padding: 3px 6px;
+}
+
+.sub-result-name {
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sub-result-meta {
+  font-size: 11px;
+  color: var(--player-text-faint);
+}
+
+.sub-active {
+  background: rgba(22, 163, 74, 0.12);
+  border: 1px solid rgba(22, 163, 74, 0.35);
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sub-active-label {
+  font-size: 12px;
+  font-weight: 700;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sub-offset {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--player-text-dim);
+}
+
+.sub-offset span {
+  flex: 1;
+}
+
+.sub-offset button {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--player-text);
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 7px;
+  cursor: pointer;
+}
+
+.sub-offset b {
+  font-variant-numeric: tabular-nums;
+  color: var(--player-text);
+  min-width: 48px;
+  text-align: center;
+}
+
+/* Altyazıların görünümü */
+.player-pane-video-wrap video::cue {
+  font-size: 1.15em;
+  line-height: 1.35;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+}
+
+/* ---------- Bağlantı durumu etiketi (oynatıcı ortası) ---------- */
+.conn-status {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgba(10, 8, 19, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--player-text);
+  font-size: 13px;
+  font-weight: 700;
+  pointer-events: none;
+  backdrop-filter: blur(6px);
+  white-space: nowrap;
+}
+
+.conn-reconnecting {
+  border-color: rgba(245, 158, 11, 0.55);
+}
+
+.conn-spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-top-color: var(--primary-light);
+  animation: spin 0.8s linear infinite;
+}
+
+.mode-mini .conn-status {
+  font-size: 11px;
+  padding: 6px 10px;
+}

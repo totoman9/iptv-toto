@@ -14,7 +14,8 @@ interface Props {
   source: SourceConfig | null
   progress?: ContinueWatchingEntry
   onBack: () => void
-  onPlay: (fromStart: boolean) => void
+  // imdbId: biliniyorsa oynatıcıya iletilir (internetten altyazı bulmak için)
+  onPlay: (fromStart: boolean, imdbId?: string) => void
 }
 
 export function MovieDetail({ item, source, progress, onBack, onPlay }: Props): ReactElement {
@@ -88,15 +89,15 @@ export function MovieDetail({ item, source, progress, onBack, onPlay }: Props): 
             <div className="detail-actions">
               {resumable ? (
                 <>
-                  <button className="btn-light" onClick={() => onPlay(false)}>
+                  <button className="btn-light" onClick={() => onPlay(false, imdb.info?.imdbId)}>
                     <IconPlay size={14} /> Devam et ({formatTime(progress!.positionSeconds)})
                   </button>
-                  <button className="btn-glass" onClick={() => onPlay(true)}>
+                  <button className="btn-glass" onClick={() => onPlay(true, imdb.info?.imdbId)}>
                     Baştan başla
                   </button>
                 </>
               ) : (
-                <button className="btn-light" onClick={() => onPlay(true)}>
+                <button className="btn-light" onClick={() => onPlay(true, imdb.info?.imdbId)}>
                   <IconPlay size={14} /> Oynat
                 </button>
               )}

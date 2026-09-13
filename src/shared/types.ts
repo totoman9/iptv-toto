@@ -105,6 +105,9 @@ export interface PlayableItem {
   episodeNum?: number
   // Dizide sıradaki bölüm (bölüm bitince otomatik geçiş için)
   nextEpisode?: PlayableItem
+  // Biliniyorsa IMDb kimlikleri (internetten altyazı bulmak için)
+  imdbId?: string
+  seriesImdbId?: string
 }
 
 export interface EpgProgram {
@@ -150,6 +153,27 @@ export type RecordingInput = Pick<
   RecordingEntry,
   'title' | 'channelName' | 'channelId' | 'logo' | 'url' | 'start' | 'end'
 >
+
+// ---------- İnternetten altyazı ----------
+
+export interface SubtitleSearchParams {
+  imdbId?: string
+  parentImdbId?: string
+  season?: number
+  episode?: number
+  query?: string
+  year?: string
+  languages?: string
+}
+
+export interface SubtitleResult {
+  fileId: number
+  release: string
+  language: string
+  downloads: number
+  hearingImpaired: boolean
+  machine: boolean
+}
 
 export interface RecordingScheduleResult {
   ok: boolean

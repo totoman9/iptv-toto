@@ -4,6 +4,7 @@ import { attachStream, type AttachedPlayer, type TrackInfo } from '../lib/player
 import { ChannelDrawer, type ChannelDrawerData } from './ChannelDrawer'
 import { PlayerSettingsPanel } from './PlayerSettingsPanel'
 import { ShortcutHelp } from './ShortcutHelp'
+import { SubtitleTab, type ExternalSubtitle } from './SubtitleTab'
 import { useStreamStats } from '../hooks/useStreamStats'
 import { usePictureSettings } from '../hooks/usePictureSettings'
 import { pictureFilter } from '../lib/pictureSettings'
@@ -26,6 +27,7 @@ import {
   IconKeyboard,
   IconLiveTv,
   IconMiniWindow,
+  IconMore,
   IconMute,
   IconPause,
   IconPip,
@@ -34,7 +36,6 @@ import {
   IconRefresh,
   IconRewind,
   IconScissors,
-  IconSettings,
   IconSkipNext,
   IconSkipPrev,
   IconSliders,
@@ -120,6 +121,27 @@ function formatClock(ms: number): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
+// "Diğer" menüsündeki bir satır: simge + ne işe yaradığı + kısayol tuşu
+function MoreItem({
+  icon,
+  label,
+  kbd,
+  onClick
+}: {
+  icon: ReactElement
+  label: string
+  kbd?: string
+  onClick: () => void
+}): ReactElement {
+  return (
+    <button className="more-item" onClick={onClick}>
+      <span className="more-item-icon">{icon}</span>
+      <span className="more-item-label">{label}</span>
+      {kbd && <kbd>{kbd}</kbd>}
+    </button>
+  )
+}
+
 type ToastState =
   | { status: 'idle' }
   | { status: 'saving'; label: string }
@@ -165,7 +187,9 @@ export function PlayerPane({
   const [subtitleTracks, setSubtitleTracks] = useState<TrackInfo[]>([])
   const [currentAudio, setCurrentAudio] = useState(-1)
   const [currentSubtitle, setCurrentSubtitle] = useState(-1)
-  const [tracksMenuOpen, setTracksMenuOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const [externalSub, setExternalSub] = useState<ExternalSubtitle | null>(null)
+  const [subOffset, setSubOffset] = useState(0)
   const [toast, setToast] = useState<ToastState>({ status: 'idle' })
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [panelOpen, setPanelOpen] = useState(false)
@@ -180,6 +204,10 @@ export function PlayerPane({
   const [liveMeta, setLiveMeta] = useState<{ behind?: number; rewindable?: number }>({})
   const [nextDismissedFor, setNextDismissedFor] = useState<string | null>(null)
   const [countdown, setCountdown] = useState<number | null>(null)
+  // Bağlantı durumu (kullanıcıya "bağlanılıyor / takıldı / yeniden bağlanılıyor" göstermek için)
+  const [conn, setConn] = useState<'idle' | 'connecting' | 'playing' | 'stalled' | 'reconnecting'>('idle')
+  const [retryCount, setRetryCount] = useState(0)
+  const [retryIn, setRetryIn] = useState<number | null>(null)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const resumedForUrl = useRef<string | null>(null)
@@ -203,6 +231,7 @@ export function PlayerPane({
   useEffect(() => {
     setError(null)
     setToast({ status: 'idle' })
+    setConn(item ? 'connecting' : 'idle')
     const video = videoRef.current
     if (!video || !item) {
       if (video) {
@@ -215,7 +244,8 @@ export function PlayerPane({
 
     setLargeBufferHint(item.isLive && looksUhd(`${item.name} ${item.group}`))
     const attached = attachStream(video, item.url, (message) => setError(message), {
-      liveBackSec: item.isLive ? liveBack : 0
+      liveBackSec: item.isLive ? liveBack : 0,
+      onStatus: (status) => setConn(status)
     })
     setPlayer(attached)
 
@@ -230,22 +260,36 @@ export function PlayerPane({
     errorRef.current = error
   }, [error])
 
-  // Bağlantı hatası varsa 5 saniyede bir otomatik olarak tekrar dener.
+  // Bağlantı hatası varsa geri sayımla otomatik tekrar dene: ilk denemeler
+  // 5 sn arayla, sonra sunucuyu yormamak için 15 ve 30 sn arayla.
   useEffect(() => {
-    if (!item) return
-    const timer = setInterval(() => {
-      if (errorRef.current) retry()
-    }, 5000)
-    return () => clearInterval(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setRetryCount(0)
   }, [item?.url])
+
+  useEffect(() => {
+    if (!error || !item) {
+      setRetryIn(null)
+      return
+    }
+    setRetryIn(retryCount < 3 ? 5 : retryCount < 6 ? 15 : 30)
+    const iv = setInterval(() => setRetryIn((s) => (s === null ? null : s - 1)), 1000)
+    return () => clearInterval(iv)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [error, item?.url, retryCount])
+
+  useEffect(() => {
+    if (retryIn !== null && retryIn <= 0 && errorRef.current) {
+      setRetryCount((c) => c + 1)
+      retry()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [retryIn])
 
   // Ses/altyazı parçaları yalnızca HLS (.m3u8) yayınlarında ve manifest
   // ayrıştırıldıktan bir süre sonra belli olur; birkaç saniye yoklayıp duruyoruz.
   useEffect(() => {
     setAudioTracks([])
     setSubtitleTracks([])
-    setTracksMenuOpen(false)
     if (!player) return
     let ticks = 0
     const iv = setInterval(() => {
@@ -344,6 +388,19 @@ export function PlayerPane({
       saveStoredVolume(video.volume, video.muted)
     }
 
+    let stallTimer: ReturnType<typeof setTimeout> | null = null
+    const onPlaying = (): void => {
+      if (stallTimer) clearTimeout(stallTimer)
+      setConn('playing')
+      setRetryCount(0)
+    }
+    // Kısa beklemeler (ör. 0,5 sn) için uyarı gösterme; 1,5 sn'yi geçerse göster
+    const onWaiting = (): void => {
+      if (stallTimer) clearTimeout(stallTimer)
+      stallTimer = setTimeout(() => setConn((c) => (c === 'playing' ? 'stalled' : c)), 1500)
+    }
+    video.addEventListener('playing', onPlaying)
+    video.addEventListener('waiting', onWaiting)
     video.addEventListener('play', onPlay)
     video.addEventListener('pause', onPause)
     video.addEventListener('timeupdate', onTime)
@@ -362,6 +419,9 @@ export function PlayerPane({
       video.removeEventListener('loadedmetadata', onSize)
       video.removeEventListener('resize', onSize)
       video.removeEventListener('volumechange', onVolume)
+      video.removeEventListener('playing', onPlaying)
+      video.removeEventListener('waiting', onWaiting)
+      if (stallTimer) clearTimeout(stallTimer)
     }
   }, [item?.url])
 
@@ -493,12 +553,12 @@ export function PlayerPane({
     function resetTimer(): void {
       setControlsVisible(true)
       if (hideTimer.current) clearTimeout(hideTimer.current)
-      if (isPlaying && !panelOpen) {
+      if (isPlaying && !panelOpen && !moreOpen) {
         hideTimer.current = setTimeout(() => setControlsVisible(false), 3200)
       }
     }
     const onLeave = (): void => {
-      if (isPlaying && !panelOpen) setControlsVisible(false)
+      if (isPlaying && !panelOpen && !moreOpen) setControlsVisible(false)
     }
     resetTimer()
     const el = wrapRef.current
@@ -509,7 +569,7 @@ export function PlayerPane({
       el?.removeEventListener('mouseleave', onLeave)
       if (hideTimer.current) clearTimeout(hideTimer.current)
     }
-  }, [isPlaying, item?.id, panelOpen])
+  }, [isPlaying, item?.id, panelOpen, moreOpen])
 
   // Klavye kısayolları (tam liste: ? tuşu). Mini moddayken (film/dizi
   // ekranında gezinirken) kısayollar devre dışı.
@@ -563,6 +623,7 @@ export function PlayerPane({
         case 'Escape':
           if (helpOpen) setHelpOpen(false)
           else if (panelOpen) setPanelOpen(false)
+          else if (moreOpen) setMoreOpen(false)
           else if (drawerOpen) setDrawerOpen(false)
           else if (compact) onToggleCompact?.()
           else if (mode === 'theater' && !document.fullscreenElement) onClose?.()
@@ -602,7 +663,51 @@ export function PlayerPane({
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item, mode, player, drawerOpen, drawer, onPrev, onNext, panelOpen, helpOpen, compact, liveMeta, picture.settings])
+  }, [item, mode, player, drawerOpen, drawer, onPrev, onNext, panelOpen, moreOpen, helpOpen, compact, liveMeta, picture.settings])
+
+  // İnternetten indirilen altyazı: videoya <track> olarak eklenir
+  useEffect(() => {
+    setExternalSub(null)
+    setSubOffset(0)
+  }, [item?.url])
+
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video || !externalSub) return
+    const url = URL.createObjectURL(new Blob([externalSub.vtt], { type: 'text/vtt' }))
+    const track = document.createElement('track')
+    track.kind = 'subtitles'
+    track.label = externalSub.label
+    track.srclang = 'tr'
+    track.src = url
+    track.default = true
+    video.appendChild(track)
+    const show = (): void => {
+      for (const t of Array.from(video.textTracks)) {
+        t.mode = t.label === externalSub.label ? 'showing' : 'disabled'
+      }
+    }
+    track.addEventListener('load', show)
+    show()
+    return () => {
+      track.removeEventListener('load', show)
+      track.remove()
+      URL.revokeObjectURL(url)
+    }
+  }, [externalSub])
+
+  function shiftExternalSub(seconds: number): void {
+    const video = videoRef.current
+    if (!video || !externalSub) return
+    for (const t of Array.from(video.textTracks)) {
+      if (t.label !== externalSub.label || !t.cues) continue
+      for (const c of Array.from(t.cues)) {
+        c.startTime = Math.max(0, c.startTime + seconds)
+        c.endTime = Math.max(0, c.endTime + seconds)
+      }
+    }
+    setSubOffset((o) => o + seconds)
+  }
 
   function retry(): void {
     setError(null)
@@ -752,7 +857,7 @@ export function PlayerPane({
       ? Math.min(100, Math.max(0, ((Date.now() - now.start) / (now.end - now.start)) * 100))
       : 0
 
-  const showOverlay = controlsVisible || !isPlaying || panelOpen
+  const showOverlay = controlsVisible || !isPlaying || panelOpen || moreOpen
   // Kenar bilgileri (başlık, EPG, istatistik) yan panelde alttaki bilgi
   // alanında gösteriliyor; video üzerine yalnızca tam ekran/tam sayfa/mini pencerede.
   const richOverlay = isFullscreen || mode === 'theater' || compact
@@ -824,7 +929,10 @@ export function PlayerPane({
             style={videoStyle}
             onClick={() => {
               if (mode === 'mini') onExpand?.()
-              else if (panelOpen) setPanelOpen(false)
+              else if (panelOpen || moreOpen) {
+                setPanelOpen(false)
+                setMoreOpen(false)
+              }
               else togglePlay()
             }}
             onDoubleClick={() => mode !== 'mini' && toggleFullscreen()}
@@ -849,7 +957,11 @@ export function PlayerPane({
               </div>
               {mode !== 'mini' && (
                 <>
-                  <p className="player-error-hint">5 saniyede bir otomatik yeniden deneniyor…</p>
+                  <p className="player-error-hint">
+                    {retryIn !== null && retryIn > 0
+                      ? `${retryIn} sn içinde tekrar denenecek (${retryCount + 1}. deneme)`
+                      : 'Tekrar deneniyor…'}
+                  </p>
                   <div className="player-error-actions">
                     <button className="btn-secondary" onClick={retry}>
                       <IconRefresh size={13} /> Şimdi Dene
@@ -862,6 +974,19 @@ export function PlayerPane({
                   </div>
                 </>
               )}
+            </div>
+          )}
+
+          {item && !error && (conn === 'connecting' || conn === 'stalled' || conn === 'reconnecting') && (
+            <div className={`conn-status conn-${conn}`}>
+              <span className="conn-spinner" />
+              {conn === 'connecting'
+                ? item.isLive
+                  ? 'Kanala bağlanılıyor…'
+                  : 'Yükleniyor…'
+                : conn === 'stalled'
+                  ? 'Yayın takıldı, bekleniyor…'
+                  : 'Bağlantı koptu, yeniden bağlanılıyor…'}
             </div>
           )}
 
@@ -990,101 +1115,95 @@ export function PlayerPane({
                   </div>
 
                   <button
-                    className={`icon-btn hide-compact ${toast.status === 'saving' ? 'icon-btn-busy' : ''}`}
-                    onClick={() => void saveClip()}
-                    title="Son 30 saniyeyi kaydet (C)"
-                  >
-                    <IconScissors size={15} />
-                  </button>
-
-                  <button
-                    className="icon-btn hide-compact"
-                    onClick={() => void takeScreenshot()}
-                    title="Ekran görüntüsü (S)"
-                  >
-                    <IconCamera size={15} />
-                  </button>
-
-                  <button
                     className={`icon-btn ${panelOpen ? 'icon-btn-active' : ''}`}
-                    onClick={() => setPanelOpen((v) => !v)}
-                    title="Görüntü / ses / uyku ayarları (G)"
+                    onClick={() => {
+                      setPanelOpen((v) => !v)
+                      setMoreOpen(false)
+                    }}
+                    title="Ayarlar: görüntü, ses, altyazı ve uyku zamanlayıcısı (G)"
                   >
                     <IconSliders size={15} />
                   </button>
 
-                  {(audioTracks.length > 1 || subtitleTracks.length > 0) && (
-                    <div className="tracks-menu-wrap hide-compact">
-                      <button
-                        className="icon-btn"
-                        onClick={() => setTracksMenuOpen((v) => !v)}
-                        title="Ses / Altyazı"
-                      >
-                        <IconSettings size={15} />
-                      </button>
-                      {tracksMenuOpen && (
-                        <div className="tracks-menu">
-                          {audioTracks.length > 1 && (
-                            <div className="tracks-menu-section">
-                              <div className="tracks-menu-title">Ses</div>
-                              {audioTracks.map((t) => (
-                                <button
-                                  key={t.id}
-                                  className={`tracks-menu-item ${currentAudio === t.id ? 'active' : ''}`}
-                                  onClick={() => {
-                                    player?.setAudioTrack(t.id)
-                                    setCurrentAudio(t.id)
-                                  }}
-                                >
-                                  {t.label}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                          {subtitleTracks.length > 0 && (
-                            <div className="tracks-menu-section">
-                              <div className="tracks-menu-title">Altyazı</div>
-                              <button
-                                className={`tracks-menu-item ${currentSubtitle === -1 ? 'active' : ''}`}
-                                onClick={() => {
-                                  player?.setSubtitleTrack(-1)
-                                  setCurrentSubtitle(-1)
-                                }}
-                              >
-                                Kapalı
-                              </button>
-                              {subtitleTracks.map((t) => (
-                                <button
-                                  key={t.id}
-                                  className={`tracks-menu-item ${currentSubtitle === t.id ? 'active' : ''}`}
-                                  onClick={() => {
-                                    player?.setSubtitleTrack(t.id)
-                                    setCurrentSubtitle(t.id)
-                                  }}
-                                >
-                                  {t.label}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  <button
-                    className="icon-btn hide-compact"
-                    onClick={() => void togglePip()}
-                    title="Resim içinde resim (P)"
-                  >
-                    <IconPip size={15} />
-                  </button>
-
-                  {onToggleCompact && !isFullscreen && (
+                  <div className="more-menu-wrap">
                     <button
-                      className={`icon-btn ${compact ? 'icon-btn-active' : ''}`}
+                      className={`icon-btn ${moreOpen ? 'icon-btn-active' : ''}`}
+                      onClick={() => {
+                        setMoreOpen((v) => !v)
+                        setPanelOpen(false)
+                      }}
+                      title="Diğer: kesit, ekran görüntüsü, kayıt, mini pencere…"
+                    >
+                      <IconMore size={15} />
+                    </button>
+                    {moreOpen && (
+                      <div className="more-menu" onClick={(e) => e.stopPropagation()}>
+                        <MoreItem
+                          icon={<IconScissors size={14} />}
+                          label="Son 30 saniyeyi kaydet"
+                          kbd="C"
+                          onClick={() => {
+                            setMoreOpen(false)
+                            void saveClip()
+                          }}
+                        />
+                        <MoreItem
+                          icon={<IconCamera size={14} />}
+                          label="Ekran görüntüsü al"
+                          kbd="S"
+                          onClick={() => {
+                            setMoreOpen(false)
+                            void takeScreenshot()
+                          }}
+                        />
+                        {item.isLive && onRecordToggle && (
+                          <MoreItem
+                            icon={recording ? <IconStop size={12} /> : <IconRecord size={14} />}
+                            label={recording ? 'Kaydı durdur' : 'Bu programı kaydet'}
+                            onClick={() => {
+                              setMoreOpen(false)
+                              onRecordToggle({ programTitle: now?.title, end: now?.end })
+                            }}
+                          />
+                        )}
+                        <MoreItem
+                          icon={<IconPip size={14} />}
+                          label="Resim içinde resim"
+                          kbd="P"
+                          onClick={() => {
+                            setMoreOpen(false)
+                            void togglePip()
+                          }}
+                        />
+                        {onToggleCompact && !isFullscreen && (
+                          <MoreItem
+                            icon={<IconMiniWindow size={14} />}
+                            label={compact ? 'Normal pencereye dön' : 'Mini pencere (her zaman üstte)'}
+                            kbd="W"
+                            onClick={() => {
+                              setMoreOpen(false)
+                              onToggleCompact()
+                            }}
+                          />
+                        )}
+                        <MoreItem
+                          icon={<IconKeyboard size={14} />}
+                          label="Klavye kısayolları"
+                          kbd="?"
+                          onClick={() => {
+                            setMoreOpen(false)
+                            setHelpOpen(true)
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {compact && onToggleCompact && (
+                    <button
+                      className="icon-btn icon-btn-active"
                       onClick={onToggleCompact}
-                      title={compact ? 'Normal pencereye dön (W)' : 'Mini pencere — her zaman üstte (W)'}
+                      title="Normal pencereye dön (W)"
                     >
                       <IconMiniWindow size={15} />
                     </button>
@@ -1099,14 +1218,6 @@ export function PlayerPane({
                       <IconChannels size={15} />
                     </button>
                   )}
-
-                  <button
-                    className="icon-btn hide-compact"
-                    onClick={() => setHelpOpen(true)}
-                    title="Klavye kısayolları (?)"
-                  >
-                    <IconKeyboard size={15} />
-                  </button>
 
                   {!compact && (
                     <button className="icon-btn" onClick={toggleFullscreen} title="Tam ekran (F)">
@@ -1139,6 +1250,31 @@ export function PlayerPane({
                 setBufferModeState(m)
               }}
               bufferSec={liveMeta.behind}
+              subtitleContent={
+                <SubtitleTab
+                  item={item}
+                  audioTracks={audioTracks}
+                  subtitleTracks={subtitleTracks}
+                  currentAudio={currentAudio}
+                  currentSubtitle={currentSubtitle}
+                  onAudio={(id) => {
+                    player?.setAudioTrack(id)
+                    setCurrentAudio(id)
+                  }}
+                  onSubtitle={(id) => {
+                    player?.setSubtitleTrack(id)
+                    setCurrentSubtitle(id)
+                  }}
+                  external={externalSub}
+                  offset={subOffset}
+                  onLoadExternal={(sub) => {
+                    setSubOffset(0)
+                    setExternalSub(sub)
+                  }}
+                  onShift={shiftExternalSub}
+                  onClearExternal={() => setExternalSub(null)}
+                />
+              }
               onClose={() => setPanelOpen(false)}
             />
           )}

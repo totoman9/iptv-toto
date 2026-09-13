@@ -297,7 +297,7 @@ export function MediaBrowser({
   }
 
   // ----- oynatma -----
-  function playMovie(v: VodItem, fromStart: boolean): void {
+  function playMovie(v: VodItem, fromStart: boolean, imdbId?: string): void {
     if (!source || source.type !== 'xtream') return
     if (fromStart) clearProgress(v.id)
     onPlay({
@@ -307,11 +307,12 @@ export function MediaBrowser({
       url: getVodStreamUrl(source, v),
       isLive: false,
       logo: v.logo,
-      kind: 'movie'
+      kind: 'movie',
+      imdbId
     })
   }
 
-  function episodeItem(s: SeriesItem, ep: SeriesEpisode): PlayableItem {
+  function episodeItem(s: SeriesItem, ep: SeriesEpisode, seriesImdbId?: string): PlayableItem {
     return {
       id: episodeProgressId(ep),
       name: `${s.name} · ${ep.title}`,
@@ -323,7 +324,8 @@ export function MediaBrowser({
       seriesId: s.seriesId,
       seriesName: s.name,
       season: ep.season,
-      episodeNum: ep.episodeNum
+      episodeNum: ep.episodeNum,
+      seriesImdbId
     }
   }
 
@@ -331,16 +333,17 @@ export function MediaBrowser({
     s: SeriesItem,
     ep: SeriesEpisode,
     fromStart: boolean,
-    all: SeriesEpisode[] = []
+    all: SeriesEpisode[] = [],
+    seriesImdbId?: string
   ): void {
-    const item = episodeItem(s, ep)
+    const item = episodeItem(s, ep, seriesImdbId)
     if (fromStart) clearProgress(item.id)
     // Sonraki bölümleri zincirle: bölüm bitince oynatıcı sıradakine geçer
     const idx = all.findIndex((e) => e.id === ep.id)
     let next: PlayableItem | undefined
     if (idx >= 0) {
       for (let i = all.length - 1; i > idx; i--) {
-        next = { ...episodeItem(s, all[i]), nextEpisode: next }
+        next = { ...episodeItem(s, all[i], seriesImdbId), nextEpisode: next }
       }
     }
     onPlay({ ...item, nextEpisode: next })
@@ -487,7 +490,7 @@ export function MediaBrowser({
             source={source}
             progress={progressById.get(v.id)}
             onBack={back}
-            onPlay={(fromStart) => playMovie(v, fromStart)}
+            onPlay={(fromStart, imdbId) => playMovie(v, fromStart, imdbId)}
           />
         </div>
       )
@@ -501,7 +504,7 @@ export function MediaBrowser({
             source={source}
             entries={progressEntries}
             onBack={back}
-            onPlayEpisode={(ep, fromStart, all) => playEpisode(s, ep, fromStart, all)}
+            onPlayEpisode={(ep, fromStart, all, imdbId) => playEpisode(s, ep, fromStart, all, imdbId)}
           />
         </div>
       )

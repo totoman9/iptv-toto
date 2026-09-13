@@ -1,4 +1,4 @@
-import { useState, type ReactElement } from 'react'
+import { useState, type ReactElement, type ReactNode } from 'react'
 import type { PictureApi, PictureNumberKey } from '../hooks/usePictureSettings'
 import type { PictureFit } from '../lib/pictureSettings'
 import type { BufferMode } from '../lib/bufferSetting'
@@ -17,6 +17,8 @@ interface Props {
   onBufferModeChange: (mode: BufferMode) => void
   // Canlı yayında şu an elde tutulan yedek (sn)
   bufferSec?: number
+  // "Altyazı" sekmesinin içeriği (ses dili / altyazı / internetten altyazı)
+  subtitleContent: ReactNode
   onClose: () => void
 }
 
@@ -44,7 +46,7 @@ const FITS: { value: PictureFit; label: string }[] = [
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2]
 const SLEEP_OPTIONS = [15, 30, 45, 60, 90, 120]
 
-type Tab = 'picture' | 'sound' | 'sleep'
+type Tab = 'picture' | 'sound' | 'subtitle' | 'sleep'
 
 export function PlayerSettingsPanel({
   isLive,
@@ -58,6 +60,7 @@ export function PlayerSettingsPanel({
   bufferMode,
   onBufferModeChange,
   bufferSec,
+  subtitleContent,
   onClose
 }: Props): ReactElement {
   const [tab, setTab] = useState<Tab>('picture')
@@ -76,6 +79,9 @@ export function PlayerSettingsPanel({
           </button>
           <button className={tab === 'sound' ? 'active' : ''} onClick={() => setTab('sound')}>
             {isLive ? 'Ses ve akış' : 'Ses ve hız'}
+          </button>
+          <button className={tab === 'subtitle' ? 'active' : ''} onClick={() => setTab('subtitle')}>
+            Altyazı
           </button>
           <button className={tab === 'sleep' ? 'active' : ''} onClick={() => setTab('sleep')}>
             Uyku {sleepMinutesLeft !== null && <span className="settings-badge">{sleepMinutesLeft} dk</span>}
@@ -214,6 +220,8 @@ export function PlayerSettingsPanel({
           )}
         </div>
       )}
+
+      {tab === 'subtitle' && subtitleContent}
 
       {tab === 'sleep' && (
         <div className="settings-body">

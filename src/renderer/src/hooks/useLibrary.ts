@@ -19,6 +19,8 @@ export interface Library {
   seriesStatus: SectionStatus
   // Önbellekten açıldıktan sonra arka planda sunucudan tazeleniyor mu
   refreshing: boolean
+  // Arka plan tazelemesi sunucuya ulaşamadı (kayıtlı liste gösteriliyor)
+  refreshFailed: boolean
   loading: boolean
   error: string | null
   reload: () => void
@@ -69,6 +71,7 @@ export function useLibrary(source: SourceConfig | null): Library {
   const [vodStatus, setVodStatus] = useState<SectionStatus>('idle')
   const [seriesStatus, setSeriesStatus] = useState<SectionStatus>('idle')
   const [refreshing, setRefreshing] = useState(false)
+  const [refreshFailed, setRefreshFailed] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [reloadTick, setReloadTick] = useState(0)
   const forceRefresh = useRef(false)
@@ -93,24 +96,30 @@ export function useLibrary(source: SourceConfig | null): Library {
     forceRefresh.current = false
     setError(null)
 
-    async function fetchFresh(hadCache: boolean): Promise<void> {
+    // Sunucu yanıt vermezse elde olan (önbellekteki) liste KORUNUR; eskiden
+    // boş yanıt kayıtlı listenin üzerine yazılıp kanallar kayboluyordu.
+    async function fetchFresh(cached: LibraryCache | null): Promise<void> {
+      const hadCache = !!cached
       if (!hadCache) {
         setLiveStatus('loading')
         setVodStatus('loading')
         setSeriesStatus('loading')
       }
       setRefreshing(true)
+      setRefreshFailed(false)
 
-      const next: LibraryCache = {
-        version: 2,
-        savedAt: Date.now(),
-        channels: [],
-        vod: [],
-        series: [],
-        liveCategoryOrder: [],
-        vodCategoryOrder: [],
-        seriesCategoryOrder: []
-      }
+      const next: LibraryCache = cached
+        ? { ...cached, savedAt: Date.now() }
+        : {
+            version: 2,
+            savedAt: Date.now(),
+            channels: [],
+            vod: [],
+            series: [],
+            liveCategoryOrder: [],
+            vodCategoryOrder: [],
+            seriesCategoryOrder: []
+          }
 
       try {
         if (src.type === 'm3u') {
@@ -168,6 +177,7 @@ export function useLibrary(source: SourceConfig | null): Library {
           setError(err instanceof Error ? err.message : 'İçerik yüklenemedi')
           setLiveStatus('error')
         }
+        if (!cancelled && hadCache) setRefreshFailed(true)
       } finally {
         if (!cancelled) setRefreshing(false)
       }
@@ -193,7 +203,7 @@ export function useLibrary(source: SourceConfig | null): Library {
         setSeries([])
       }
       const stale = !usable || Date.now() - cached.savedAt > REFRESH_AFTER_MS
-      if (forced || stale) await fetchFresh(!!usable)
+      if (forced || stale) await fetchFresh(usable ? cached : null)
     }
 
     load()
@@ -207,6 +217,14 @@ export function useLibrary(source: SourceConfig | null): Library {
     setReloadTick((t) => t + 1)
   }, [])
 
+  // Sunucuya ulaşılamadıysa kendiliğinden tekrar dene (sunucuyu yormadan):
+  // liste hiç yoksa 30 sn, kayıtlı liste gösteriliyorsa 2 dk sonra.
+  useEffect(() => {
+    if (!error && !refreshFailed) return
+    const t = setTimeout(reload, error ? 30_000 : 120_000)
+    return () => clearTimeout(t)
+  }, [error, refreshFailed, reload])
+
   return {
     channels,
     vod,
@@ -218,6 +236,7 @@ export function useLibrary(source: SourceConfig | null): Library {
     vodStatus,
     seriesStatus,
     refreshing,
+    refreshFailed,
     loading: liveStatus === 'loading',
     error,
     reload

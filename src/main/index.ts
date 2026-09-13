@@ -6,6 +6,7 @@ import os from 'node:os'
 import { USER_AGENT } from './constants'
 import { clipFileBase, finalizeToMp4, runFfmpeg } from './ffmpeg'
 import { initRecorder } from './recorder'
+import { initSubtitles } from './subtitles'
 import { findTsSync, getRing, initLive } from './live'
 
 initLive()
@@ -341,6 +342,7 @@ app.whenReady().then(() => {
   })
 
   initRecorder()
+  initSubtitles()
   createWindow()
 
   app.on('activate', () => {

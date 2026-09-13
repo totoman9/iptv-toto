@@ -21,7 +21,7 @@ interface Props {
   entries: ContinueWatchingEntry[]
   onBack: () => void
   // all: dizinin tüm bölümleri (sıradaki bölüme otomatik geçiş için)
-  onPlayEpisode: (ep: SeriesEpisode, fromStart: boolean, all: SeriesEpisode[]) => void
+  onPlayEpisode: (ep: SeriesEpisode, fromStart: boolean, all: SeriesEpisode[], seriesImdbId?: string) => void
 }
 
 export const episodeProgressId = (ep: SeriesEpisode): string => `episode-${ep.id}`
@@ -144,7 +144,7 @@ export function SeriesDetail({ item, source, entries, onBack, onPlayEpisode }: P
 
             {target && (
               <div className="detail-actions">
-                <button className="btn-light" onClick={() => onPlayEpisode(target.ep, false, allEpisodes)}>
+                <button className="btn-light" onClick={() => onPlayEpisode(target.ep, false, allEpisodes, imdb.info?.imdbId)}>
                   <IconPlay size={14} />
                   {target.mode === 'resume'
                     ? ` Devam et · S${target.ep.season} B${target.ep.episodeNum}`
@@ -195,7 +195,7 @@ export function SeriesDetail({ item, source, entries, onBack, onPlayEpisode }: P
             const ratio = progressRatio(entry)
             const rating = episodeRatings.get(ep.episodeNum)?.rating
             return (
-              <button key={ep.id} className="episode-item" onClick={() => onPlayEpisode(ep, false, allEpisodes)}>
+              <button key={ep.id} className="episode-item" onClick={() => onPlayEpisode(ep, false, allEpisodes, imdb.info?.imdbId)}>
                 <span className="episode-num">{ep.episodeNum}</span>
                 {rating !== undefined && (
                   <span className={`ep-rating ${episodeRatingClass(rating)}`} title="Bölümün IMDb puanı">

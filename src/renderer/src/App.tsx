@@ -14,6 +14,7 @@ import { RecordingsView } from './components/RecordingsView'
 import { SearchOverlay, type SearchKind } from './components/SearchOverlay'
 import { GuideView } from './components/GuideView'
 import { SettingsModal } from './components/SettingsModal'
+import { GlobalTooltip } from './components/GlobalTooltip'
 import { IconGuide } from './components/Icons'
 import { PlayerPane, type PlayerMode } from './components/PlayerPane'
 import type { ChannelDrawerData } from './components/ChannelDrawer'
@@ -120,6 +121,7 @@ function App(): ReactElement {
     vodStatus,
     seriesStatus,
     refreshing,
+    refreshFailed,
     loading,
     error,
     reload
@@ -283,6 +285,14 @@ function App(): ReactElement {
     return () => clearInterval(iv)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reminders.reminders, channels.length > 0])
+
+  // Liste tazelenemediyse bilgi ver (kayıtlı liste gösterilmeye devam eder)
+  useEffect(() => {
+    if (refreshFailed) {
+      setNotice('Sunucuya ulaşılamadı; kayıtlı liste gösteriliyor. Birkaç dakika içinde tekrar denenecek.')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshFailed])
 
   // ⌘K / Ctrl+K: her yerde ara
   useEffect(() => {
@@ -611,8 +621,9 @@ function App(): ReactElement {
       leftArea = (
         <div className="pane pane-wide">
           <div className="empty-state">
-            <h3>Bir sorun oluştu</h3>
+            <h3>Sunucuya bağlanılamadı</h3>
             <p>{error}</p>
+            <p>30 saniye içinde kendiliğinden tekrar denenecek.</p>
             <button className="btn-primary" onClick={reload}>
               Tekrar Dene
             </button>
@@ -869,6 +880,8 @@ function App(): ReactElement {
           onCancel={() => setPendingUnlock(null)}
         />
       )}
+
+      <GlobalTooltip />
 
       {notice && (
         <div className="app-notice" onClick={() => setNoticeState(null)}>

@@ -142,6 +142,9 @@ export async function getLiveChannels(cfg: XtreamSourceConfig): Promise<LiveChan
     apiUrl(cfg, 'get_live_streams'),
     { timeoutMs: BIG_LIST_TIMEOUT_MS }
   )
+  if (!streamsRes.ok || !Array.isArray(streamsRes.data)) {
+    throw new Error(streamsRes.error || 'Sunucudan kanal listesi alınamadı')
+  }
 
   const catMap = new Map<string, string>()
   for (const c of catsRes.data || []) catMap.set(c.category_id, c.category_name)
@@ -175,6 +178,9 @@ export async function getVodItems(cfg: XtreamSourceConfig): Promise<VodItemsResu
     apiUrl(cfg, 'get_vod_streams'),
     { timeoutMs: BIG_LIST_TIMEOUT_MS }
   )
+  if (!streamsRes.ok || !Array.isArray(streamsRes.data)) {
+    throw new Error(streamsRes.error || 'Sunucudan film listesi alınamadı')
+  }
 
   const catMap = new Map<string, string>()
   for (const c of catsRes.data || []) catMap.set(c.category_id, c.category_name)

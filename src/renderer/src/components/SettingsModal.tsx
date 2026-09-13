@@ -1,4 +1,4 @@
-import { useState, type ReactElement } from 'react'
+import { useEffect, useState, type ReactElement } from 'react'
 import { updateSettings } from '../lib/settings'
 import { testOmdbKey } from '../lib/omdb'
 import { useSettings } from '../hooks/useSettings'
@@ -7,6 +7,48 @@ export function SettingsModal({ onClose }: { onClose: () => void }): ReactElemen
   const settings = useSettings()
   const [omdbKey, setOmdbKey] = useState(settings.omdbKey || '')
   const [status, setStatus] = useState<{ kind: 'ok' | 'error' | 'busy'; text: string } | null>(null)
+
+  // OpenSubtitles: şifre arayüze hiç geri gelmez, yalnızca "kayıtlı" bilgisi
+  const [osConfig, setOsConfig] = useState<{ hasApiKey: boolean; username: string; hasPassword: boolean } | null>(null)
+  const [osKey, setOsKey] = useState('')
+  const [osUser, setOsUser] = useState('')
+  const [osPass, setOsPass] = useState('')
+  const [osStatus, setOsStatus] = useState<{ kind: 'ok' | 'error' | 'busy'; text: string } | null>(null)
+
+  useEffect(() => {
+    window.iptv.subs.getConfig().then((c) => {
+      setOsConfig(c)
+      setOsUser(c.username)
+    })
+  }, [])
+
+  async function saveOs(): Promise<void> {
+    setOsStatus({ kind: 'busy', text: 'Giriş deneniyor…' })
+    await window.iptv.subs.saveConfig({
+      apiKey: osKey || undefined,
+      username: osUser || undefined,
+      password: osPass || undefined
+    })
+    setOsPass('')
+    setOsKey('')
+    const res = await window.iptv.subs.test()
+    setOsConfig(await window.iptv.subs.getConfig())
+    setOsStatus(
+      res.ok
+        ? {
+            kind: 'ok',
+            text: `Bağlantı tamam.${res.remaining !== undefined ? ` Bugün kalan indirme hakkın: ${res.remaining}.` : ''} Film/dizi oynatırken Ayarlar › Altyazı'dan arayabilirsin.`
+          }
+        : { kind: 'error', text: res.error || 'Giriş yapılamadı' }
+    )
+  }
+
+  async function clearOs(): Promise<void> {
+    await window.iptv.subs.saveConfig({ clear: true })
+    setOsConfig(await window.iptv.subs.getConfig())
+    setOsUser('')
+    setOsStatus({ kind: 'ok', text: 'OpenSubtitles bilgileri silindi.' })
+  }
 
   async function saveOmdb(): Promise<void> {
     const key = omdbKey.trim()
@@ -56,6 +98,52 @@ export function SettingsModal({ onClose }: { onClose: () => void }): ReactElemen
             </div>
           </div>
           {status && <div className={`settings-status settings-status-${status.kind}`}>{status.text}</div>}
+        </section>
+
+        <section className="settings-section">
+          <div className="settings-section-title">İnternetten altyazı (OpenSubtitles)</div>
+          <p className="modal-sub">
+            Filmde/dizide altyazı yoksa Türkçe altyazıyı internetten bulup ekler. Ücretsiz hesap açıp{' '}
+            <a href="https://www.opensubtitles.com/consumers" target="_blank" rel="noreferrer">
+              API anahtarı al
+            </a>
+            . Bilgilerin bu bilgisayarda şifreli saklanır.
+          </p>
+          <div className="field">
+            <label>API anahtarı</label>
+            <input
+              value={osKey}
+              onChange={(e) => setOsKey(e.target.value)}
+              placeholder={osConfig?.hasApiKey ? 'Kayıtlı (değiştirmek için yenisini yaz)' : 'OpenSubtitles API key'}
+              spellCheck={false}
+            />
+          </div>
+          <div className="settings-inline">
+            <div className="field" style={{ flex: 1 }}>
+              <label>Kullanıcı adı</label>
+              <input value={osUser} onChange={(e) => setOsUser(e.target.value)} spellCheck={false} />
+            </div>
+            <div className="field" style={{ flex: 1 }}>
+              <label>Şifre</label>
+              <input
+                type="password"
+                value={osPass}
+                onChange={(e) => setOsPass(e.target.value)}
+                placeholder={osConfig?.hasPassword ? 'Kayıtlı' : ''}
+              />
+            </div>
+          </div>
+          <div className="settings-inline">
+            <button className="btn-primary" onClick={() => void saveOs()} disabled={osStatus?.kind === 'busy'}>
+              Kaydet ve dene
+            </button>
+            {(osConfig?.hasApiKey || osConfig?.hasPassword) && (
+              <button className="btn-secondary" onClick={() => void clearOs()}>
+                Bilgileri sil
+              </button>
+            )}
+          </div>
+          {osStatus && <div className={`settings-status settings-status-${osStatus.kind}`}>{osStatus.text}</div>}
         </section>
 
         <div className="modal-actions">
