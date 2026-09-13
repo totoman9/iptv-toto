@@ -9,6 +9,8 @@ import { ParentalLockSettingsModal } from './components/ParentalLockSettingsModa
 import { EpgGridModal } from './components/EpgGridModal'
 import { IconGuide } from './components/Icons'
 import { PlayerPane, type PlayerMode } from './components/PlayerPane'
+import type { ChannelDrawerData } from './components/ChannelDrawer'
+import { applyTheme, loadTheme, saveTheme, type Theme } from './lib/theme'
 import { useSources } from './hooks/useSources'
 import { useLibrary } from './hooks/useLibrary'
 import { useFavorites } from './hooks/useFavorites'
@@ -66,6 +68,7 @@ function App(): ReactElement {
   const [liveBeforeTheater, setLiveBeforeTheater] = useState<PlayableItem | null>(null)
   const [liveGroup, setLiveGroup] = useState(ALL_GROUP)
   const [listView, setListView] = useState<ListViewMode>(loadListView)
+  const [theme, setTheme] = useState<Theme>(loadTheme)
 
   const favoriteChannels = useMemo(
     () => channels.filter((c) => favoriteIds.has(c.id)),
@@ -90,6 +93,28 @@ function App(): ReactElement {
     [epgSourceChannels]
   )
   const epgTruncated = epgSourceChannels.length > epgChannels.length
+
+  // Önceki/sonraki kanal: kanalın seçildiği liste içinde gezilir (favoriler
+  // ya da seçili kategori). Kilitli kategorilerdeki kanallar atlanır — tam
+  // ekranda PIN penceresi görünmeyeceği için oraya geçilmez.
+  const isLocked = lockApi.isLocked
+  const navList = useMemo(() => {
+    const base = view === 'favorites' ? favoriteChannels : epgSourceChannels
+    const list =
+      !playing || base.some((c) => c.id === playing.id)
+        ? base
+        : channels.filter((c) => c.group === playing.group)
+    return list.filter((c) => !isLocked(c.group))
+  }, [view, favoriteChannels, epgSourceChannels, channels, playing, isLocked])
+
+  const unlockedChannels = useMemo(
+    () => channels.filter((c) => !isLocked(c.group)),
+    [channels, isLocked]
+  )
+  const drawerGroups = useMemo(
+    () => liveCategoryOrder.filter((g) => !isLocked(g)),
+    [liveCategoryOrder, isLocked]
+  )
 
   // Bir grup (kategori) kilitliyse işlemi hemen yapmak yerine PIN sorup
   // bekletiyoruz; doğru PIN girilince orijinal işlem çalışır.
@@ -143,6 +168,28 @@ function App(): ReactElement {
     } catch {
       /* ignore */
     }
+  }
+
+  function toggleTheme(): void {
+    const next: Theme = theme === 'dark' ? 'light' : 'dark'
+    setTheme(next)
+    applyTheme(next)
+    saveTheme(next)
+  }
+
+  function stepChannel(delta: number): void {
+    if (!playing?.isLive || navList.length === 0) return
+    const idx = navList.findIndex((c) => c.id === playing.id)
+    const next = navList[(idx + delta + navList.length) % navList.length]
+    if (next && next.id !== playing.id) playChannel(next)
+  }
+
+  const drawerData: ChannelDrawerData = {
+    channels: unlockedChannels,
+    groups: drawerGroups,
+    activeGroup: liveGroup,
+    onGroupChange: setLiveGroup,
+    onPick: playChannel
   }
 
   if (!ready) {
@@ -262,6 +309,8 @@ function App(): ReactElement {
         onOpenParentalLock={() => setShowParentalLock(true)}
         onReload={reload}
         loading={loading || refreshing}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
 
       <div className="app-body">
@@ -294,6 +343,9 @@ function App(): ReactElement {
               onToggleFavorite={playing?.isLive ? () => toggleFavorite(playing.id) : undefined}
               onClose={hostMode === 'theater' ? closeTheater : () => setPlaying(null)}
               onExpand={() => setView('live')}
+              onPrev={hostMode === 'docked' && playing?.isLive ? () => stepChannel(-1) : undefined}
+              onNext={hostMode === 'docked' && playing?.isLive ? () => stepChannel(1) : undefined}
+              drawer={hostMode === 'docked' && playing?.isLive ? drawerData : undefined}
             />
           </div>
         </div>

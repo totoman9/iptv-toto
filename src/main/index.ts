@@ -120,6 +120,7 @@ interface RingChunk {
 
 const RING_KEEP_MS = 45_000
 const RING_MAX_BYTES = 250 * 1024 * 1024
+const LIVE_QUEUE_MAX_BYTES = 300 * 1024 * 1024
 let ring: RingChunk[] = []
 let ringBytes = 0
 let ringTarget: string | null = null
@@ -179,10 +180,19 @@ const proxyReady = new Promise<number>((resolve) => {
         'Cache-Control': 'no-cache',
         'Access-Control-Allow-Origin': '*'
       })
+      // Sunucudan gelen veriyi HİÇ bekletmeden oku: oynatıcı elinde yeterince
+      // veri varken okumayı durduruyor; biz de sunucuyu bekletirsek sunucu
+      // bağlantıyı yavaşlatıyor/kesiyor ve ~1 dk sonra görüntü donuyordu.
+      // Okunmayan veri burada bellekte sıraya girer (üst sınır aşılırsa
+      // bağlantı kapatılır, oynatıcı yeniden bağlanır).
       for await (const chunk of upstream.body as unknown as AsyncIterable<Uint8Array>) {
         const buf = Buffer.from(chunk)
         if (activeUpstream === controller) pushToRing(buf)
-        if (!res.write(buf)) await once(res, 'drain')
+        res.write(buf)
+        if (res.writableLength > LIVE_QUEUE_MAX_BYTES) {
+          controller.abort()
+          break
+        }
       }
       res.end()
     } catch {
@@ -217,6 +227,11 @@ interface LiveInfo {
   videoCodec?: string
   audioCodec?: string
   fps?: number
+  // ffmpeg'in oynatıcıya şimdiye kadar verdiği yayın süresi (saniye)
+  outTimeSec?: number
+  // Yayının ortalama bit hızı (ffmpeg ölçümü; kanal açılışındaki toplu
+  // veri patlamasından etkilenmez)
+  bitrateKbps?: number
 }
 
 let liveInfo: LiveInfo = {}
@@ -248,6 +263,12 @@ function handleRemux(target: string, res: http.ServerResponse): void {
     [
       '-hide_banner',
       '-nostats',
+      // Yarım saniyede bir "şu ana kadar kaç saniyelik yayın çıktı" bilgisi;
+      // oynatıcı elindeki gerçek yedeği bununla hesaplıyor.
+      '-stats_period',
+      '0.5',
+      '-progress',
+      'pipe:2',
       '-loglevel',
       'info',
       '-fflags',
@@ -288,16 +309,21 @@ function handleRemux(target: string, res: http.ServerResponse): void {
   let mappingDone = false
   let stderrTail = ''
   proc.stderr.on('data', (d: Buffer) => {
-    if (mappingDone || activeRemux !== proc) return
+    if (activeRemux !== proc) return
     stderrTail += d.toString()
     const lines = stderrTail.split('\n')
     stderrTail = lines.pop() || ''
     for (const line of lines) {
-      if (line.includes('Stream mapping')) {
-        mappingDone = true
-        break
+      if (line.startsWith('out_time_us=')) {
+        const us = Number(line.slice('out_time_us='.length))
+        if (Number.isFinite(us) && us > 0) liveInfo.outTimeSec = us / 1e6
+      } else if (line.startsWith('bitrate=')) {
+        const kbps = parseFloat(line.slice('bitrate='.length))
+        if (Number.isFinite(kbps) && kbps > 0) liveInfo.bitrateKbps = Math.round(kbps)
+      } else if (!mappingDone) {
+        if (line.includes('Stream mapping')) mappingDone = true
+        else parseStreamInfo(line)
       }
-      parseStreamInfo(line)
     }
   })
 
@@ -331,7 +357,10 @@ ipcMain.handle('proxy:liveInfo', () => {
   const since = Date.now() - 5000
   let bytes = 0
   for (let i = ring.length - 1; i >= 0 && ring[i].t >= since; i--) bytes += ring[i].buf.length
-  return { ...liveInfo, bitrateKbps: bytes ? Math.round((bytes * 8) / 5 / 1000) : undefined }
+  return {
+    ...liveInfo,
+    bitrateKbps: liveInfo.bitrateKbps ?? (bytes ? Math.round((bytes * 8) / 5 / 1000) : undefined)
+  }
 })
 
 // ---------- Kesit kaydetme ----------

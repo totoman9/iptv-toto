@@ -1379,3 +1379,21 @@ textarea {
 .player-error .btn-secondary:hover {
   border-color: var(--primary-light);
 }
+
+/* ---------- Koyu tema ---------- */
+:root[data-theme='dark'] {
+  --bg: #120e1c;
+  --bg-elevated: #1b1529;
+  --surface: #221a33;
+  --surface-2: #2c2242;
+  --surface-hover: #372a52;
+  --border: #35294d;
+  --border-soft: #2a2140;
+  --primary: #8b5cf6;
+  --primary-dark: #7c3aed;
+  --primary-light: #a78bfa;
+  --text: #efeaff;
+  --text-dim: #b8acd4;
+  --text-faint: #8a7fa6;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}

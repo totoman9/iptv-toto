@@ -276,3 +276,47 @@ export function IconPlayCircle({ size, ...rest }: IconProps): ReactElement {
     </svg>
   )
 }
+
+export function IconSun({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4" />
+    </svg>
+  )
+}
+
+export function IconMoon({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z" />
+    </svg>
+  )
+}
+
+export function IconSkipPrev({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <path d="M6 5v14" />
+      <path d="M18 5.5v13L9 12Z" fill="currentColor" />
+    </svg>
+  )
+}
+
+export function IconSkipNext({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <path d="M18 5v14" />
+      <path d="M6 5.5v13L15 12Z" fill="currentColor" />
+    </svg>
+  )
+}
+
+export function IconChannels({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <rect x="3" y="4" width="18" height="16" rx="2.4" />
+      <path d="M7 9h10M7 12.5h10M7 16h6" />
+    </svg>
+  )
+}

@@ -254,14 +254,15 @@ function attachRemux(
   video: HTMLVideoElement,
   url: string,
   onInfo: (info: StreamInfo) => void,
-  onFatal: () => void
+  // played: yayın hiç görüntü verdi mi (verdiyse bağlantı sonradan koptu)
+  onFatal: (played: boolean) => void
 ): EngineHandle {
   const src = remuxedLiveUrl(url)
   let done = false
   const fail = (): void => {
     if (done) return
     done = true
-    onFatal()
+    onFatal(video.currentTime > 0.5)
   }
   // Canlı yayında 'ended' = bağlantı koptu (ffmpeg 15 sn veri alamadı)
   const onError = (): void => {
@@ -271,6 +272,26 @@ function attachRemux(
   video.addEventListener('ended', onError)
   video.src = src
   video.play().catch(() => {})
+
+  // Yedek yastığı: sunucu veriyi düzensiz aralıklarla gönderdiğinde elde az
+  // veri varken kısa bir gecikme görüntüyü dondurur. Elimizdeki gerçek yedek
+  // = ffmpeg'in verdiği yayın süresi − oynatılan konum (tarayıcının
+  // "buffered" değeri bunu göstermiyor, yalnızca birkaç saniye önünü okuyor).
+  // Yedek azsa oynatmayı fark edilmeyecek kadar yavaşlatıp (%3) yaklaşık
+  // 4 sn biriktiriyoruz; çok birikirse (ör. uzun duraklatmadan sonra)
+  // hafifçe hızlanıp canlıya yaklaşıyoruz.
+  const pace = (outTimeSec?: number): void => {
+    if (outTimeSec === undefined || video.paused || video.readyState < 3) return
+    const cushion = outTimeSec - video.currentTime
+    const current = video.playbackRate
+    let rate = 1
+    if (cushion < 1.5) rate = 0.92
+    else if (cushion < 3) rate = 0.97
+    else if (cushion < 4.5) rate = current < 1 ? 0.97 : 1
+    else if (cushion > 12) rate = 1.05
+    else if (cushion > 8) rate = current > 1 ? 1.05 : 1
+    if (current !== rate) video.playbackRate = rate
+  }
 
   const pollInfo = (): void => {
     window.iptv.proxy
@@ -283,10 +304,11 @@ function attachRemux(
           audioCodec: i.audioCodec,
           nominalFps: i.fps
         })
+        pace(i.outTimeSec)
       })
       .catch(() => {})
   }
-  const infoTimer = setInterval(pollInfo, 2000)
+  const infoTimer = setInterval(pollInfo, 1000)
   pollInfo()
 
   return {
@@ -294,6 +316,7 @@ function attachRemux(
     destroy: () => {
       done = true
       clearInterval(infoTimer)
+      video.playbackRate = 1
       video.removeEventListener('error', onError)
       video.removeEventListener('ended', onError)
       // src'yi kaldırıp load() çağırmak bağlantıyı hemen kapatır (hata olayı üretmez)
@@ -349,13 +372,25 @@ export function attachStream(
     } else if (kind === 'hls' && video.canPlayType('application/vnd.apple.mpegurl')) {
       current = nativeHandle(targetUrl)
     } else if (kind === 'mpegts' && isRemuxAvailable()) {
-      // ffmpeg yolu açılamazsa (ör. tarayıcının çözemediği bir codec) aynı
-      // adresi mpegts.js ile dene; o da olmazsa normal yedek zinciri devam eder.
-      current = attachRemux(video, targetUrl, onInfo, () => {
-        current?.destroy()
-        if (mpegts.isSupported()) current = attachMpegts(video, targetUrl, onInfo, onFatal)
-        else onFatal()
-      })
+      // Yayın oynarken bağlantı koparsa hata göstermeden hemen yeniden bağlan
+      // (15 sn içinde tekrar koparsa normal hata/yeniden deneme akışına düş).
+      // Hiç açılamadıysa (ör. tarayıcının çözemediği bir codec) aynı adresi
+      // mpegts.js ile dene; o da olmazsa normal yedek zinciri devam eder.
+      let lastReconnect = 0
+      const startRemux = (): void => {
+        current = attachRemux(video, targetUrl, onInfo, (played) => {
+          current?.destroy()
+          if (played && Date.now() - lastReconnect > 15_000) {
+            lastReconnect = Date.now()
+            startRemux()
+          } else if (!played && mpegts.isSupported()) {
+            current = attachMpegts(video, targetUrl, onInfo, onFatal)
+          } else {
+            onFatal()
+          }
+        })
+      }
+      startRemux()
     } else if (kind === 'mpegts' && mpegts.isSupported()) {
       current = attachMpegts(video, targetUrl, onInfo, onFatal)
     } else {

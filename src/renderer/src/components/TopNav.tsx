@@ -3,12 +3,15 @@ import type { SourceConfig } from '../../../shared/types'
 import {
   IconLiveTv,
   IconLock,
+  IconMoon,
   IconMovie,
   IconRefresh,
   IconSeries,
   IconSettings,
-  IconStar
+  IconStar,
+  IconSun
 } from './Icons'
+import type { Theme } from '../lib/theme'
 
 export type ViewKey = 'live' | 'vod' | 'series' | 'favorites'
 
@@ -22,6 +25,8 @@ interface Props {
   onOpenParentalLock: () => void
   onReload: () => void
   loading: boolean
+  theme: Theme
+  onToggleTheme: () => void
 }
 
 const TABS: { key: ViewKey; label: string; Icon: ComponentType<{ size?: number }> }[] = [
@@ -40,7 +45,9 @@ export function TopNav({
   onManageSources,
   onOpenParentalLock,
   onReload,
-  loading
+  loading,
+  theme,
+  onToggleTheme
 }: Props): ReactElement {
   return (
     <div className="topnav">
@@ -77,6 +84,13 @@ export function TopNav({
         </select>
       )}
 
+      <button
+        className="icon-btn"
+        onClick={onToggleTheme}
+        title={theme === 'dark' ? 'Açık temaya geç' : 'Koyu temaya geç'}
+      >
+        {theme === 'dark' ? <IconSun size={15} /> : <IconMoon size={15} />}
+      </button>
       <button className="icon-btn" onClick={onOpenParentalLock} title="Ebeveyn Kilidi">
         <IconLock size={14} />
       </button>

@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import type { ClipResult, EpgProgram, PlayableItem, SourceConfig } from '../../../shared/types'
 import { attachStream, type AttachedPlayer, type TrackInfo } from '../lib/playerEngine'
+import { ChannelDrawer, type ChannelDrawerData } from './ChannelDrawer'
 import { useStreamStats } from '../hooks/useStreamStats'
 import { getShortEpg } from '../lib/xtream'
 import { getProgress, saveProgress } from '../lib/continueWatching'
 import {
   IconArrowLeft,
+  IconChannels,
   IconClose,
   IconExpand,
   IconLiveTv,
@@ -15,6 +17,8 @@ import {
   IconRefresh,
   IconScissors,
   IconSettings,
+  IconSkipNext,
+  IconSkipPrev,
   IconStar,
   IconVolume,
   IconWarning
@@ -36,6 +40,10 @@ interface Props {
   onToggleFavorite?: () => void
   onClose?: () => void
   onExpand?: () => void
+  // Canlı yayında önceki/sonraki kanal ve tam ekran kanal listesi
+  onPrev?: () => void
+  onNext?: () => void
+  drawer?: ChannelDrawerData
 }
 
 const VOLUME_STORAGE_KEY = 'iptv-toto-volume'
@@ -90,7 +98,10 @@ export function PlayerPane({
   isFavorite,
   onToggleFavorite,
   onClose,
-  onExpand
+  onExpand,
+  onPrev,
+  onNext,
+  drawer
 }: Props): ReactElement {
   const videoRef = useRef<HTMLVideoElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -114,6 +125,7 @@ export function PlayerPane({
   const [currentSubtitle, setCurrentSubtitle] = useState(-1)
   const [tracksMenuOpen, setTracksMenuOpen] = useState(false)
   const [clip, setClip] = useState<ClipState>({ status: 'idle' })
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const clipTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const resumedForUrl = useRef<string | null>(null)
@@ -279,7 +291,11 @@ export function PlayerPane({
   }, [item?.url])
 
   useEffect(() => {
-    const onFs = (): void => setIsFullscreen(document.fullscreenElement === wrapRef.current)
+    const onFs = (): void => {
+      const fs = document.fullscreenElement === wrapRef.current
+      setIsFullscreen(fs)
+      if (!fs) setDrawerOpen(false)
+    }
     document.addEventListener('fullscreenchange', onFs)
     return () => document.removeEventListener('fullscreenchange', onFs)
   }, [])
@@ -360,7 +376,19 @@ export function PlayerPane({
           saveClip()
           break
         case 'Escape':
-          if (mode === 'theater' && !document.fullscreenElement) onClose?.()
+          if (drawerOpen) setDrawerOpen(false)
+          else if (mode === 'theater' && !document.fullscreenElement) onClose?.()
+          break
+        case 'l':
+          if (drawer && document.fullscreenElement) setDrawerOpen((v) => !v)
+          break
+        case 'PageUp':
+          e.preventDefault()
+          onPrev?.()
+          break
+        case 'PageDown':
+          e.preventDefault()
+          onNext?.()
           break
         case 'ArrowUp':
           e.preventDefault()
@@ -371,12 +399,14 @@ export function PlayerPane({
           e.preventDefault()
           video.volume = Math.max(0, video.volume - 0.05)
           break
+        // Canlı yayında sağ/sol = sonraki/önceki kanal, diğerlerinde 10 sn sar
         case 'ArrowRight':
-          if (!currentItem.isLive)
-            video.currentTime = Math.min(video.duration || 0, video.currentTime + 10)
+          if (currentItem.isLive) onNext?.()
+          else video.currentTime = Math.min(video.duration || 0, video.currentTime + 10)
           break
         case 'ArrowLeft':
-          if (!currentItem.isLive) video.currentTime = Math.max(0, video.currentTime - 10)
+          if (currentItem.isLive) onPrev?.()
+          else video.currentTime = Math.max(0, video.currentTime - 10)
           break
       }
     }
@@ -384,7 +414,7 @@ export function PlayerPane({
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item, mode, player])
+  }, [item, mode, player, drawerOpen, drawer, onPrev, onNext])
 
   function retry(): void {
     setError(null)
@@ -517,7 +547,10 @@ export function PlayerPane({
   return (
     <div className={`player-pane mode-${mode}`}>
       <div className="player-stage" style={stageStyle}>
-        <div className="player-pane-video-wrap" ref={wrapRef}>
+        <div
+          className={`player-pane-video-wrap ${item && !showOverlay ? 'controls-hidden' : ''} ${drawerOpen && isFullscreen ? 'drawer-open' : ''}`}
+          ref={wrapRef}
+        >
           <video
             ref={videoRef}
             playsInline
@@ -542,9 +575,16 @@ export function PlayerPane({
               {mode !== 'mini' && (
                 <>
                   <p className="player-error-hint">5 saniyede bir otomatik yeniden deneniyor…</p>
-                  <button className="btn-secondary" onClick={retry}>
-                    <IconRefresh size={13} /> Şimdi Dene
-                  </button>
+                  <div className="player-error-actions">
+                    <button className="btn-secondary" onClick={retry}>
+                      <IconRefresh size={13} /> Şimdi Dene
+                    </button>
+                    {onNext && (
+                      <button className="btn-secondary" onClick={onNext}>
+                        Sonraki kanal <IconSkipNext size={13} />
+                      </button>
+                    )}
+                  </div>
                 </>
               )}
             </div>
@@ -606,13 +646,25 @@ export function PlayerPane({
                 )}
 
                 <div className="player-controls">
-                  <button
-                    className="icon-btn"
-                    onClick={togglePlay}
-                    title={isPlaying ? 'Duraklat' : 'Oynat'}
-                  >
-                    {isPlaying ? <IconPause size={15} /> : <IconPlay size={15} />}
-                  </button>
+                  <div className="transport">
+                    {onPrev && (
+                      <button className="icon-btn" onClick={onPrev} title="Önceki kanal (←)">
+                        <IconSkipPrev size={15} />
+                      </button>
+                    )}
+                    <button
+                      className="icon-btn transport-play"
+                      onClick={togglePlay}
+                      title={isPlaying ? 'Duraklat (Boşluk)' : 'Oynat (Boşluk)'}
+                    >
+                      {isPlaying ? <IconPause size={17} /> : <IconPlay size={17} />}
+                    </button>
+                    {onNext && (
+                      <button className="icon-btn" onClick={onNext} title="Sonraki kanal (→)">
+                        <IconSkipNext size={15} />
+                      </button>
+                    )}
+                  </div>
 
                   {!item.isLive ? (
                     <>
@@ -714,6 +766,16 @@ export function PlayerPane({
                     </div>
                   )}
 
+                  {drawer && isFullscreen && (
+                    <button
+                      className={`icon-btn ${drawerOpen ? 'icon-btn-active' : ''}`}
+                      onClick={() => setDrawerOpen((v) => !v)}
+                      title="Kanal listesi (L)"
+                    >
+                      <IconChannels size={15} />
+                    </button>
+                  )}
+
                   <button className="icon-btn" onClick={toggleFullscreen} title="Tam ekran (F)">
                     <IconExpand size={15} />
                   </button>
@@ -722,6 +784,10 @@ export function PlayerPane({
 
               {richOverlay && clipToast}
             </>
+          )}
+
+          {item && drawer && drawerOpen && isFullscreen && (
+            <ChannelDrawer data={drawer} selectedId={item.id} onClose={() => setDrawerOpen(false)} />
           )}
         </div>
       </div>

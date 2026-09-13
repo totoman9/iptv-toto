@@ -29,6 +29,7 @@ const api = {
       audioCodec?: string
       fps?: number
       bitrateKbps?: number
+      outTimeSec?: number
     }> => ipcRenderer.invoke('proxy:liveInfo')
   },
   clips: {
