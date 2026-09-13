@@ -18,6 +18,7 @@ interface RowProps {
   onSelect: (item: ListableItem) => void
   favoriteIds?: Set<string>
   onToggleFavorite?: (id: string) => void
+  renderRowExtra?: (item: ListableItem) => ReactNode
 }
 
 function FavButton({
@@ -51,7 +52,8 @@ function Row({
   selectedId,
   onSelect,
   favoriteIds,
-  onToggleFavorite
+  onToggleFavorite,
+  renderRowExtra
 }: RowComponentProps<RowProps>): ReactElement {
   const item = rows[index]
   return (
@@ -68,6 +70,7 @@ function Row({
         )}
       </div>
       <span className="channel-row-name">{item.name}</span>
+      {renderRowExtra?.(item)}
       <FavButton item={item} favoriteIds={favoriteIds} onToggleFavorite={onToggleFavorite} />
     </div>
   )
@@ -126,6 +129,8 @@ interface Props {
   headerAction?: ReactNode
   viewMode?: ListViewMode
   onViewModeChange?: (mode: ListViewMode) => void
+  // Liste görünümünde satıra eklenecek ek düğme (ör. klasör menüsü)
+  renderRowExtra?: (item: ListableItem) => ReactNode
 }
 
 const TILE_COLS = 3
@@ -141,7 +146,8 @@ export function ItemListColumn({
   emptyHint,
   headerAction,
   viewMode = 'list',
-  onViewModeChange
+  onViewModeChange,
+  renderRowExtra
 }: Props): ReactElement {
   const [search, setSearch] = useState('')
 
@@ -211,7 +217,7 @@ export function ItemListColumn({
             rowComponent={Row}
             rowCount={filtered.length}
             rowHeight={54}
-            rowProps={{ rows: filtered, selectedId, onSelect, favoriteIds, onToggleFavorite }}
+            rowProps={{ rows: filtered, selectedId, onSelect, favoriteIds, onToggleFavorite, renderRowExtra }}
           />
         </div>
       )}

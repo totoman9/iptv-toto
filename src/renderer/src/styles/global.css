@@ -24,7 +24,11 @@
   --radius-sm: 8px;
   --radius: 14px;
   --radius-lg: 20px;
-  --shadow: 0 10px 30px rgba(124, 58, 237, 0.16);
+  --shadow: 0 10px 30px rgba(var(--accent-rgb), 0.16);
+  /* Vurgu rengi (tema renginden türetilen yarı saydam tonlar için) */
+  --accent-rgb: 124, 58, 237;
+  --accent2-rgb: 217, 70, 239;
+  --accent-soft: #f3e8ff;
 
   /* Oynatıcı her zaman siyah zemin üzerinde durur; tema ne olursa olsun
      buradaki metinler açık renkli kalmalı. */
@@ -78,8 +82,8 @@ textarea {
   flex-direction: column;
   height: 100vh;
   background:
-    radial-gradient(1200px 600px at 90% -10%, rgba(168, 85, 247, 0.1), transparent 60%),
-    radial-gradient(900px 500px at -10% 110%, rgba(124, 58, 237, 0.08), transparent 60%), var(--bg);
+    radial-gradient(1200px 600px at 90% -10%, rgba(var(--accent-rgb), 0.1), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(var(--accent-rgb), 0.08), transparent 60%), var(--bg);
 }
 
 .app-shell-loading {
@@ -127,7 +131,7 @@ textarea {
   justify-content: center;
   font-weight: 800;
   font-size: 13px;
-  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.45);
+  box-shadow: 0 4px 16px rgba(var(--accent-rgb), 0.45);
   flex-shrink: 0;
 }
 
@@ -325,7 +329,7 @@ textarea {
 }
 
 .category-row.active {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.22), rgba(217, 70, 239, 0.14));
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.22), rgba(var(--accent2-rgb), 0.14));
   color: var(--text);
 }
 
@@ -579,7 +583,7 @@ textarea {
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 6px 20px rgba(139, 92, 246, 0.35);
+  box-shadow: 0 6px 20px rgba(var(--accent-rgb), 0.35);
 }
 .btn-primary:disabled {
   opacity: 0.5;
@@ -1039,7 +1043,7 @@ textarea {
 }
 
 .epg-program-block.now {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.22), rgba(217, 70, 239, 0.14));
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.22), rgba(var(--accent2-rgb), 0.14));
   border-color: var(--primary);
   color: var(--text);
   cursor: pointer;
@@ -1291,7 +1295,7 @@ textarea {
   border-radius: 50%;
   background: var(--primary-light);
   cursor: pointer;
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.25);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.25);
 }
 
 .volume-control {

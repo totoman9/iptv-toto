@@ -29,3 +29,49 @@ export function runFfmpeg(args: string[], timeoutMs = 90_000): Promise<boolean> 
     })
   })
 }
+
+// Dosya adı: "<başlık> 2026-09-13 22.05.46"
+export function clipFileBase(title: string): string {
+  const d = new Date()
+  const pad = (n: number): string => String(n).padStart(2, '0')
+  const stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}.${pad(d.getMinutes())}.${pad(d.getSeconds())}`
+  const safeTitle = title.replace(/[\\/:*?"<>|]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60)
+  return `${safeTitle || 'Kesit'} ${stamp}`
+}
+
+// .ts kaydını .mp4'e çevirir. Önce kayıpsız (yeniden kodlamadan) dener;
+// olmazsa yalnızca sesi AAC'ye çevirir.
+export async function finalizeToMp4(
+  inputPath: string,
+  outPath: string,
+  inputArgs: string[] = [],
+  outputArgs: string[] = [],
+  timeoutMs = 90_000
+): Promise<boolean> {
+  const common = ['-y', '-hide_banner', '-loglevel', 'error', ...inputArgs]
+  if (
+    await runFfmpeg(
+      [...common, '-i', inputPath, ...outputArgs, '-c', 'copy', '-movflags', '+faststart', outPath],
+      timeoutMs
+    )
+  )
+    return true
+  return runFfmpeg(
+    [
+      ...common,
+      '-i',
+      inputPath,
+      ...outputArgs,
+      '-c:v',
+      'copy',
+      '-c:a',
+      'aac',
+      '-b:a',
+      '160k',
+      '-movflags',
+      '+faststart',
+      outPath
+    ],
+    timeoutMs
+  )
+}

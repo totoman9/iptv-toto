@@ -1,19 +1,22 @@
-import type { ComponentType, ReactElement } from 'react'
+import { useEffect, useRef, useState, type ComponentType, type ReactElement } from 'react'
 import type { SourceConfig } from '../../../shared/types'
+import { ACCENTS, type Accent, type Theme } from '../lib/theme'
 import {
   IconLiveTv,
   IconLock,
   IconMoon,
   IconMovie,
+  IconPalette,
+  IconRecord,
   IconRefresh,
+  IconSearch,
   IconSeries,
   IconSettings,
   IconStar,
   IconSun
 } from './Icons'
-import type { Theme } from '../lib/theme'
 
-export type ViewKey = 'live' | 'vod' | 'series' | 'favorites'
+export type ViewKey = 'live' | 'vod' | 'series' | 'favorites' | 'recordings'
 
 interface Props {
   view: ViewKey
@@ -26,15 +29,76 @@ interface Props {
   onReload: () => void
   loading: boolean
   theme: Theme
-  onToggleTheme: () => void
+  onThemeChange: (theme: Theme) => void
+  accent: Accent
+  onAccentChange: (accent: Accent) => void
+  onOpenSearch: () => void
+  recordingActive: boolean
 }
 
 const TABS: { key: ViewKey; label: string; Icon: ComponentType<{ size?: number }> }[] = [
   { key: 'live', label: 'Canlı TV', Icon: IconLiveTv },
   { key: 'vod', label: 'Filmler', Icon: IconMovie },
   { key: 'series', label: 'Diziler', Icon: IconSeries },
-  { key: 'favorites', label: 'Favoriler', Icon: IconStar }
+  { key: 'favorites', label: 'Favoriler', Icon: IconStar },
+  { key: 'recordings', label: 'Kayıtlar', Icon: IconRecord }
 ]
+
+function AppearanceMenu({
+  theme,
+  onThemeChange,
+  accent,
+  onAccentChange
+}: Pick<Props, 'theme' | 'onThemeChange' | 'accent' | 'onAccentChange'>): ReactElement {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent): void => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [open])
+
+  return (
+    <div className="appearance-wrap" ref={ref}>
+      <button
+        className={`icon-btn ${open ? 'icon-btn-on' : ''}`}
+        onClick={() => setOpen((v) => !v)}
+        title="Görünüm: tema ve renk"
+      >
+        <IconPalette size={15} />
+      </button>
+      {open && (
+        <div className="appearance-menu">
+          <div className="appearance-label">Tema</div>
+          <div className="seg-toggle appearance-seg">
+            <button className={theme === 'light' ? 'active' : ''} onClick={() => onThemeChange('light')}>
+              <IconSun size={13} /> Açık
+            </button>
+            <button className={theme === 'dark' ? 'active' : ''} onClick={() => onThemeChange('dark')}>
+              <IconMoon size={13} /> Koyu
+            </button>
+          </div>
+          <div className="appearance-label">Renk</div>
+          <div className="appearance-swatches">
+            {ACCENTS.map((a) => (
+              <button
+                key={a.id}
+                className={`swatch ${accent === a.id ? 'active' : ''}`}
+                style={{ background: a.color }}
+                onClick={() => onAccentChange(a.id)}
+                title={a.label}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function TopNav({
   view,
@@ -47,8 +111,13 @@ export function TopNav({
   onReload,
   loading,
   theme,
-  onToggleTheme
+  onThemeChange,
+  accent,
+  onAccentChange,
+  onOpenSearch,
+  recordingActive
 }: Props): ReactElement {
+  const shortcut = window.iptv?.platform === 'darwin' ? '⌘K' : 'Ctrl K'
   return (
     <div className="topnav">
       <div className="topnav-brand">
@@ -64,11 +133,18 @@ export function TopNav({
             onClick={() => onViewChange(tab.key)}
           >
             <tab.Icon size={16} /> {tab.label}
+            {tab.key === 'recordings' && recordingActive && <span className="tab-rec-dot" title="Kayıt sürüyor" />}
           </button>
         ))}
       </div>
 
       <div className="topnav-spacer" />
+
+      <button className="topnav-search" onClick={onOpenSearch} title="Her yerde ara">
+        <IconSearch size={14} />
+        <span>Ara</span>
+        <kbd>{shortcut}</kbd>
+      </button>
 
       {sources.length > 0 && (
         <select
@@ -84,13 +160,12 @@ export function TopNav({
         </select>
       )}
 
-      <button
-        className="icon-btn"
-        onClick={onToggleTheme}
-        title={theme === 'dark' ? 'Açık temaya geç' : 'Koyu temaya geç'}
-      >
-        {theme === 'dark' ? <IconSun size={15} /> : <IconMoon size={15} />}
-      </button>
+      <AppearanceMenu
+        theme={theme}
+        onThemeChange={onThemeChange}
+        accent={accent}
+        onAccentChange={onAccentChange}
+      />
       <button className="icon-btn" onClick={onOpenParentalLock} title="Ebeveyn Kilidi">
         <IconLock size={14} />
       </button>

@@ -27,6 +27,11 @@ export function remuxedLiveUrl(url: string, backSec = 0): string {
   return `http://127.0.0.1:${port}/remux?u=${encodeURIComponent(url)}${back}`
 }
 
+// Bilgisayardaki bir kaydı (ileri/geri sarılabilir şekilde) oynatma adresi
+export function localFileUrl(path: string): string {
+  return `http://127.0.0.1:${port}/file?p=${encodeURIComponent(path)}`
+}
+
 export function isProxyAvailable(): boolean {
   return port > 0
 }

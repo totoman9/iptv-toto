@@ -411,7 +411,7 @@
 .player-controls .icon-btn-active {
   color: #fff;
   border-color: var(--primary-light);
-  background: rgba(139, 92, 246, 0.4);
+  background: rgba(var(--accent-rgb), 0.4);
 }
 
 .player-pane-video-wrap:fullscreen .player-controls .icon-btn {
@@ -544,7 +544,7 @@
 }
 
 .drawer-row.active {
-  background: rgba(139, 92, 246, 0.3);
+  background: rgba(var(--accent-rgb), 0.3);
   color: #fff;
   font-weight: 700;
 }
@@ -673,7 +673,7 @@
 }
 
 .settings-tabs button.active {
-  background: rgba(139, 92, 246, 0.3);
+  background: rgba(var(--accent-rgb), 0.3);
   color: #fff;
 }
 
@@ -799,7 +799,7 @@
 }
 
 .settings-seg button.active {
-  background: rgba(139, 92, 246, 0.45);
+  background: rgba(var(--accent-rgb), 0.45);
   color: #fff;
 }
 

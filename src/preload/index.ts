@@ -1,5 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { ClipResult, HttpResult } from '../shared/types'
+import type {
+  ClipResult,
+  HttpResult,
+  RecordingEntry,
+  RecordingInput,
+  RecordingScheduleResult
+} from '../shared/types'
 
 const api = {
   platform: process.platform,
@@ -56,6 +62,22 @@ const api = {
   },
   shell: {
     showItem: (filePath: string): Promise<void> => ipcRenderer.invoke('shell:showItem', filePath)
+  },
+  recordings: {
+    list: (): Promise<RecordingEntry[]> => ipcRenderer.invoke('rec:list'),
+    schedule: (input: RecordingInput): Promise<RecordingScheduleResult> =>
+      ipcRenderer.invoke('rec:schedule', input),
+    stop: (id: string): Promise<boolean> => ipcRenderer.invoke('rec:stop', id),
+    remove: (id: string, deleteFile: boolean): Promise<boolean> =>
+      ipcRenderer.invoke('rec:remove', id, deleteFile),
+    openFolder: (): Promise<void> => ipcRenderer.invoke('rec:openFolder'),
+    onChanged: (cb: () => void): (() => void) => {
+      const handler = (): void => cb()
+      ipcRenderer.on('rec:changed', handler)
+      return () => {
+        ipcRenderer.removeListener('rec:changed', handler)
+      }
+    }
   }
 }
 

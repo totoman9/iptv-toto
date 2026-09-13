@@ -1,5 +1,8 @@
 import { ipcMain } from 'electron'
 import http from 'node:http'
+import { createReadStream } from 'node:fs'
+import { stat } from 'node:fs/promises'
+import { extname, resolve, sep } from 'node:path'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { ffmpegPath } from './ffmpeg'
 import { USER_AGENT } from './constants'
@@ -176,9 +179,20 @@ async function pump(s: LiveSession, body: ReadableStream<Uint8Array>): Promise<v
   s.subscribers.clear()
 }
 
+function hasRecorder(s: LiveSession): boolean {
+  for (const sub of s.subscribers) if (sub.kind === 'recorder') return true
+  return false
+}
+
+// Kayıt sürüyorsa kaydedilen kanalın adresi
+export function recorderTarget(): string | null {
+  return session && !session.ended && hasRecorder(session) ? session.target : null
+}
+
 // Bu adres için açık bir oturum varsa onu kullanır; yoksa (öncekini kapatıp)
-// sunucuya yeni bağlantı açar.
-export function ensureSession(target: string): LiveSession {
+// sunucuya yeni bağlantı açar. Başka bir kanal kaydediliyorsa null döner:
+// tek bağlantılı hesapta kaydı kesmemek için yeni kanal açılmaz.
+export function ensureSession(target: string): LiveSession | null {
   if (session && session.target === target && !session.ended) {
     if (session.idleTimer) {
       clearTimeout(session.idleTimer)
@@ -186,6 +200,7 @@ export function ensureSession(target: string): LiveSession {
     }
     return session
   }
+  if (session && !session.ended && hasRecorder(session)) return null
   if (session) closeSession(session)
   ring = []
   ringBytes = 0
@@ -246,9 +261,65 @@ export function activeTarget(): string | null {
 // bağlantısını hemen bırak: tek bağlantılı hesaplarda film ancak böyle
 // açılabiliyor. Kayıt sürüyorsa bağlantıya dokunulmaz.
 export function releaseLive(): void {
-  if (!session) return
-  for (const sub of session.subscribers) if (sub.kind === 'recorder') return
+  if (!session || hasRecorder(session)) return
   closeSession(session)
+}
+
+// ---------- Yerel dosya sunma (kayıtları oynatmak için, ileri/geri sarılabilir) ----------
+
+const fileRoots = new Set<string>()
+
+export function allowFileRoot(dir: string): void {
+  fileRoots.add(resolve(dir))
+}
+
+const MIME: Record<string, string> = {
+  '.mp4': 'video/mp4',
+  '.m4v': 'video/mp4',
+  '.ts': 'video/mp2t',
+  '.mkv': 'video/x-matroska'
+}
+
+async function serveFile(
+  p: string | null,
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  const full = p ? resolve(p) : ''
+  if (!full || ![...fileRoots].some((root) => full.startsWith(root + sep))) {
+    res.writeHead(403)
+    res.end()
+    return
+  }
+  let size: number
+  try {
+    size = (await stat(full)).size
+  } catch {
+    res.writeHead(404)
+    res.end()
+    return
+  }
+  const type = MIME[extname(full).toLowerCase()] || 'application/octet-stream'
+  const range = req.headers.range?.match(/bytes=(\d*)-(\d*)/)
+  if (range) {
+    const start = range[1] ? Number(range[1]) : 0
+    const end = range[2] ? Math.min(Number(range[2]), size - 1) : size - 1
+    if (start >= size) {
+      res.writeHead(416, { 'Content-Range': `bytes */${size}` })
+      res.end()
+      return
+    }
+    res.writeHead(206, {
+      'Content-Type': type,
+      'Content-Length': end - start + 1,
+      'Content-Range': `bytes ${start}-${end}/${size}`,
+      'Accept-Ranges': 'bytes'
+    })
+    createReadStream(full, { start, end }).pipe(res)
+  } else {
+    res.writeHead(200, { 'Content-Type': type, 'Content-Length': size, 'Accept-Ranges': 'bytes' })
+    createReadStream(full).pipe(res)
+  }
 }
 
 // /live?u=<adres>&back=<sn>: yayını ham .ts olarak verir. back > 0 ise önce
@@ -259,7 +330,14 @@ export function releaseLive(): void {
 let playerQueued: (() => number) | null = null
 
 async function handleLive(target: string, back: number, res: http.ServerResponse): Promise<void> {
-  const s = ensureSession(target)
+  const found = ensureSession(target)
+  if (!found) {
+    // Başka bir kanal kaydediliyor (423 = kilitli)
+    res.writeHead(423)
+    res.end()
+    return
+  }
+  const s = found
   let unsubscribe: (() => void) | null = null
   let closed = false
 
@@ -471,6 +549,8 @@ export function initLive(): void {
         handleRemux(target, back, res)
       } else if (target && reqUrl.pathname === '/live') {
         void handleLive(target, back, res)
+      } else if (reqUrl.pathname === '/file') {
+        void serveFile(reqUrl.searchParams.get('p'), req, res)
       } else {
         res.writeHead(404)
         res.end()

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ReactElement } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { List, type RowComponentProps } from 'react-window'
 import type {
   PlayableItem,
@@ -16,6 +16,7 @@ import { CategoryColumn, ALL_GROUP } from '../CategoryColumn'
 import {
   IconArrowLeft,
   IconChevronRight,
+  IconEdit,
   IconGrid,
   IconMovie,
   IconPlay,
@@ -57,6 +58,9 @@ interface Props {
   isLocked: (group: string) => boolean
   guard: (group: string, action: () => void) => void
   onPlay: (item: PlayableItem) => void
+  // Aramadan gelen "şu filmi/diziyi aç" isteği
+  openRequest?: { id: string; nonce: number } | null
+  onEditCategories?: () => void
 }
 
 const ROW_LIMIT = 30
@@ -204,7 +208,9 @@ export function MediaBrowser({
   lockedGroups,
   isLocked,
   guard,
-  onPlay
+  onPlay,
+  openRequest,
+  onEditCategories
 }: Props): ReactElement {
   const [route, setRoute] = useState<Route>({ name: 'home' })
   const [layout, setLayout] = useState<Layout>(() => loadLayout(kind))
@@ -345,6 +351,16 @@ export function MediaBrowser({
     if (!e) return
     guard(e.group, () => setRoute({ name: 'detail', id, back: route }))
   }
+
+  // Aramadan gelen istek: liste yüklenince bir kez aç
+  const handledOpen = useRef<number | null>(null)
+  useEffect(() => {
+    if (!openRequest || handledOpen.current === openRequest.nonce) return
+    if (!entriesById.has(openRequest.id)) return
+    handledOpen.current = openRequest.nonce
+    openDetail(openRequest.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openRequest, entriesById])
 
   // ----- İzlemeye devam et -----
   const continueList = useMemo(() => {
@@ -515,6 +531,11 @@ export function MediaBrowser({
           placeholder={`${entries.length.toLocaleString('tr-TR')} ${label} içinde ara`}
         />
       </div>
+      {onEditCategories && (
+        <button className="icon-btn" onClick={onEditCategories} title="Kategorileri düzenle (gizle / sabitle)">
+          <IconEdit size={14} />
+        </button>
+      )}
       <div className="seg-toggle">
         <button
           className={layout === 'showcase' ? 'active' : ''}
@@ -581,6 +602,7 @@ export function MediaBrowser({
           allLabel={kind === 'vod' ? 'Tüm filmler' : 'Tüm diziler'}
           orderedGroups={categoryOrder}
           lockedGroups={lockedGroups}
+          onEdit={onEditCategories}
         />
         <PosterGrid items={list.map(toCard)} onOpen={openDetail} />
       </div>

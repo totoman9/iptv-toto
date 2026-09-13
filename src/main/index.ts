@@ -4,7 +4,8 @@ import { writeFile, readFile, mkdir, stat, copyFile, unlink } from 'node:fs/prom
 import { existsSync } from 'node:fs'
 import os from 'node:os'
 import { USER_AGENT } from './constants'
-import { runFfmpeg } from './ffmpeg'
+import { clipFileBase, finalizeToMp4, runFfmpeg } from './ffmpeg'
+import { initRecorder } from './recorder'
 import { findTsSync, getRing, initLive } from './live'
 
 initLive()
@@ -107,57 +108,10 @@ ipcMain.handle(
 
 // ---------- Kesit kaydetme ----------
 
-function clipFileBase(title: string): string {
-  const d = new Date()
-  const pad = (n: number): string => String(n).padStart(2, '0')
-  const stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}.${pad(d.getMinutes())}.${pad(d.getSeconds())}`
-  const safeTitle = title.replace(/[\\/:*?"<>|]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60)
-  return `${safeTitle || 'Kesit'} ${stamp}`
-}
-
 async function clipsDir(): Promise<string> {
   const dir = join(app.getPath('videos'), 'IPTV Toto Kesitler')
   await mkdir(dir, { recursive: true })
   return dir
-}
-
-async function finalizeToMp4(
-  inputPath: string,
-  outPath: string,
-  inputArgs: string[] = [],
-  outputArgs: string[] = []
-): Promise<boolean> {
-  const common = ['-y', '-hide_banner', '-loglevel', 'error', ...inputArgs]
-  // Önce kayıpsız (yeniden kodlamadan) dene; olmazsa sadece sesi AAC'ye çevir.
-  if (
-    await runFfmpeg([
-      ...common,
-      '-i',
-      inputPath,
-      ...outputArgs,
-      '-c',
-      'copy',
-      '-movflags',
-      '+faststart',
-      outPath
-    ])
-  )
-    return true
-  return runFfmpeg([
-    ...common,
-    '-i',
-    inputPath,
-    ...outputArgs,
-    '-c:v',
-    'copy',
-    '-c:a',
-    'aac',
-    '-b:a',
-    '160k',
-    '-movflags',
-    '+faststart',
-    outPath
-  ])
 }
 
 ipcMain.handle('clip:saveLive', async (_event, title: string, seconds = 30, latencySec = 0) => {
@@ -377,6 +331,7 @@ app.whenReady().then(() => {
     callback({ requestHeaders: details.requestHeaders })
   })
 
+  initRecorder()
   createWindow()
 
   app.on('activate', () => {

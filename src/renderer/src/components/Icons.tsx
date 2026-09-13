@@ -379,3 +379,66 @@ export function IconKeyboard({ size, ...rest }: IconProps): ReactElement {
     </svg>
   )
 }
+
+export function IconPalette({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.7 1.8-1.7H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3Z" />
+      <circle cx="7.5" cy="11" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="10" cy="7" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="14.5" cy="7" r="1.2" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+export function IconRecord({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <circle cx="12" cy="12" r="8.5" />
+      <circle cx="12" cy="12" r="4" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+export function IconStop({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+export function IconPin({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <path d="M9 3h6l-1 6 3.5 3.5v1.5H6.5v-1.5L10 9 9 3Z" />
+      <path d="M12 14v7" />
+    </svg>
+  )
+}
+
+export function IconEye({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  )
+}
+
+export function IconEyeOff({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <path d="M4 4l16 16" />
+      <path d="M9.9 5.8A9.7 9.7 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-2.9 3.6M6.4 7.6A16.6 16.6 0 0 0 2.5 12S6 18.5 12 18.5c1.5 0 2.8-.4 4-1" />
+    </svg>
+  )
+}
+
+export function IconFolder({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4.2l2 2.2h8.8A1.5 1.5 0 0 1 21 9.7v8.8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5Z" />
+    </svg>
+  )
+}

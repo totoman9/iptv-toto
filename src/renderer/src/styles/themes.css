@@ -1,0 +1,98 @@
+/* ---------- Vurgu renkleri ----------
+   Varsayılan mor tema global.css'teki değerlerdir. Diğer renklerde vurgu
+   tonları değişir, yüzeyler de seçilen renge hafifçe boyanır. */
+
+:root[data-accent='blue'] {
+  --primary: #2563eb;
+  --primary-dark: #1d4ed8;
+  --primary-light: #60a5fa;
+  --gradient: linear-gradient(135deg, #2563eb 0%, #3b82f6 50%, #06b6d4 100%);
+  --accent-rgb: 37, 99, 235;
+  --accent2-rgb: 6, 182, 212;
+  --accent-soft: #dbeafe;
+}
+
+:root[data-accent='teal'] {
+  --primary: #0d9488;
+  --primary-dark: #0f766e;
+  --primary-light: #2dd4bf;
+  --gradient: linear-gradient(135deg, #0d9488 0%, #14b8a6 50%, #22d3ee 100%);
+  --accent-rgb: 13, 148, 136;
+  --accent2-rgb: 34, 211, 238;
+  --accent-soft: #ccfbf1;
+}
+
+:root[data-accent='green'] {
+  --primary: #16a34a;
+  --primary-dark: #15803d;
+  --primary-light: #4ade80;
+  --gradient: linear-gradient(135deg, #16a34a 0%, #22c55e 50%, #84cc16 100%);
+  --accent-rgb: 22, 163, 74;
+  --accent2-rgb: 132, 204, 22;
+  --accent-soft: #dcfce7;
+}
+
+:root[data-accent='orange'] {
+  --primary: #ea580c;
+  --primary-dark: #c2410c;
+  --primary-light: #fb923c;
+  --gradient: linear-gradient(135deg, #ea580c 0%, #f97316 50%, #f59e0b 100%);
+  --accent-rgb: 234, 88, 12;
+  --accent2-rgb: 245, 158, 11;
+  --accent-soft: #ffedd5;
+}
+
+:root[data-accent='pink'] {
+  --primary: #db2777;
+  --primary-dark: #be185d;
+  --primary-light: #f472b6;
+  --gradient: linear-gradient(135deg, #db2777 0%, #ec4899 50%, #f43f5e 100%);
+  --accent-rgb: 219, 39, 119;
+  --accent2-rgb: 244, 63, 94;
+  --accent-soft: #fce7f3;
+}
+
+:root[data-accent='red'] {
+  --primary: #dc2626;
+  --primary-dark: #b91c1c;
+  --primary-light: #f87171;
+  --gradient: linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #f97316 100%);
+  --accent-rgb: 220, 38, 38;
+  --accent2-rgb: 249, 115, 22;
+  --accent-soft: #fee2e2;
+}
+
+/* Mor dışındaki renklerde açık tema yüzeyleri */
+:root[data-accent]:not([data-accent='purple']) {
+  --bg: color-mix(in srgb, var(--primary) 2%, #fafafa);
+  --bg-elevated: #ffffff;
+  --surface: color-mix(in srgb, var(--primary) 6%, #ffffff);
+  --surface-2: color-mix(in srgb, var(--primary) 11%, #ffffff);
+  --surface-hover: color-mix(in srgb, var(--primary) 17%, #ffffff);
+  --border: color-mix(in srgb, var(--primary) 16%, #e5e7eb);
+  --border-soft: color-mix(in srgb, var(--primary) 9%, #eef0f3);
+  --text: #16181f;
+  --text-dim: #525866;
+  --text-faint: #8b91a0;
+  --shadow: 0 10px 30px rgba(var(--accent-rgb), 0.14);
+}
+
+/* ...ve koyu tema yüzeyleri */
+:root[data-theme='dark'][data-accent]:not([data-accent='purple']) {
+  --bg: color-mix(in srgb, var(--primary) 6%, #0d0f14);
+  --bg-elevated: color-mix(in srgb, var(--primary) 8%, #151821);
+  --surface: color-mix(in srgb, var(--primary) 10%, #1a1d27);
+  --surface-2: color-mix(in srgb, var(--primary) 14%, #222634);
+  --surface-hover: color-mix(in srgb, var(--primary) 20%, #2a2f40);
+  --border: color-mix(in srgb, var(--primary) 18%, #2c3140);
+  --border-soft: color-mix(in srgb, var(--primary) 12%, #232735);
+  --text: #eef0f6;
+  --text-dim: #b3b9c8;
+  --text-faint: #858c9e;
+  --accent-soft: color-mix(in srgb, var(--primary) 30%, #1a1d27);
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+
+:root[data-theme='dark'][data-accent='purple'] {
+  --accent-soft: #3b2a5c;
+}

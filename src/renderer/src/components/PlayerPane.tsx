@@ -30,6 +30,7 @@ import {
   IconPause,
   IconPip,
   IconPlay,
+  IconRecord,
   IconRefresh,
   IconRewind,
   IconScissors,
@@ -38,6 +39,7 @@ import {
   IconSkipPrev,
   IconSliders,
   IconStar,
+  IconStop,
   IconVolume,
   IconWarning
 } from './Icons'
@@ -69,6 +71,11 @@ interface Props {
   // Mini pencere (her zaman üstte)
   compact?: boolean
   onToggleCompact?: () => void
+  // Bu kanal şu an kaydediliyor mu; kaydı başlat/durdur
+  recording?: boolean
+  onRecordToggle?: (info: { programTitle?: string; end?: number }) => void
+  // Başka bir kanal kaydediliyorsa o kaydın adı (bu kanal açılamaz)
+  blockedByRecording?: string
 }
 
 const VOLUME_STORAGE_KEY = 'iptv-toto-volume'
@@ -133,7 +140,10 @@ export function PlayerPane({
   onStop,
   onPlayItem,
   compact = false,
-  onToggleCompact
+  onToggleCompact,
+  recording = false,
+  onRecordToggle,
+  blockedByRecording
 }: Props): ReactElement {
   const videoRef = useRef<HTMLVideoElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -285,7 +295,8 @@ export function PlayerPane({
   // kalındığını bilmek için bölüm/sezon bilgisiyle birlikte)
   useEffect(() => {
     const video = videoRef.current
-    if (!video || !item || item.isLive) return
+    // Kayıtlar "izlemeye devam et" listesine girmesin
+    if (!video || !item || item.isLive || item.kind === 'recording') return
     const entryFor = (position: number): Parameters<typeof saveProgress>[0] => ({
       id: item.id,
       title: item.name,
@@ -827,7 +838,10 @@ export function PlayerPane({
           {item && error && (
             <div className="player-error">
               <div className="player-error-row">
-                <IconWarning size={16} /> {error}
+                <IconWarning size={16} />{' '}
+                {blockedByRecording
+                  ? `“${blockedByRecording}” kaydediliyor. Hesap tek bağlantılı olduğu için kayıt bitene kadar başka kanal açılamaz.`
+                  : error}
               </div>
               {mode !== 'mini' && (
                 <>
@@ -875,6 +889,11 @@ export function PlayerPane({
                   </div>
                 )}
                 <div className="topbar-spacer" />
+                {recording && (
+                  <span className="rec-badge">
+                    <span className="rec-dot" /> KAYIT
+                  </span>
+                )}
                 {liveBadge}
                 {richOverlay && !compact && statsChips}
               </div>
@@ -1178,6 +1197,29 @@ export function PlayerPane({
             >
               <IconScissors size={13} /> Son 30 sn'yi kaydet
             </button>
+            {item.isLive && onRecordToggle && (
+              <button
+                className={`btn-secondary btn-sm ${recording ? 'is-recording' : ''}`}
+                onClick={() => onRecordToggle({ programTitle: now?.title, end: now?.end })}
+                title={
+                  recording
+                    ? 'Kaydı durdur'
+                    : now
+                      ? `“${now.title}” bitene kadar kaydet`
+                      : 'Bu kanalı 1 saat kaydet'
+                }
+              >
+                {recording ? (
+                  <>
+                    <IconStop size={11} /> Kaydı durdur
+                  </>
+                ) : (
+                  <>
+                    <IconRecord size={12} /> Kaydet
+                  </>
+                )}
+              </button>
+            )}
           </div>
 
           {toastEl}

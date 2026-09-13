@@ -5,6 +5,7 @@ const KEYS = {
   sources: 'sources',
   activeSourceId: 'active-source-id',
   favorites: 'favorites',
+  favoriteFolders: 'favorite-folders',
   continueWatching: 'continue-watching',
   parentalPin: 'parental-pin',
   parentalLockedGroups: 'parental-locked-groups'
@@ -39,6 +40,22 @@ export async function loadFavorites(): Promise<FavoriteEntry[]> {
 
 export async function saveFavorites(favorites: FavoriteEntry[]): Promise<void> {
   await window.iptv.store.write(KEYS.favorites, favorites)
+}
+
+// "Spor", "Haber", "Çocuk" gibi kullanıcının oluşturduğu favori klasörleri
+export interface FavoriteFolder {
+  id: string
+  name: string
+  channelIds: string[]
+}
+
+export async function loadFavoriteFolders(): Promise<FavoriteFolder[]> {
+  const data = await window.iptv.store.read<FavoriteFolder[]>(KEYS.favoriteFolders)
+  return data || []
+}
+
+export async function saveFavoriteFolders(folders: FavoriteFolder[]): Promise<void> {
+  await window.iptv.store.write(KEYS.favoriteFolders, folders)
 }
 
 export interface ContinueWatchingEntry {

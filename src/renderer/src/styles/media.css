@@ -220,7 +220,7 @@
   font-size: 11px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #e9d5ff;
+  color: var(--accent-soft);
   font-weight: 800;
 }
 
@@ -267,7 +267,7 @@
 }
 
 .btn-light:hover {
-  background: #f3e8ff;
+  background: var(--accent-soft);
 }
 
 .btn-glass {
@@ -389,7 +389,7 @@
 
 .poster-card:hover .poster-img {
   transform: translateY(-3px);
-  box-shadow: 0 14px 30px rgba(124, 58, 237, 0.25);
+  box-shadow: 0 14px 30px rgba(var(--accent-rgb), 0.25);
 }
 
 .poster-img img {

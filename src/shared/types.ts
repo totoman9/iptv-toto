@@ -94,7 +94,7 @@ export interface PlayableItem {
   streamId?: number
   isLive: boolean
   logo?: string
-  kind?: 'live' | 'movie' | 'episode'
+  kind?: 'live' | 'movie' | 'episode' | 'recording'
   seriesId?: number
   seriesName?: string
   season?: number
@@ -121,4 +121,34 @@ export interface ClipResult {
   ok: boolean
   path?: string
   error?: string
+}
+
+// ---------- Program kaydı ----------
+
+export type RecordingStatus = 'scheduled' | 'recording' | 'done' | 'failed' | 'cancelled'
+
+export interface RecordingEntry {
+  id: string
+  title: string
+  channelName: string
+  channelId?: string
+  logo?: string
+  url: string
+  start: number // ms
+  end: number // ms
+  status: RecordingStatus
+  path?: string
+  error?: string
+  sizeBytes?: number
+}
+
+export type RecordingInput = Pick<
+  RecordingEntry,
+  'title' | 'channelName' | 'channelId' | 'logo' | 'url' | 'start' | 'end'
+>
+
+export interface RecordingScheduleResult {
+  ok: boolean
+  error?: string
+  entry?: RecordingEntry
 }

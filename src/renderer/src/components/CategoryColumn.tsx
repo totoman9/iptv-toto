@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactElement } from 'react'
-import { IconLock, IconSearch } from './Icons'
+import { IconEdit, IconLock, IconSearch } from './Icons'
 
 export interface CategoryEntry {
   key: string
@@ -19,6 +19,8 @@ interface Props {
   // Kilitli kategori adları — sadece küçük bir kilit ikonu göstermek için;
   // gerçek engelleme üst bileşendeki onSelectGroup çağrısında yapılır.
   lockedGroups?: string[]
+  // Kategori düzenleyicisini (gizle / üste sabitle) aç
+  onEdit?: () => void
 }
 
 export const ALL_GROUP = '__all__'
@@ -29,7 +31,8 @@ export function CategoryColumn({
   onSelectGroup,
   allLabel = 'Tüm kanallar',
   orderedGroups,
-  lockedGroups
+  lockedGroups,
+  onEdit
 }: Props): ReactElement {
   const [search, setSearch] = useState('')
 
@@ -69,13 +72,20 @@ export function CategoryColumn({
 
   return (
     <div className="pane pane-categories">
-      <div className="pane-search">
-        <IconSearch size={14} />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={`${categories.length - 1} kategoride ara`}
-        />
+      <div className="pane-search-row">
+        <div className="pane-search">
+          <IconSearch size={14} />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={`${categories.length - 1} kategoride ara`}
+          />
+        </div>
+        {onEdit && (
+          <button className="icon-btn" onClick={onEdit} title="Kategorileri düzenle (gizle / sabitle)">
+            <IconEdit size={14} />
+          </button>
+        )}
       </div>
       <div className="pane-list category-list">
         {filtered.map((c) => (

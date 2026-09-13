@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
-import type { SourceConfig } from '../../../shared/types'
+import type { EpgProgram, SourceConfig } from '../../../shared/types'
 import { getEpgGrid, type EpgGridChannel } from '../lib/xtream'
-import { IconClose, IconLiveTv } from './Icons'
+import { IconClose, IconLiveTv, IconRecord } from './Icons'
 
 const PX_PER_MIN = 3.2
 const WINDOW_BEFORE_MIN = 15
@@ -15,6 +15,8 @@ interface Props {
   truncated: boolean
   onClose: () => void
   onTuneChannel: (channelId: string) => void
+  // İleri saatteki programı kaydet; sonuç mesajını döner
+  onRecordProgram?: (streamId: number, program: EpgProgram) => Promise<string>
 }
 
 function formatHour(d: Date): string {
@@ -27,9 +29,12 @@ export function EpgGridModal({
   categoryLabel,
   truncated,
   onClose,
-  onTuneChannel
+  onTuneChannel,
+  onRecordProgram
 }: Props): ReactElement {
   const [rows, setRows] = useState<EpgGridChannel[] | null>(null)
+  const [selected, setSelected] = useState<{ streamId: number; channel: string; program: EpgProgram } | null>(null)
+  const [actionMessage, setActionMessage] = useState<string | null>(null)
   const [progress, setProgress] = useState({ done: 0, total: channels.length })
   const scrollRef = useRef<HTMLDivElement>(null)
   const windowStart = useMemo(() => Date.now() - WINDOW_BEFORE_MIN * 60000, [])
@@ -155,7 +160,13 @@ export function EpgGridModal({
                         className={`epg-program-block ${isNow ? 'now' : ''}`}
                         style={{ left, width: Math.max(4, right - left) }}
                         title={`${p.title}\n${formatHour(new Date(p.start))}–${formatHour(new Date(p.end))}`}
-                        onClick={() => isNow && onTuneChannel(channelIdFor(row.streamId, channels))}
+                        onClick={() => {
+                          if (isNow) onTuneChannel(channelIdFor(row.streamId, channels))
+                          else if (p.start > Date.now() && onRecordProgram) {
+                            setSelected({ streamId: row.streamId, channel: row.name, program: p })
+                            setActionMessage(null)
+                          }
+                        }}
                       >
                         {p.title}
                       </button>
@@ -163,6 +174,50 @@ export function EpgGridModal({
                   })}
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selected && (
+        <div
+          className="epg-action-backdrop"
+          onClick={() => {
+            setSelected(null)
+            setActionMessage(null)
+          }}
+        >
+          <div className="epg-action-card" onClick={(e) => e.stopPropagation()}>
+            <div className="epg-action-time">
+              {selected.channel} · {formatHour(new Date(selected.program.start))}–
+              {formatHour(new Date(selected.program.end))}
+            </div>
+            <div className="epg-action-title">{selected.program.title}</div>
+            {selected.program.description && (
+              <p className="epg-action-desc">{selected.program.description}</p>
+            )}
+            {actionMessage && <p className="epg-action-msg">{actionMessage}</p>}
+            <div className="modal-actions">
+              <button
+                className="btn-secondary"
+                onClick={() => {
+                  setSelected(null)
+                  setActionMessage(null)
+                }}
+              >
+                Kapat
+              </button>
+              {!actionMessage && onRecordProgram && (
+                <button
+                  className="btn-primary"
+                  onClick={async () => {
+                    setActionMessage('Planlanıyor…')
+                    setActionMessage(await onRecordProgram(selected.streamId, selected.program))
+                  }}
+                >
+                  <IconRecord size={13} /> Kaydet
+                </button>
+              )}
             </div>
           </div>
         </div>
