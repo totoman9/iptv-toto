@@ -1,61 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
-  <!-- IPTV Toto: yüzeyleri gölgelendirilmiş (3B) bir "T" — aynı zamanda bir
-       yayın anteni: gövde direk, üst çubuk anten kolu, tepede yayın dalgaları. -->
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#1b1430" />
-      <stop offset="1" stop-color="#07060c" />
-    </linearGradient>
-    <radialGradient id="glow" cx="0.5" cy="0.36" r="0.55">
-      <stop offset="0" stop-color="#8b5cf6" stop-opacity="0.45" />
-      <stop offset="1" stop-color="#8b5cf6" stop-opacity="0" />
-    </radialGradient>
-    <linearGradient id="wave" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#a78bfa" />
-      <stop offset="1" stop-color="#e879f9" />
-    </linearGradient>
-    <linearGradient id="top" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#ffffff" />
-      <stop offset="1" stop-color="#e7e1fb" />
-    </linearGradient>
-    <linearGradient id="front" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#cfc6f2" />
-      <stop offset="1" stop-color="#a99ce0" />
-    </linearGradient>
-    <linearGradient id="side" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#7a67c4" />
-      <stop offset="1" stop-color="#4c3c93" />
-    </linearGradient>
-  </defs>
-
-  <rect width="1024" height="1024" rx="228" fill="url(#bg)" />
-  <rect width="1024" height="1024" rx="228" fill="url(#glow)" />
-  <rect x="6" y="6" width="1012" height="1012" rx="222" fill="none" stroke="#ffffff" stroke-opacity="0.07" stroke-width="4" />
-
-  <g transform="translate(-26 24)">
-  <!-- Yayın dalgaları (antenin tepesinden iki yana) -->
-  <g fill="none" stroke="url(#wave)" stroke-linecap="round" transform="translate(0 -40)">
-    <path d="M 412 318 A 120 120 0 0 1 412 150" stroke-width="26" opacity="0.95" />
-    <path d="M 352 360 A 190 190 0 0 1 352 108" stroke-width="26" opacity="0.6" />
-    <path d="M 652 318 A 120 120 0 0 0 652 150" stroke-width="26" opacity="0.95" />
-    <path d="M 712 360 A 190 190 0 0 0 712 108" stroke-width="26" opacity="0.6" />
-  </g>
-
-  <!-- Anten tepesi -->
-  <circle cx="532" cy="194" r="46" fill="#f5f3ff" />
-  <circle cx="532" cy="194" r="46" fill="url(#glow)" />
-  <path d="M 510 222 L 554 222 L 562 372 L 502 372 Z" fill="url(#front)" />
-
-  <!-- Gövde (direk) -->
-  <polygon points="552,470 604,430 604,812 552,852" fill="url(#side)" />
-  <polygon points="460,470 552,470 552,852 460,852" fill="url(#front)" />
-
-  <!-- Üst çubuk (anten kolu) -->
-  <polygon points="262,390 314,350 814,350 762,390" fill="url(#top)" />
-  <polygon points="762,390 814,350 814,432 762,472" fill="url(#side)" />
-  <polygon points="262,390 762,390 762,472 262,472" fill="url(#front)" />
-
-  <!-- Kenar vurguları -->
-  <path d="M 262 390 L 762 390 M 460 472 L 460 852" stroke="#ffffff" stroke-opacity="0.55" stroke-width="3" />
-  </g>
+<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#17151f"/><stop offset="1" stop-color="#07060a"/></linearGradient></defs>
+<rect width="1024" height="1024" rx="228" fill="url(#bg)"/>
+<rect x="6" y="6" width="1012" height="1012" rx="222" fill="none" stroke="#fff" stroke-opacity=".07" stroke-width="4"/>
+<polygon points="512.0,280.0 771.8,430.0 512.0,580.0 252.2,430.0" fill="#f4f3f8"/>
+<polygon points="771.8,430.0 771.8,730.0 512.0,880.0 512.0,580.0" fill="#8f8c9c"/>
+<polygon points="252.2,430.0 512.0,580.0 512.0,880.0 252.2,730.0" fill="#55525f"/>
+<polygon points="553.6,604.0 730.2,502.0 730.2,556.0 553.6,658.0" fill="#17151f"/>
+<polygon points="615.9,622.0 667.9,592.0 667.9,748.0 615.9,778.0" fill="#17151f"/>
+<path d="M 451.4 225.0 A 70 70 0 0 1 451.4 155.0" stroke="#cfcbe0" stroke-width="22" fill="none" stroke-linecap="round" opacity="1"/>
+<path d="M 572.6 155.0 A 70 70 0 0 1 572.6 225.0" stroke="#cfcbe0" stroke-width="22" fill="none" stroke-linecap="round" opacity="1"/>
+<path d="M 408.1 250.0 A 120 120 0 0 1 408.1 130.0" stroke="#cfcbe0" stroke-width="22" fill="none" stroke-linecap="round" opacity="0.55"/>
+<path d="M 615.9 130.0 A 120 120 0 0 1 615.9 250.0" stroke="#cfcbe0" stroke-width="22" fill="none" stroke-linecap="round" opacity="0.55"/>
+<circle cx="512" cy="190" r="24" fill="#f4f3f8"/>
 </svg>
