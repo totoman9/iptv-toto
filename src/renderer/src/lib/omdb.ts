@@ -1,4 +1,4 @@
-import { getSettings } from './settings'
+import { effectiveOmdbKey } from './settings'
 import { fold } from './search'
 
 // ---------------------------------------------------------------------------
@@ -74,7 +74,7 @@ interface OmdbTitleResponse {
 }
 
 async function omdbGet(params: string, key?: string): Promise<OmdbTitleResponse | null> {
-  const apiKey = key ?? getSettings().omdbKey
+  const apiKey = key ?? effectiveOmdbKey()
   if (!apiKey) throw new NoOmdbKeyError('OMDb anahtarı yok')
   const res = await window.iptv.http.fetchJson<OmdbTitleResponse>(
     `https://www.omdbapi.com/?${params}&apikey=${encodeURIComponent(apiKey)}`,

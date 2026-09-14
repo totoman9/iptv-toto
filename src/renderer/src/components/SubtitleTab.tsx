@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactElement } from 'react'
 import type { PlayableItem, SubtitleResult, SubtitleSearchParams } from '../../../shared/types'
 import type { TrackInfo } from '../lib/playerEngine'
 import { cleanTitle, lookupImdb } from '../lib/omdb'
-import { getSettings } from '../lib/settings'
+import { effectiveOmdbKey } from '../lib/settings'
 
 export interface ExternalSubtitle {
   label: string
@@ -51,7 +51,7 @@ export function SubtitleTab({
   }, [])
 
   async function buildParams(): Promise<SubtitleSearchParams> {
-    const hasOmdb = !!getSettings().omdbKey
+    const hasOmdb = !!effectiveOmdbKey()
     if (item.kind === 'episode' && item.seriesName) {
       let parent = item.seriesImdbId
       if (!parent && hasOmdb) parent = (await lookupImdb([item.seriesName], undefined, 'series').catch(() => null))?.imdbId

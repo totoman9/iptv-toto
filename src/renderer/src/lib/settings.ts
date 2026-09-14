@@ -2,9 +2,14 @@
 // yüklenir; bileşenler useSettings ile değişiklikleri izler.
 
 export interface AppSettings {
-  // IMDb puanları için OMDb anahtarı (omdbapi.com, ücretsiz)
+  // Kullanıcının kendi OMDb anahtarı (boşsa uygulamayla gelen anahtar kullanılır)
   omdbKey?: string
 }
+
+// Uygulamayla birlikte gelen OMDb anahtarı: IMDb puanları kurulumdan hemen
+// sonra, hiçbir şey girmeden çalışsın. (Ücretsiz anahtar: günde 1.000 istek,
+// bu uygulamayı kullanan herkes arasında paylaşılır.)
+export const BUILT_IN_OMDB_KEY = '26e017de'
 
 const KEY = 'settings'
 
@@ -21,6 +26,11 @@ export async function initSettings(): Promise<void> {
 
 export function getSettings(): AppSettings {
   return current
+}
+
+// Kullanılacak OMDb anahtarı: kullanıcınınki varsa o, yoksa uygulamanınki
+export function effectiveOmdbKey(settings: AppSettings = current): string {
+  return settings.omdbKey || BUILT_IN_OMDB_KEY
 }
 
 export function updateSettings(patch: Partial<AppSettings>): void {

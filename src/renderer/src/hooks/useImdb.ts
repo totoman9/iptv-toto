@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { lookupImdb, NoOmdbKeyError, type ImdbInfo } from '../lib/omdb'
 import { useSettings } from './useSettings'
+import { effectiveOmdbKey } from '../lib/settings'
 
 export type ImdbStatus = 'idle' | 'loading' | 'nokey' | 'notfound' | 'error' | 'ready'
 
@@ -17,7 +18,7 @@ export function useImdb(
   type: 'movie' | 'series',
   ready: boolean
 ): ImdbState {
-  const { omdbKey } = useSettings()
+  const omdbKey = effectiveOmdbKey(useSettings())
   const [state, setState] = useState<ImdbState>({ info: null, status: 'idle' })
   const namesKey = names.filter(Boolean).join('|')
 

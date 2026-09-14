@@ -75,8 +75,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }): ReactElemen
         <section className="settings-section">
           <div className="settings-section-title">IMDb puanları</div>
           <p className="modal-sub">
-            Film ve dizi sayfalarında IMDb puanını, dizilerde her bölümün puanını göstermek için ücretsiz
-            bir OMDb anahtarı gerekir.{' '}
+            IMDb puanları uygulamayla gelen anahtarla hazır çalışır. Günlük sınır dolarsa kendi ücretsiz
+            anahtarını alıp buraya yazabilirsin.{' '}
             <a href="https://www.omdbapi.com/apikey.aspx" target="_blank" rel="noreferrer">
               Anahtar al (omdbapi.com)
             </a>{' '}
@@ -88,7 +88,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }): ReactElemen
               <input
                 value={omdbKey}
                 onChange={(e) => setOmdbKey(e.target.value)}
-                placeholder="ör. a1b2c3d4"
+                placeholder="Boş bırakırsan uygulamanın anahtarı kullanılır"
                 spellCheck={false}
                 onKeyDown={(e) => e.key === 'Enter' && void saveOmdb()}
               />
