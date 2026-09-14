@@ -2252,3 +2252,12 @@
   font-size: 11px;
   color: var(--text-faint);
 }
+
+/* Üst çubuktaki uygulama logosu (uygulama ikonuyla aynı) */
+.brand-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.35);
+}

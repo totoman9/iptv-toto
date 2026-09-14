@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ComponentType, type ReactElement, type ReactNode } from 'react'
 import type { SourceConfig } from '../../../shared/types'
 import { ACCENTS, type Accent, type Theme } from '../lib/theme'
+import logoUrl from '../assets/logo.svg'
 import {
   IconBookmark,
   IconChart,
@@ -246,7 +247,7 @@ export function TopNav(props: Props): ReactElement {
   return (
     <div className="topnav">
       <div className="topnav-brand">
-        <div className="brand-mark">T</div>
+        <img className="brand-logo" src={logoUrl} alt="" draggable={false} />
         <span className="brand-name">IPTV Toto</span>
       </div>
 
