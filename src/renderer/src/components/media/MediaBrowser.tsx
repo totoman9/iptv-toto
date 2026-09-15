@@ -142,6 +142,13 @@ type HomeRow =
       onOpen: (id: string) => void
       onSeeAll?: () => void
     }
+  | {
+      type: 'top10'
+      key: string
+      title: string
+      cards: PosterCardData[]
+      onOpen: (id: string) => void
+    }
 
 interface HomeRowProps {
   rows: HomeRow[]
@@ -211,6 +218,23 @@ function HomeListRow({
             </div>
           </div>
         </div>
+      </div>
+    )
+  }
+  if (row.type === 'top10') {
+    return (
+      <div style={style} className="media-row">
+        <div className="media-row-head">
+          <span className="media-row-title">{row.title}</span>
+        </div>
+        <RowScroller>
+          {row.cards.map((c, i) => (
+            <div className="top10-item" key={c.id}>
+              <span className="top10-rank">{i + 1}</span>
+              <PosterCard data={c} onClick={() => row.onOpen(c.id)} />
+            </div>
+          ))}
+        </RowScroller>
       </div>
     )
   }
@@ -423,15 +447,18 @@ export function MediaBrowser({
       .slice(0, 20)
   }, [kind, progressEntries, seriesLatest])
 
+  // "İzlemeye devam et" kartına tıklayınca da (diğer kartlar gibi) önce
+  // detay sayfası açılır — "Devam Et" butonuna oradan basılır.
   function openContinue(id: string): void {
     const e = continueList.find((c) => c.id === id)
     if (!e) return
     guard(e.group || '', () => {
-      if (kind === 'series' && isFinished(e) && e.seriesId !== undefined) {
-        // Bölüm bitmiş: sonraki bölümü seçebilsin diye dizi sayfasını aç
-        setRoute({ name: 'detail', id: `xtream-series-${e.seriesId}`, back: route })
+      const detailId = kind === 'series' && e.seriesId !== undefined ? `xtream-series-${e.seriesId}` : id
+      if (entriesById.has(detailId)) {
+        setRoute({ name: 'detail', id: detailId, back: route })
         return
       }
+      // Katalogda bulunamadıysa (nadiren) en azından oynatmaya devam etsin
       const playable = entryToPlayable(e)
       if (playable) onPlay(playable)
     })
@@ -449,6 +476,50 @@ export function MediaBrowser({
       recent.find((e) => e.logo && !isLocked(e.group)) ||
       entries.find((e) => e.logo && !isLocked(e.group))
     if (featured) rows.push({ type: 'hero', entry: featured })
+
+    // Bugün senin için seçtiklerimiz — gün boyunca sabit kalan (ertesi gün
+    // değişen), izlemekte olduğun ya da listende olanları tekrar önermeyen
+    // bir seçki. Gerçek bir öneri motoru değil, ama her gün aynı kalmayan
+    // basit ve tutarlı bir karışım.
+    const dayKey = new Date().toISOString().slice(0, 10)
+    const daySeed = Array.from(dayKey).reduce((sum, c) => sum + c.charCodeAt(0), 0)
+    const hashId = (id: string): number => {
+      let h = 0
+      for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0
+      return Math.abs(h)
+    }
+    const alreadyShown = new Set<string>([
+      ...continueList.map((c) => c.id),
+      ...watchlist.filter((w) => w.kind === kind).map((w) => w.id)
+    ])
+    const picksForToday = entries
+      .filter((e) => e.logo && !isLocked(e.group) && !alreadyShown.has(e.id))
+      .sort((a, b) => (hashId(a.id) + daySeed) % 997 - ((hashId(b.id) + daySeed) % 997))
+      .slice(0, ROW_LIMIT)
+    if (picksForToday.length > 0) {
+      rows.push({
+        type: 'row',
+        key: 'daily-picks',
+        title: 'Bugün senin için seçtiklerimiz',
+        cards: picksForToday.map(toCard),
+        onOpen: openDetail
+      })
+    }
+
+    // Top 10 — en yüksek puanlı içerikler
+    const top10 = [...entries]
+      .filter((e) => (e.rating || 0) > 0 && e.logo && !isLocked(e.group))
+      .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+      .slice(0, 10)
+    if (top10.length >= 3) {
+      rows.push({
+        type: 'top10',
+        key: 'top10',
+        title: kind === 'vod' ? "Filmlerde bugün 10 numara" : "Dizilerde bugün 10 numara",
+        cards: top10.map(toCard),
+        onOpen: openDetail
+      })
+    }
 
     // "İzlemeye devam et" satırı en üstte (vitrinin hemen altında) değil,
     // biraz daha aşağıda gösteriliyor — bkz. bu useMemo'nun sonu.
@@ -866,7 +937,9 @@ export function MediaBrowser({
         <List
           rowComponent={HomeListRow}
           rowCount={homeRows.length}
-          rowHeight={(index) => (homeRows[index].type === 'hero' ? 392 : 346)}
+          rowHeight={(index) =>
+            homeRows[index].type === 'hero' ? 462 : homeRows[index].type === 'top10' ? 380 : 346
+          }
           rowProps={{
             rows: homeRows,
             kind,

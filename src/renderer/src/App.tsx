@@ -450,7 +450,6 @@ function App(): ReactElement {
       }
       setTheater(false)
       setPlaying(channelToPlayable(channel))
-      recordChannelVisit(channel)
     })
   }
 
@@ -848,29 +847,6 @@ function App(): ReactElement {
             emptyHint={liveStatus === 'ready' ? 'Bu kaynakta canlı yayın listesi yok.' : ''}
             viewMode={listView}
             onViewModeChange={changeListView}
-            topStrip={
-              liveGroup === ALL_GROUP && recentChannels.length > 0 ? (
-                <div className="recent-channels-strip">
-                  {recentChannels.map((r) => {
-                    const ch = channels.find((c) => c.id === r.channelId)
-                    if (!ch) return null
-                    return (
-                      <button
-                        key={r.channelId}
-                        className={`recent-channel-chip ${playing?.id === ch.id ? 'active' : ''}`}
-                        onClick={() => playChannel(ch)}
-                        title={ch.name}
-                      >
-                        <span className="recent-channel-logo">
-                          {ch.logo ? <img src={ch.logo} alt="" /> : ch.name.slice(0, 1).toUpperCase()}
-                        </span>
-                        <span className="recent-channel-name">{ch.name}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              ) : undefined
-            }
             headerAction={
               <>
                 {activeSource?.type === 'xtream' && (

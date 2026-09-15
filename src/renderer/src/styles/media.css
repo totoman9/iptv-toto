@@ -176,7 +176,7 @@
 /* Vitrin üst bandı */
 .media-hero {
   position: relative;
-  height: 350px;
+  height: 420px;
   margin: 20px 22px 0;
   border-radius: 22px;
   overflow: hidden;
@@ -234,11 +234,13 @@
 }
 
 .media-hero-title {
-  font-size: 30px;
-  font-weight: 800;
-  margin: 6px 0 8px;
-  max-width: 640px;
-  line-height: 1.15;
+  font-size: 44px;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  margin: 8px 0 10px;
+  max-width: 680px;
+  line-height: 1.08;
+  text-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
 }
 
 .media-hero-meta,
@@ -369,6 +371,25 @@
 
 .media-row-scroller-wrap:hover .row-arrow {
   opacity: 1;
+}
+
+/* Top 10 satırı — poster'ın arkasında/solunda büyük sıra numarası */
+.top10-item {
+  display: flex;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+
+.top10-rank {
+  font-size: 130px;
+  font-weight: 900;
+  line-height: 1;
+  color: transparent;
+  -webkit-text-stroke: 2px var(--text-faint);
+  margin-right: -26px;
+  margin-bottom: -6px;
+  user-select: none;
+  flex-shrink: 0;
 }
 
 /* Afiş kartı */

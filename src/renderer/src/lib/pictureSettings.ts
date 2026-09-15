@@ -71,7 +71,11 @@ export function loadPicture(): StoredPicture {
     if (raw) {
       const parsed = JSON.parse(raw) as StoredPicture
       return {
-        activeId: parsed.activeId ?? 'standard',
+        // Kayıtlı hiç yoktu (ilk açılış) ile kullanıcı elle ayar yapıp
+        // hiçbir profili seçili bırakmadığı (activeId: null) durumu
+        // birbirine karıştırılmasın — ikincisinde "Standart" profiline
+        // geri düşülüp o profilin değerleri seçiliymiş gibi görünüyordu.
+        activeId: parsed.activeId === undefined ? 'standard' : parsed.activeId,
         current: { ...DEFAULT_PICTURE, ...parsed.current },
         custom: Array.isArray(parsed.custom) ? parsed.custom : []
       }
