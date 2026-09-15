@@ -328,6 +328,18 @@ function App(): ReactElement {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshFailed])
 
+  // Yeni sürüm arka planda inip hazır olunca haber ver
+  useEffect(() => {
+    return window.iptv.updater?.onEvent((info) => {
+      if (info.status === 'downloaded') {
+        setNotice(`Yeni sürüm hazır (${info.version}). Yüklemek için uygulama yeniden başlayacak.`, {
+          label: 'Şimdi yükle',
+          run: () => window.iptv.updater.quitAndInstall()
+        })
+      }
+    })
+  }, [])
+
   // ⌘K / Ctrl+K: her yerde ara. ⌘1-4 / Ctrl+1-4: sekmeler arası hızlı geçiş.
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {

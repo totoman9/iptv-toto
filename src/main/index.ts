@@ -10,6 +10,7 @@ import { initSubtitles } from './subtitles'
 import { findTsSync, getRing, initLive } from './live'
 import { decodeSecret, encodeSecret } from './crypto'
 import { initLog, installCrashLogging } from './log'
+import { initUpdater } from './updater'
 
 initLive()
 
@@ -446,6 +447,7 @@ function createWindow(): void {
   mainWindow.on('resize', onCompactBoundsChange)
 
   installCrashLogging(() => mainWindow)
+  initUpdater(() => mainWindow)
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)

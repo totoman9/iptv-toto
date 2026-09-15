@@ -26,6 +26,16 @@ const api = {
     error: (scope: string, message: string): void => ipcRenderer.send('log:error', scope, message),
     openFolder: (): Promise<void> => ipcRenderer.invoke('log:openFolder')
   },
+  updater: {
+    quitAndInstall: (): void => ipcRenderer.invoke('updater:quitAndInstall') as unknown as void,
+    onEvent: (cb: (info: { status: 'downloaded'; version: string }) => void): (() => void) => {
+      const handler = (_e: unknown, info: { status: 'downloaded'; version: string }): void => cb(info)
+      ipcRenderer.on('updater:event', handler)
+      return () => {
+        ipcRenderer.removeListener('updater:event', handler)
+      }
+    }
+  },
   http: {
     fetchText: (url: string, options?: { timeoutMs?: number }): Promise<HttpResult<string>> =>
       ipcRenderer.invoke('http:fetchText', url, options),
