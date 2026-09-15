@@ -19,7 +19,11 @@ import {
   IconSettings,
   IconSliders,
   IconStar,
-  IconSun
+  IconSun,
+  IconWinClose,
+  IconWinMaximize,
+  IconWinMinimize,
+  IconWinRestore
 } from './Icons'
 
 export type ViewKey = 'live' | 'vod' | 'series' | 'guide' | 'favorites' | 'watchlist' | 'recordings' | 'stats'
@@ -241,6 +245,36 @@ function AccountMenu(props: Props): ReactElement {
   )
 }
 
+// Windows/Linux'ta pencere çerçevesiz olduğu için küçült/büyüt/kapat
+// düğmelerini kendimiz çiziyoruz (Mac'te sistemin kırmızı/sarı/yeşil
+// düğmeleri zaten var, burası hiç render edilmiyor).
+function WindowsCaptionButtons(): ReactElement {
+  const [maximized, setMaximized] = useState(false)
+
+  useEffect(() => {
+    window.iptv.window.isMaximized().then(setMaximized)
+    return window.iptv.window.onMaximizedChange(setMaximized)
+  }, [])
+
+  return (
+    <div className="win-caption">
+      <button className="win-caption-btn" onClick={() => window.iptv.window.minimize()} title="Küçült">
+        <IconWinMinimize size={15} />
+      </button>
+      <button
+        className="win-caption-btn"
+        onClick={() => window.iptv.window.toggleMaximize()}
+        title={maximized ? 'Eski boyuta getir' : 'Büyüt'}
+      >
+        {maximized ? <IconWinRestore size={14} /> : <IconWinMaximize size={13} />}
+      </button>
+      <button className="win-caption-btn win-caption-close" onClick={() => window.iptv.window.close()} title="Kapat">
+        <IconWinClose size={15} />
+      </button>
+    </div>
+  )
+}
+
 export function TopNav(props: Props): ReactElement {
   const { view, onViewChange, onOpenSearch, recordingActive } = props
   const shortcut = window.iptv?.platform === 'darwin' ? '⌘K' : 'Ctrl K'
@@ -265,7 +299,10 @@ export function TopNav(props: Props): ReactElement {
         <LibraryMenu view={view} onViewChange={onViewChange} recordingActive={recordingActive} />
       </div>
 
-      <div className="topnav-spacer" />
+      <div
+        className="topnav-spacer"
+        onDoubleClick={() => window.iptv?.platform !== 'darwin' && window.iptv.window.toggleMaximize()}
+      />
 
       <button className="topnav-search" onClick={onOpenSearch} title="Kanal, film, dizi ve program ara">
         <IconSearch size={14} />
@@ -274,6 +311,8 @@ export function TopNav(props: Props): ReactElement {
       </button>
 
       <AccountMenu {...props} />
+
+      {window.iptv?.platform !== 'darwin' && <WindowsCaptionButtons />}
     </div>
   )
 }

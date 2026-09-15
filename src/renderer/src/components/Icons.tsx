@@ -518,3 +518,36 @@ export function IconDice({ size, ...rest }: IconProps): ReactElement {
     </svg>
   )
 }
+
+export function IconWinMinimize({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest} strokeWidth={1.4}>
+      <path d="M5 12h14" />
+    </svg>
+  )
+}
+
+export function IconWinMaximize({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest} strokeWidth={1.4}>
+      <rect x="5.5" y="5.5" width="13" height="13" rx="1" />
+    </svg>
+  )
+}
+
+export function IconWinRestore({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest} strokeWidth={1.4}>
+      <rect x="7.5" y="8.5" width="10" height="10" rx="1" />
+      <path d="M9.5 8.5V6.5a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1h-2" />
+    </svg>
+  )
+}
+
+export function IconWinClose({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest} strokeWidth={1.4}>
+      <path d="M6 6l12 12M18 6 6 18" />
+    </svg>
+  )
+}

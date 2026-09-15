@@ -2261,3 +2261,39 @@
   flex-shrink: 0;
   box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.35);
 }
+
+/* ---------- Windows/Linux: kendi başlık çubuğu düğmeleri ---------- */
+/* Pencere artık çerçevesiz (frame:false); Electron'un çirkin başlık çubuğu
+   ve altındaki "File Edit View..." menü şeridi tamamen kalktı. Bu üç düğme
+   onun yerine geçiyor. Mac'te hiç render edilmiyor (sistemin kendi kırmızı/
+   sarı/yeşil düğmeleri zaten var). */
+.win-caption {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  -webkit-app-region: no-drag;
+  flex-shrink: 0;
+}
+
+.win-caption-btn {
+  width: 42px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.win-caption-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.win-caption-close:hover {
+  background: #e81123;
+  color: #fff;
+}

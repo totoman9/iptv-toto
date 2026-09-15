@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, session, screen, type Rectangle } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, session, screen, Menu, type Rectangle } from 'electron'
 import { join } from 'node:path'
 import { writeFile, readFile, mkdir, stat, copyFile, unlink } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
@@ -321,7 +321,13 @@ function createWindow(): void {
     minHeight: 640,
     show: false,
     backgroundColor: '#faf8fd',
-    titleBarStyle: isMac ? 'hiddenInset' : 'default',
+    // Mac'te sistemin kırmızı/sarı/yeşil düğmeleri (hiddenInset) kalsın.
+    // Windows/Linux'ta ise Electron'un varsayılan pencere çerçevesi hem çirkin
+    // bir başlık çubuğu hem de altında "File Edit View..." menü şeridi
+    // getiriyordu; ikisini de kaldırıp kendi üst çubuğumuzdaki düğmelerle
+    // (küçült/büyüt/kapat) değiştiriyoruz.
+    titleBarStyle: isMac ? 'hiddenInset' : undefined,
+    frame: isMac,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
@@ -341,6 +347,10 @@ function createWindow(): void {
     mainWindow.show()
   })
 
+  // Windows/Linux'taki özel küçült/büyüt/kapat düğmeleri bu pencereyi kontrol eder
+  mainWindow.on('maximize', () => mainWindow.webContents.send('window:maximized', true))
+  mainWindow.on('unmaximize', () => mainWindow.webContents.send('window:maximized', false))
+
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
@@ -352,6 +362,26 @@ function createWindow(): void {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
 }
+
+// Windows/Linux'ta kendi üst çubuğumuz olduğu için Electron'un varsayılan
+// "File Edit View Window Help" menü şeridine gerek yok. Mac'te dokunmuyoruz:
+// oradaki menü ekranın üstündeki sistem çubuğuna gidiyor, pencerenin içinde
+// görünmüyor ve Cmd+Q gibi kısayolları da o sağlıyor.
+if (!isMac) Menu.setApplicationMenu(null)
+
+ipcMain.on('window:minimize', (event) => {
+  BrowserWindow.fromWebContents(event.sender)?.minimize()
+})
+ipcMain.on('window:toggleMaximize', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  if (!win) return
+  if (win.isMaximized()) win.unmaximize()
+  else win.maximize()
+})
+ipcMain.on('window:close', (event) => {
+  BrowserWindow.fromWebContents(event.sender)?.close()
+})
+ipcMain.handle('window:isMaximized', (event) => BrowserWindow.fromWebContents(event.sender)?.isMaximized() ?? false)
 
 app.whenReady().then(() => {
   // Video segment isteklerinde de aynı User-Agent'ı kullan (bazı sunucular kontrol eder)

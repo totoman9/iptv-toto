@@ -15,6 +15,10 @@ import './styles/themes.css'
 // biniyor; onlara yer açmak için gövdeye bir sınıf ekliyoruz.
 if (window.iptv?.platform === 'darwin') {
   document.body.classList.add('platform-mac')
+} else {
+  // Windows/Linux: pencere çerçevesiz; sağ üstte kendi küçült/büyüt/kapat
+  // düğmelerimiz var, üst çubuğun sağına bunlar için yer açıyoruz.
+  document.body.classList.add('platform-win')
 }
 
 // Tema, ilk çizimden önce uygulanır (açılışta beyaz yanıp sönmesin)

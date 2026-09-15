@@ -45,7 +45,19 @@ const api = {
   },
   window: {
     setCompact: (on: boolean): Promise<boolean> => ipcRenderer.invoke('window:setCompact', on),
-    focus: (): void => ipcRenderer.send('window:focus')
+    focus: (): void => ipcRenderer.send('window:focus'),
+    // Windows/Linux'taki özel başlık çubuğu düğmeleri için (Mac'te kullanılmaz)
+    minimize: (): void => ipcRenderer.send('window:minimize'),
+    toggleMaximize: (): void => ipcRenderer.send('window:toggleMaximize'),
+    close: (): void => ipcRenderer.send('window:close'),
+    isMaximized: (): Promise<boolean> => ipcRenderer.invoke('window:isMaximized'),
+    onMaximizedChange: (cb: (maximized: boolean) => void): (() => void) => {
+      const handler = (_e: unknown, maximized: boolean): void => cb(maximized)
+      ipcRenderer.on('window:maximized', handler)
+      return () => {
+        ipcRenderer.removeListener('window:maximized', handler)
+      }
+    }
   },
   media: {
     saveScreenshot: (bytes: Uint8Array, title: string): Promise<ClipResult> =>
