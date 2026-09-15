@@ -24,6 +24,7 @@ import { usePersisted } from './lib/persisted'
 import { IconGrid, IconGuide, IconRecord, IconStar } from './components/Icons'
 import { ContextMenu } from './components/ContextMenu'
 import { SkeletonChannelList } from './components/Skeleton'
+import { EmptyIllustration } from './components/EmptyIllustration'
 import { PlayerPane, type PlayerMode } from './components/PlayerPane'
 import type { ChannelDrawerData } from './components/ChannelDrawer'
 import {
@@ -779,6 +780,7 @@ function App(): ReactElement {
   if (noSourceYet) {
     leftArea = (
       <div className="empty-state">
+        <EmptyIllustration kind="source" />
         <h3>Henüz bir kaynak eklemedin</h3>
         <p>Başlamak için bir M3U linki ya da Xtream Codes hesabı ekle.</p>
         <button className="btn-primary" onClick={() => setShowManageSources(true)}>
@@ -826,6 +828,7 @@ function App(): ReactElement {
             favoriteIds={favoriteIds}
             onToggleFavorite={toggleFavoriteWithUndo}
             onContextMenu={openChannelMenu}
+            emptyIcon="search"
             emptyTitle="Canlı kanal bulunamadı"
             emptyHint={liveStatus === 'ready' ? 'Bu kaynakta canlı yayın listesi yok.' : ''}
             viewMode={listView}
@@ -901,6 +904,7 @@ function App(): ReactElement {
           onToggleFavorite={toggleFavoriteWithUndo}
           onContextMenu={openChannelMenu}
           onReorder={activeFolder ? undefined : favorites.reorderFavorites}
+          emptyIcon={activeFolder ? 'folder' : 'favorite'}
           emptyTitle={activeFolder ? 'Bu klasör boş' : 'Favori kanalın yok'}
           emptyHint={
             activeFolder

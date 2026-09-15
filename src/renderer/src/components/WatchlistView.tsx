@@ -3,6 +3,7 @@ import { usePersisted } from '../lib/persisted'
 import { watchlistStore, type WatchlistEntry } from '../lib/library'
 import { PosterCard } from './media/PosterCard'
 import { IconClose } from './Icons'
+import { EmptyIllustration } from './EmptyIllustration'
 
 interface Props {
   isLocked: (group: string) => boolean
@@ -26,6 +27,7 @@ export function WatchlistView({ isLocked, onOpen, onRemove }: Props): ReactEleme
       <div className="library-scroll">
         {list.length === 0 ? (
           <div className="empty-state">
+            <EmptyIllustration kind="watchlist" />
             <h3>İzleme listen boş</h3>
             <p>Bir film ya da dizinin sayfasında “Listeme ekle”ye bas; sonra izlemek istediklerin burada birikir.</p>
           </div>

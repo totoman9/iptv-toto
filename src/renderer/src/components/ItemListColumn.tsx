@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactElement, type ReactNode } from 'react'
 import { List, type RowComponentProps } from 'react-window'
 import { ALL_GROUP } from './CategoryColumn'
 import { IconGrid, IconList, IconSearch, IconStar } from './Icons'
+import { EmptyIllustration, type EmptyIllustrationKind } from './EmptyIllustration'
 
 export type ListViewMode = 'list' | 'grid'
 
@@ -166,6 +167,7 @@ interface Props {
   topStrip?: ReactNode
   onContextMenu?: (item: ListableItem, x: number, y: number) => void
   onReorder?: (draggedId: string, targetId: string) => void
+  emptyIcon?: EmptyIllustrationKind
 }
 
 const TILE_COLS = 3
@@ -185,7 +187,8 @@ export function ItemListColumn({
   renderRowExtra,
   topStrip,
   onContextMenu,
-  onReorder
+  onReorder,
+  emptyIcon
 }: Props): ReactElement {
   const [search, setSearch] = useState('')
 
@@ -238,6 +241,7 @@ export function ItemListColumn({
       </div>
       {filtered.length === 0 ? (
         <div className="empty-state empty-state-compact">
+          {emptyIcon && <EmptyIllustration kind={emptyIcon} />}
           <h3>{emptyTitle}</h3>
           <p>{emptyHint}</p>
         </div>

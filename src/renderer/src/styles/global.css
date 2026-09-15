@@ -612,6 +612,18 @@ textarea {
   padding: 30px 16px;
 }
 
+.empty-illustration {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+  background: radial-gradient(circle at 35% 30%, rgba(var(--accent-rgb), 0.22), rgba(var(--accent-rgb), 0.06));
+  margin-bottom: 4px;
+}
+
 .empty-state h3 {
   margin: 0;
   font-size: 16px;
