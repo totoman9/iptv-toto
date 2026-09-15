@@ -1,6 +1,6 @@
 import Hls from 'hls.js'
 import mpegts from 'mpegts.js'
-import { isProxyAvailable, isRemuxAvailable, proxiedLiveUrl, remuxedLiveUrl } from './proxy'
+import { isProxyAvailable, isRemuxAvailable, proxiedLiveUrl, remuxedLiveUrl, vodRemuxUrl } from './proxy'
 import { bufferTargetSec, startBufferSec } from './bufferSetting'
 
 export type EngineKind = 'hls' | 'mpegts' | 'native'
@@ -362,12 +362,105 @@ function attachRemux(
   }
 }
 
+// Film/dizi: yerel ffmpeg görüntüyü kopyalar, sesi AAC'ye çevirir (bazı
+// kaynakların AC3/DTS gibi sesini tarayıcı hiç çalamıyordu — görüntü oynayıp
+// ses gelmiyordu). Sarma, native <video> seek'i yerine ffmpeg'i istenen
+// saniyeden yeniden başlatarak yapılır; bunu video elementinin dışına hiç
+// sızdırmadan burada, currentTime/duration özelliklerinin üzerine
+// yazarak yapıyoruz — oynatıcının geri kalanı (ilerleme çubuğu, "10 sn
+// ileri/geri" vb.) hiçbir şey değişmemiş gibi çalışmaya devam ediyor.
+function attachVodRemux(
+  video: HTMLVideoElement,
+  url: string,
+  // Bit hızı/codec bilgisi film sayfasında gösterilmiyor; imza tutarlılığı
+  // için diğer attach* fonksiyonlarıyla aynı parametreler korunuyor.
+  _onInfo: (info: StreamInfo) => void,
+  onFatal: () => void,
+  startSec: number
+): EngineHandle {
+  let destroyed = false
+  let offsetSec = 0
+  let totalDuration: number | undefined
+  let pendingSeek: number | null = null
+  let seekTimer: ReturnType<typeof setTimeout> | null = null
+
+  const rawCurrentTime = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'currentTime')!
+  const rawDuration = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'duration')!
+
+  const onError = (): void => {
+    if (!destroyed) onFatal()
+  }
+  video.addEventListener('error', onError)
+
+  function startAt(sec: number): void {
+    offsetSec = sec
+    video.src = vodRemuxUrl(url, sec)
+    video.play().catch(() => {})
+  }
+
+  // Ekranın sarma çubuğunu sürüklerken saniyede onlarca "currentTime = x"
+  // çağrısı geliyor; her seferinde ffmpeg'i yeniden başlatmak hem hesabın
+  // bağlantısını hem de sunucuyu gereksiz yoruyordu. Kullanıcı bırakana
+  // kadar (~350ms) bekleyip tek seferde sarıyoruz; bu sırada çubuk kullanıcı
+  // neyi bıraktıysa onu göstermeye devam eder (aşağıdaki get()).
+  Object.defineProperty(video, 'currentTime', {
+    configurable: true,
+    get(): number {
+      if (pendingSeek !== null) return pendingSeek
+      return offsetSec + rawCurrentTime.get!.call(video)
+    },
+    set(v: number) {
+      if (destroyed) return
+      pendingSeek = Math.max(0, v)
+      if (seekTimer) clearTimeout(seekTimer)
+      seekTimer = setTimeout(() => {
+        seekTimer = null
+        const target = pendingSeek
+        pendingSeek = null
+        if (target !== null) startAt(target)
+      }, 350)
+    }
+  })
+  Object.defineProperty(video, 'duration', {
+    configurable: true,
+    get(): number {
+      const remaining = rawDuration.get!.call(video)
+      if (totalDuration === undefined && Number.isFinite(remaining)) totalDuration = offsetSec + remaining
+      return totalDuration ?? remaining
+    }
+  })
+
+  startAt(startSec)
+
+  return {
+    clipMode: 'none',
+    destroy: () => {
+      destroyed = true
+      if (seekTimer) clearTimeout(seekTimer)
+      video.removeEventListener('error', onError)
+      // Bir dahaki içerik (canlı kanal, kayıt) bu özelliklere tarayıcının
+      // kendi native davranışıyla erişsin diye tanımları geri alıyoruz.
+      delete (video as unknown as Record<string, unknown>).currentTime
+      delete (video as unknown as Record<string, unknown>).duration
+      video.removeAttribute('src')
+      video.load()
+    }
+  }
+}
+
 export function attachStream(
   video: HTMLVideoElement,
   url: string,
   onFatalError: (message: string) => void,
   // onStatus: bağlantı koptu ve sessizce yeniden bağlanılıyor bilgisi
-  options: { liveBackSec?: number; onStatus?: (status: 'reconnecting') => void } = {}
+  // vodRemux: film/dizi — sesi (AC3/DTS vb.) tarayıcının çalabileceği AAC'ye
+  // çevirmek için yerel ffmpeg'ten geçir (kayıtlarda kullanılmaz, onlar zaten
+  // uygun formatta kaydedilmiş dosyalar).
+  options: {
+    liveBackSec?: number
+    onStatus?: (status: 'reconnecting') => void
+    vodRemux?: boolean
+  } = {}
 ): AttachedPlayer {
   let info: StreamInfo = {}
   let currentKind: EngineKind = detectKind(url)
@@ -441,6 +534,25 @@ export function attachStream(
       startRemux(options.liveBackSec ?? 0)
     } else if (kind === 'mpegts' && mpegts.isSupported()) {
       current = attachMpegts(video, targetUrl, onInfo, onFatal)
+    } else if (kind === 'native' && options.vodRemux && isRemuxAvailable()) {
+      // Film/dizi: ffmpeg üzerinden geç. Hiç açılamazsa (ör. ffmpeg'in
+      // çözemediği bir görüntü codec'i) doğrudan native oynatmayı dene.
+      let triedNative = false
+      current = attachVodRemux(
+        video,
+        targetUrl,
+        onInfo,
+        () => {
+          current?.destroy()
+          if (!triedNative) {
+            triedNative = true
+            current = nativeHandle(targetUrl)
+          } else {
+            onFatalError('Video oynatılamadı.')
+          }
+        },
+        0
+      )
     } else {
       // Native fallback: mp4/mkv/doğrudan oynatılabilen VOD dosyaları
       current = nativeHandle(targetUrl)

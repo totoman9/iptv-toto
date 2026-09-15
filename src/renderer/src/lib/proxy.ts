@@ -32,6 +32,15 @@ export function localFileUrl(path: string): string {
   return `http://127.0.0.1:${port}/file?p=${encodeURIComponent(path)}`
 }
 
+// Film/dizi bölümünü ffmpeg ile (görüntü kopyalanır, ses AAC'ye çevrilir)
+// verir. Birçok kaynağın sesi (AC3/DTS gibi) tarayıcının native oynatıcısında
+// hiç duyulmuyordu; bu yol canlı yayındakiyle aynı çözümü VOD'a da uygular.
+// startSec > 0: o saniyeden başlat (sarma — ffmpeg'i o noktadan yeniden açar).
+export function vodRemuxUrl(url: string, startSec = 0): string {
+  const start = startSec > 0 ? `&start=${Math.round(startSec)}` : ''
+  return `http://127.0.0.1:${port}/vod?u=${encodeURIComponent(url)}${start}`
+}
+
 // Çoklu ekran: her ekran (slot) sunucuya kendi bağlantısını açar
 export function multiViewUrl(url: string, slot: number): string {
   return `http://127.0.0.1:${port}/mv?u=${encodeURIComponent(url)}&slot=${slot}`

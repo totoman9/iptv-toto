@@ -250,7 +250,10 @@ export function PlayerPane({
     setLargeBufferHint(item.isLive && looksUhd(`${item.name} ${item.group}`))
     const attached = attachStream(video, item.url, (message) => setError(message), {
       liveBackSec: item.isLive ? liveBack : 0,
-      onStatus: (status) => setConn(status)
+      onStatus: (status) => setConn(status),
+      // Kayıtlar zaten uygun formatta (bkz. finalizeToMp4); yalnızca sağlayıcıdan
+      // doğrudan çekilen film/dizilerin sesini AAC'ye çevirmemiz gerekiyor.
+      vodRemux: !item.isLive && item.kind !== 'recording'
     })
     setPlayer(attached)
 
@@ -346,12 +349,12 @@ export function PlayerPane({
     const video = videoRef.current
     // Kayıtlar "izlemeye devam et" listesine girmesin
     if (!video || !item || item.isLive || item.kind === 'recording') return
-    const entryFor = (position: number): Parameters<typeof saveProgress>[0] => ({
+    const entryFor = (position: number, duration: number): Parameters<typeof saveProgress>[0] => ({
       id: item.id,
       title: item.name,
       logo: item.logo,
       positionSeconds: position,
-      durationSeconds: video.duration,
+      durationSeconds: duration,
       updatedAt: Date.now(),
       kind: item.kind === 'episode' ? 'episode' : 'movie',
       url: item.url,
@@ -362,16 +365,25 @@ export function PlayerPane({
       episodeNum: item.episodeNum
     })
     let lastSaved = 0
+    // Film/dizide sarma, ffmpeg'i yeniden başlatarak yapılıyor (bkz.
+    // playerEngine.ts); o an başka bir effect'in temizlik sırası video
+    // elementinin currentTime/duration tanımlarını native haline geri
+    // döndürmüş olabilir. Son bilinen konumu burada saklayıp kapanışta onu
+    // kullanmak, hangi temizliğin önce çalıştığından bağımsız hale getiriyor.
+    let lastKnownTime = 0
+    let lastKnownDuration = 0
     const onTime = (): void => {
       const t = video.currentTime
+      lastKnownTime = t
+      lastKnownDuration = video.duration
       if (Math.abs(t - lastSaved) < 8 || !video.duration) return
       lastSaved = t
-      saveProgress(entryFor(t))
+      saveProgress(entryFor(t, video.duration))
     }
     video.addEventListener('timeupdate', onTime)
     return () => {
       video.removeEventListener('timeupdate', onTime)
-      if (video.duration && video.currentTime > 5) saveProgress(entryFor(video.currentTime))
+      if (lastKnownDuration && lastKnownTime > 5) saveProgress(entryFor(lastKnownTime, lastKnownDuration))
     }
   }, [item])
 

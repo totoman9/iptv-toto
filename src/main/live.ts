@@ -6,6 +6,7 @@ import { extname, resolve, sep } from 'node:path'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { ffmpegPath } from './ffmpeg'
 import { USER_AGENT } from './constants'
+import { log } from './log'
 
 // ---------------------------------------------------------------------------
 // Canlı yayın oturumu + son 2,5 dakikalık halka arabellek
@@ -544,6 +545,112 @@ function handleRemux(target: string, back: number, res: http.ServerResponse): vo
   res.on('close', () => proc.kill('SIGKILL'))
 }
 
+// ---------------------------------------------------------------------------
+// Film/dizi (VOD) oynatma
+//
+// Tarayıcının kendi oynatıcısı, dosyayı doğrudan sunucudan çekince bazı
+// kaynakların sesini (AC3/DTS gibi codec'ler) hiç duyamıyordu — görüntü
+// oynuyor, ses yok. Canlı yayındaki gibi ffmpeg araya girip görüntüyü
+// olduğu gibi kopyalar, sesi her tarayıcının çalabildiği AAC'ye çevirir.
+//
+// Sarma (ileri/geri) burada native <video> seek'iyle değil, ffmpeg'i
+// istenen saniyeden yeniden başlatarak yapılır (bkz. playerEngine.ts) —
+// uzak dosyanın "moov" konumuna göre native sarma bazı kaynaklarda
+// yavaş/takılmalı çalışıyordu.
+// ---------------------------------------------------------------------------
+
+let activeVodRemux: ChildProcess | null = null
+
+function handleVod(target: string, startSec: number, res: http.ServerResponse): void {
+  const bin = ffmpegPath()
+  if (!bin) {
+    res.writeHead(503)
+    res.end()
+    return
+  }
+  activeVodRemux?.kill('SIGKILL')
+  const seekArgs = startSec > 0 ? ['-ss', String(startSec)] : []
+  const proc = spawn(
+    bin,
+    [
+      '-hide_banner',
+      '-nostats',
+      '-loglevel',
+      'error',
+      '-user_agent',
+      USER_AGENT,
+      '-reconnect',
+      '1',
+      '-reconnect_streamed',
+      '1',
+      '-reconnect_delay_max',
+      '5',
+      '-probesize',
+      '2000000',
+      '-analyzeduration',
+      '3000000',
+      // Uzak sunucu yavaşsa (sarma büyük bir "seek" isteği gerektirebilir)
+      // erken zaman aşımına düşmesin
+      '-rw_timeout',
+      '45000000',
+      ...seekArgs,
+      '-i',
+      target,
+      '-map',
+      '0:v:0',
+      '-map',
+      '0:a:0?',
+      '-c:v',
+      'copy',
+      '-c:a',
+      'aac',
+      '-b:a',
+      '192k',
+      '-f',
+      'mp4',
+      // empty_moov KULLANMIYORUZ: kaynağın gerçek (sarılan noktadan itibaren
+      // kalan) süresini baştaki moov'a yazabilsin — oynatıcının süre/ilerleme
+      // çubuğu böylece doğru çalışıyor (bkz. playerEngine.ts'teki offset).
+      '-movflags',
+      'frag_keyframe+default_base_moof',
+      '-frag_duration',
+      '500000',
+      '-flush_packets',
+      '1',
+      'pipe:1'
+    ],
+    { stdio: ['ignore', 'pipe', 'pipe'] }
+  )
+  activeVodRemux = proc
+  let stderrTail = ''
+  proc.stderr.on('data', (d: Buffer) => {
+    stderrTail = (stderrTail + d.toString()).slice(-2000)
+  })
+  proc.stdout.on('data', (chunk: Buffer) => {
+    if (!res.headersSent) res.writeHead(200, { 'Content-Type': 'video/mp4', 'Cache-Control': 'no-cache' })
+    if (!res.write(chunk)) {
+      proc.stdout.pause()
+      res.once('drain', () => proc.stdout.resume())
+    }
+  })
+  proc.on('error', (err) => {
+    void log('error', 'vod', `ffmpeg başlatılamadı: ${err.message}`)
+    if (!res.headersSent) res.writeHead(502)
+    res.end()
+  })
+  proc.on('close', (code) => {
+    if (activeVodRemux === proc) activeVodRemux = null
+    // Hiç veri gönderemeden kapandıysa (kod 0 değilse) sebebini günlüğe yaz —
+    // "hiç açılmadı" ile "izlerken koptu" ayrımını yapabilelim
+    if (!res.headersSent && code !== 0) {
+      void log('error', 'vod', `ffmpeg açılamadı (kod ${code}): ${target}\n${stderrTail}`)
+    }
+    if (!res.headersSent) res.writeHead(502)
+    res.end()
+  })
+  res.on('close', () => proc.kill('SIGKILL'))
+}
+
 // ---------- Çoklu ekran ----------
 // Ek ekranlar ana oturumdan bağımsızdır: her biri sunucuya kendi bağlantısını
 // açar (hesabın bağlantı sınırı arayüzde kontrol edilir).
@@ -637,6 +744,9 @@ export function initLive(): void {
       const back = Math.max(0, Math.min(150, Number(reqUrl.searchParams.get('back')) || 0))
       if (target && reqUrl.pathname === '/remux') {
         handleRemux(target, back, res)
+      } else if (target && reqUrl.pathname === '/vod') {
+        const start = Math.max(0, Number(reqUrl.searchParams.get('start')) || 0)
+        handleVod(target, start, res)
       } else if (target && reqUrl.pathname === '/live') {
         void handleLive(target, back, res)
       } else if (target && reqUrl.pathname === '/mv') {
