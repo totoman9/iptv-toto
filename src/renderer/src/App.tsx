@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { flushSync } from 'react-dom'
 import { TopNav, type ViewKey } from './components/TopNav'
 import { CategoryColumn, ALL_GROUP } from './components/CategoryColumn'
 import { ItemListColumn, type ListableItem, type ListViewMode } from './components/ItemListColumn'
@@ -161,7 +162,7 @@ function App(): ReactElement {
     setNotice(text, {
       label: 'Diziye git',
       run: () => {
-        setView('series')
+        changeView('series')
         setMediaOpen({ kind: 'series', id: `xtream-series-${s.seriesId}`, nonce: Date.now() })
       }
     })
@@ -360,7 +361,7 @@ function App(): ReactElement {
       const idx = Number(e.key) - 1
       if (idx >= 0 && idx < tabs.length) {
         e.preventDefault()
-        setView(tabs[idx])
+        changeView(tabs[idx])
       }
     }
     window.addEventListener('keydown', onKey)
@@ -488,6 +489,20 @@ function App(): ReactElement {
     }
   }
 
+  // Sekme değişince (varsa) tarayıcının kendi View Transitions API'siyle
+  // yumuşak bir geçiş yapılır — hiçbir bileşen yeniden kurulmadığı için
+  // oynatıcı/kaydırma konumu gibi durumlar bozulmuyor, sadece görsel bir
+  // capraz geçiş oluyor.
+  function changeView(next: ViewKey): void {
+    const withTransition = (document as { startViewTransition?: (cb: () => void) => void })
+      .startViewTransition
+    if (withTransition) {
+      withTransition.call(document, () => flushSync(() => setView(next)))
+    } else {
+      setView(next)
+    }
+  }
+
   function changeTheme(next: Theme): void {
     setTheme(next)
     applyTheme(next)
@@ -562,7 +577,7 @@ function App(): ReactElement {
   function tuneChannelById(channelId: string): void {
     const ch = channelsRef.current.find((c) => c.id === channelId)
     if (!ch) return
-    setView('live')
+    changeView('live')
     playChannel(ch)
   }
 
@@ -726,12 +741,12 @@ function App(): ReactElement {
     if (kind === 'live') {
       const ch = channels.find((c) => c.id === id)
       if (ch) {
-        setView('live')
+        changeView('live')
         playChannel(ch)
       }
       return
     }
-    setView(kind)
+    changeView(kind)
     setMediaOpen({ kind, id, nonce: Date.now() })
   }
 
@@ -929,7 +944,7 @@ function App(): ReactElement {
       <WatchlistView
         isLocked={isLocked}
         onOpen={(e) => {
-          setView(e.kind)
+          changeView(e.kind)
           setMediaOpen({ kind: e.kind, id: e.id, nonce: Date.now() })
         }}
         onRemove={(id) => watchlistStore.set(watchlistStore.get().filter((x) => x.id !== id))}
@@ -970,7 +985,7 @@ function App(): ReactElement {
     <div className="app-shell">
       <TopNav
         view={view}
-        onViewChange={setView}
+        onViewChange={changeView}
         sources={sources}
         activeSourceId={activeSourceId}
         onSourceChange={setActiveSourceId}
@@ -1020,7 +1035,7 @@ function App(): ReactElement {
               isFavorite={!!playing && favoriteIds.has(playing.id)}
               onToggleFavorite={playing?.isLive ? () => toggleFavoriteWithUndo(playing.id) : undefined}
               onClose={hostMode === 'theater' ? closeTheater : () => setPlaying(null)}
-              onExpand={() => setView('live')}
+              onExpand={() => changeView('live')}
               onPrev={hostMode === 'docked' && playing?.isLive ? () => stepChannel(-1) : undefined}
               onNext={hostMode === 'docked' && playing?.isLive ? () => stepChannel(1) : undefined}
               drawer={hostMode === 'docked' && playing?.isLive ? drawerData : undefined}
