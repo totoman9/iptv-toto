@@ -96,3 +96,19 @@
 :root[data-theme='dark'][data-accent='purple'] {
   --accent-soft: #3b2a5c;
 }
+
+/* ...ve tam siyah tema yüzeyleri (bkz. global.css'teki :root[data-theme='black']) —
+   bu blok olmadan mor dışındaki renkler açık temanın soluk tonlarını
+   kullanmaya devam edip siyah zeminde yanlış/soluk görünüyordu. */
+:root[data-theme='black'][data-accent]:not([data-accent='purple']) {
+  --surface: color-mix(in srgb, var(--primary) 12%, #131313);
+  --surface-2: color-mix(in srgb, var(--primary) 16%, #1a1a1a);
+  --surface-hover: color-mix(in srgb, var(--primary) 24%, #232323);
+  --border: color-mix(in srgb, var(--primary) 20%, #232323);
+  --border-soft: color-mix(in srgb, var(--primary) 14%, #181818);
+  --accent-soft: color-mix(in srgb, var(--primary) 30%, #131313);
+}
+
+:root[data-theme='black'][data-accent='purple'] {
+  --accent-soft: #2a2038;
+}

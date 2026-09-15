@@ -450,25 +450,28 @@ export function MediaBrowser({
       entries.find((e) => e.logo && !isLocked(e.group))
     if (featured) rows.push({ type: 'hero', entry: featured })
 
-    if (continueList.length > 0) {
-      rows.push({
-        type: 'row',
-        key: 'continue',
-        title: 'İzlemeye devam et',
-        cards: continueList.map((e) => ({
-          id: e.id,
-          title: kind === 'series' ? e.seriesName || e.title : e.title,
-          subtitle:
-            kind === 'series'
-              ? `S${e.season} · B${e.episodeNum}${isFinished(e) ? ' · izlendi' : ''}`
-              : `${Math.max(0, Math.round((e.durationSeconds - e.positionSeconds) / 60))} dk kaldı`,
-          image: e.logo,
-          progress: isFinished(e) ? undefined : progressRatio(e),
-          locked: isLocked(e.group || '')
-        })),
-        onOpen: openContinue
-      })
-    }
+    // "İzlemeye devam et" satırı en üstte (vitrinin hemen altında) değil,
+    // biraz daha aşağıda gösteriliyor — bkz. bu useMemo'nun sonu.
+    const continueRow: HomeRow | null =
+      continueList.length > 0
+        ? {
+            type: 'row',
+            key: 'continue',
+            title: 'İzlemeye devam et',
+            cards: continueList.map((e) => ({
+              id: e.id,
+              title: kind === 'series' ? e.seriesName || e.title : e.title,
+              subtitle:
+                kind === 'series'
+                  ? `S${e.season} · B${e.episodeNum}${isFinished(e) ? ' · izlendi' : ''}`
+                  : `${Math.max(0, Math.round((e.durationSeconds - e.positionSeconds) / 60))} dk kaldı`,
+              image: e.logo,
+              progress: isFinished(e) ? undefined : progressRatio(e),
+              locked: isLocked(e.group || '')
+            })),
+            onOpen: openContinue
+          }
+        : null
 
     // Takip ettiğin diziler (yeni bölüm rozetiyle)
     if (kind === 'series' && followed.length > 0) {
@@ -514,6 +517,8 @@ export function MediaBrowser({
         onOpen: openDetail
       })
     }
+
+    if (continueRow) rows.push(continueRow)
 
     for (const g of orderedGroups) {
       const list = byGroup.get(g) || []

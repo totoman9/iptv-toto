@@ -431,7 +431,15 @@ function attachVodRemux(
     configurable: true,
     get(): number {
       const remaining = rawDuration.get!.call(video)
-      if (totalDuration === undefined && Number.isFinite(remaining)) totalDuration = offsetSec + remaining
+      // Akış parça parça geldiği için tarayıcı süre tahminini ilk başta
+      // olduğundan küçük verip zamanla düzeltebiliyordu; biz de ilk gelen
+      // (küçük) değere takılıp kalıyorduk — bu yüzden ilerleme çubuğu daha
+      // 14. saniyede "bitmiş" gibi görünüyor, sarma da o yanlış sürede
+      // sıkışıp kalıyordu. Artık en büyük (en gerçekçi) tahmini kullanıyoruz.
+      if (Number.isFinite(remaining)) {
+        const candidate = offsetSec + remaining
+        if (totalDuration === undefined || candidate > totalDuration) totalDuration = candidate
+      }
       return totalDuration ?? remaining
     }
   })
