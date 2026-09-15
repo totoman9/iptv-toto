@@ -388,7 +388,7 @@
 }
 
 .poster-card:hover .poster-img {
-  transform: translateY(-3px);
+  transform: translateY(-3px) scale(1.045);
   box-shadow: 0 14px 30px rgba(var(--accent-rgb), 0.25);
 }
 

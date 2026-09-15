@@ -1,6 +1,8 @@
-// Açık / koyu tema ve vurgu rengi. Seçim bu bilgisayarda hatırlanır; tema
-// hiç seçilmediyse sistemin (macOS/Windows) görünüm ayarı kullanılır.
-export type Theme = 'light' | 'dark'
+// Açık / koyu / tam siyah tema ve vurgu rengi. Seçim bu bilgisayarda
+// hatırlanır; tema hiç seçilmediyse sistemin (macOS/Windows) görünüm ayarı
+// kullanılır. "black": OLED ekranlarda pil tasarrufu sağlayan, tamamen
+// siyah zemin (koyu temanın morumsu tonu yerine).
+export type Theme = 'light' | 'dark' | 'black'
 
 export type Accent = 'purple' | 'blue' | 'teal' | 'green' | 'orange' | 'pink' | 'red'
 
@@ -35,13 +37,15 @@ function write(key: string, value: string): void {
 
 export function loadTheme(): Theme {
   const stored = read(THEME_KEY)
-  if (stored === 'light' || stored === 'dark') return stored
+  if (stored === 'light' || stored === 'dark' || stored === 'black') return stored
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
 export function applyTheme(theme: Theme): void {
   document.documentElement.dataset.theme = theme
-  document.documentElement.style.colorScheme = theme
+  // Sistemde "black" diye bir renk şeması yok; tarayıcıya koyu olduğunu
+  // söylüyoruz ki form/kaydırma çubuğu gibi yerel öğeler de koyu görünsün.
+  document.documentElement.style.colorScheme = theme === 'light' ? 'light' : 'dark'
 }
 
 export function saveTheme(theme: Theme): void {

@@ -1486,3 +1486,99 @@ textarea {
   --text-faint: #8a7fa6;
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
 }
+
+/* ---------- Tam siyah tema (OLED ekranlar için) ---------- */
+:root[data-theme='black'] {
+  --bg: #000000;
+  --bg-elevated: #0a0a0a;
+  --surface: #131313;
+  --surface-2: #1a1a1a;
+  --surface-hover: #232323;
+  --border: #232323;
+  --border-soft: #181818;
+  --text: #f2f2f5;
+  --text-dim: #a8a8b0;
+  --text-faint: #74747c;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+}
+
+/* ---------- Açılış ekranı ---------- */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: var(--bg);
+}
+
+.splash-logo-wrap {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.splash-logo {
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  animation: splash-pulse 1.6s ease-in-out infinite;
+}
+
+.splash-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  border: 1.5px solid rgba(var(--accent-rgb), 0.5);
+  opacity: 0;
+  animation: splash-ring-out 1.6s ease-out infinite;
+}
+
+.splash-ring-2 {
+  animation-delay: 0.5s;
+}
+
+.splash-name {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text-faint);
+  animation: splash-fade 1.6s ease-in-out infinite;
+}
+
+@keyframes splash-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+@keyframes splash-ring-out {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+@keyframes splash-fade {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}

@@ -11,6 +11,7 @@ import {
   IconLiveTv,
   IconLock,
   IconMoon,
+  IconMoonFilled,
   IconMovie,
   IconRecord,
   IconRefresh,
@@ -218,6 +219,13 @@ function AccountMenu(props: Props): ReactElement {
             </button>
             <button className={theme === 'dark' ? 'active' : ''} onClick={() => onThemeChange('dark')}>
               <IconMoon size={13} /> Koyu
+            </button>
+            <button
+              className={theme === 'black' ? 'active' : ''}
+              onClick={() => onThemeChange('black')}
+              title="Tam siyah (OLED ekranlarda pil tasarrufu sağlar)"
+            >
+              <IconMoonFilled size={13} /> Siyah
             </button>
           </div>
           <div className="appearance-swatches menu-swatches">

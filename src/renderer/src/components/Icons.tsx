@@ -551,3 +551,12 @@ export function IconWinClose({ size, ...rest }: IconProps): ReactElement {
     </svg>
   )
 }
+
+// Tam siyah tema seçeneği için: doldurulmuş ay (OLED/pil simgesi izlenimi)
+export function IconMoonFilled({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest} fill="currentColor" stroke="none">
+      <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z" />
+    </svg>
+  )
+}

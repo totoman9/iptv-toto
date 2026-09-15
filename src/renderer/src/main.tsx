@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
+import { Splash } from './components/Splash'
 import { initProxy } from './lib/proxy'
 import { initSettings } from './lib/settings'
 import { initLibraryStores } from './lib/library'
@@ -38,12 +39,28 @@ window.addEventListener('unhandledrejection', (e) => {
 applyTheme(loadTheme())
 applyAccent(loadAccent())
 
+// Mağazalar hazırlanana kadar boş/beyaz bir pencere görünmesin diye kısa
+// bir açılış ekranı gösteriliyor (bkz. Splash.tsx). Hazırlık genelde çok
+// hızlı bittiği için en az yarım saniye tutuyoruz — yoksa animasyon daha
+// başlamadan (fark edilmeden) kesilip gidiyordu.
+const root = ReactDOM.createRoot(document.getElementById('root')!)
+root.render(<Splash />)
+
+const MIN_SPLASH_MS = 500
+const splashStart = performance.now()
+
 // Yerel canlı yayın aktarıcısının portunu uygulama açılmadan önce al
 // (oynatıcı motoru bunu senkron olarak kullanıyor).
 Promise.all([initProxy(), initSettings(), initLibraryStores()]).finally(() => {
-  ReactDOM.createRoot(document.getElementById('root')!).render(
-    <React.StrictMode>
-      <App />
-    </React.StrictMode>
+  const remaining = MIN_SPLASH_MS - (performance.now() - splashStart)
+  setTimeout(
+    () => {
+      root.render(
+        <React.StrictMode>
+          <App />
+        </React.StrictMode>
+      )
+    },
+    Math.max(0, remaining)
   )
 })
