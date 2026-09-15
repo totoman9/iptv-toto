@@ -418,6 +418,36 @@ export function PlayerPane({
     }
     video.addEventListener('playing', onPlaying)
     video.addEventListener('waiting', onWaiting)
+
+    // Bazı canlı yayınlarda (sağlayıcının kendi davranışı — bkz. kanal
+    // açılışında görüntünün birkaç saniye donması) yalnızca görüntü takılı
+    // kalırken ses akmaya devam ediyor; tarayıcı bu durumda 'waiting'
+    // olayını hiç tetiklemeyebiliyor (elinde bol miktarda ses verisi
+    // olduğu için "bekliyorum" saymıyor). Bu yüzden donuk bir görüntüyle
+    // baş başa kalınmasın diye, kaç kare çizildiğini kendimiz izleyip
+    // ilerlemiyorsa "Yayın takıldı" göstergesini biz tetikliyoruz.
+    let frameCheckTimer: ReturnType<typeof setInterval> | null = null
+    if (item?.isLive && typeof video.getVideoPlaybackQuality === 'function') {
+      let lastFrames = -1
+      let stuckSince = 0
+      frameCheckTimer = setInterval(() => {
+        if (video.paused) {
+          stuckSince = 0
+          return
+        }
+        const frames = video.getVideoPlaybackQuality().totalVideoFrames
+        if (frames === lastFrames) {
+          if (!stuckSince) stuckSince = Date.now()
+          else if (Date.now() - stuckSince > 900) {
+            setConn((c) => (c === 'playing' ? 'stalled' : c))
+          }
+        } else {
+          stuckSince = 0
+          lastFrames = frames
+          setConn((c) => (c === 'stalled' ? 'playing' : c))
+        }
+      }, 300)
+    }
     video.addEventListener('play', onPlay)
     video.addEventListener('pause', onPause)
     video.addEventListener('timeupdate', onTime)
@@ -439,6 +469,7 @@ export function PlayerPane({
       video.removeEventListener('playing', onPlaying)
       video.removeEventListener('waiting', onWaiting)
       if (stallTimer) clearTimeout(stallTimer)
+      if (frameCheckTimer) clearInterval(frameCheckTimer)
     }
   }, [item?.url])
 
