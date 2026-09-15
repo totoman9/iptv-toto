@@ -20,8 +20,7 @@ import { WatchlistView } from './components/WatchlistView'
 import { StatsView } from './components/StatsView'
 import { MultiView } from './components/MultiView'
 import { useFollowChecker } from './hooks/useFollowChecker'
-import { watchlistStore, recentChannelsStore, recordChannelVisit } from './lib/library'
-import { usePersisted } from './lib/persisted'
+import { watchlistStore } from './lib/library'
 import { IconGrid, IconGuide, IconRecord, IconStar } from './components/Icons'
 import { ContextMenu } from './components/ContextMenu'
 import { SkeletonChannelList } from './components/Skeleton'
@@ -146,7 +145,6 @@ function App(): ReactElement {
   const favorites = useFavorites()
   const { favoriteIds, toggleFavorite, folders } = favorites
   const lockApi = useParentalLock()
-  const recentChannels = usePersisted(recentChannelsStore)
   const categoryPrefs = useCategoryPrefs(activeSourceId)
   const { entries: recordings, active: activeRecording } = useRecordings()
   const reminders = useReminders()

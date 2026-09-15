@@ -134,43 +134,13 @@ export function resetStats(): void {
   statsStore.set({ days: {}, items: {} })
 }
 
-// ---------- Son izlenen kanallar ----------
-
-export interface RecentChannelEntry {
-  channelId: string
-  name: string
-  logo?: string
-  group: string
-  at: number
-}
-
-const RECENT_CHANNELS_MAX = 12
-export const recentChannelsStore = createPersisted<RecentChannelEntry[]>('recent-channels', [])
-
-export function recordChannelVisit(ch: { id: string; name: string; logo?: string; group: string }): void {
-  const list = recentChannelsStore.get()
-  const rest = list.filter((e) => e.channelId !== ch.id)
-  recentChannelsStore.set(
-    [{ channelId: ch.id, name: ch.name, logo: ch.logo, group: ch.group, at: Date.now() }, ...rest].slice(
-      0,
-      RECENT_CHANNELS_MAX
-    )
-  )
-}
-
 // ---------- Son ziyaret ("son ziyaretinden beri eklenenler") ----------
 
 const visitStore = createPersisted<{ vod?: number; series?: number }>('last-visit', {})
 let previousVisit: { vod?: number; series?: number } = {}
 
 export async function initLibraryStores(): Promise<void> {
-  await Promise.all([
-    watchlistStore.init(),
-    followStore.init(),
-    statsStore.init(),
-    visitStore.init(),
-    recentChannelsStore.init()
-  ])
+  await Promise.all([watchlistStore.init(), followStore.init(), statsStore.init(), visitStore.init()])
   previousVisit = { ...visitStore.get() }
   // Bu açılış "son ziyaret" olarak az sonra kaydedilir
   setTimeout(() => visitStore.set({ vod: Date.now(), series: Date.now() }), 20_000)
