@@ -21,7 +21,8 @@ import { MultiView } from './components/MultiView'
 import { useFollowChecker } from './hooks/useFollowChecker'
 import { watchlistStore, recentChannelsStore, recordChannelVisit } from './lib/library'
 import { usePersisted } from './lib/persisted'
-import { IconGrid, IconGuide } from './components/Icons'
+import { IconGrid, IconGuide, IconRecord, IconStar } from './components/Icons'
+import { ContextMenu } from './components/ContextMenu'
 import { PlayerPane, type PlayerMode } from './components/PlayerPane'
 import type { ChannelDrawerData } from './components/ChannelDrawer'
 import {
@@ -188,6 +189,7 @@ function App(): ReactElement {
     resume: PlayableItem | null
   } | null>(null)
   const [notice, setNoticeState] = useState<{ text: string; action?: NoticeAction } | null>(null)
+  const [channelMenu, setChannelMenu] = useState<{ channel: Channel; x: number; y: number } | null>(null)
 
   const isLocked = lockApi.isLocked
 
@@ -430,6 +432,11 @@ function App(): ReactElement {
     })
   }
 
+  function openChannelMenu(item: ListableItem, x: number, y: number): void {
+    const channel = channels.find((c) => c.id === item.id)
+    if (channel) setChannelMenu({ channel, x, y })
+  }
+
   function onTuneFromEpg(channelId: string): void {
     const ch = channels.find((c) => c.id === channelId)
     if (ch) playChannel(ch)
@@ -635,6 +642,26 @@ function App(): ReactElement {
     )
   }
 
+  // Sağ tık menüsünden: izlenmiyor olsa bile herhangi bir kanalı kaydet
+  async function quickRecordChannel(channel: Channel, minutes = 60): Promise<void> {
+    const now = Date.now()
+    const end = now + minutes * 60_000
+    const res = await window.iptv.recordings.schedule({
+      title: channel.name,
+      channelName: channel.name,
+      channelId: channel.id,
+      logo: channel.logo,
+      url: channel.url,
+      start: now,
+      end
+    })
+    setNotice(
+      res.ok
+        ? `“${channel.name}” kaydı başladı — saat ${formatClock(end)} olunca bitecek.`
+        : res.error || 'Kayıt başlatılamadı'
+    )
+  }
+
   async function recordProgram(streamId: number, program: EpgProgram): Promise<string> {
     const ch = channels.find((c) => c.streamId === streamId)
     if (!ch) return 'Kanal bulunamadı'
@@ -775,6 +802,7 @@ function App(): ReactElement {
             onSelect={playChannel}
             favoriteIds={favoriteIds}
             onToggleFavorite={toggleFavoriteWithUndo}
+            onContextMenu={openChannelMenu}
             emptyTitle="Canlı kanal bulunamadı"
             emptyHint={liveStatus === 'ready' ? 'Bu kaynakta canlı yayın listesi yok.' : ''}
             viewMode={listView}
@@ -848,6 +876,7 @@ function App(): ReactElement {
           onSelect={playChannel}
           favoriteIds={favoriteIds}
           onToggleFavorite={toggleFavoriteWithUndo}
+            onContextMenu={openChannelMenu}
           emptyTitle={activeFolder ? 'Bu klasör boş' : 'Favori kanalın yok'}
           emptyHint={
             activeFolder
@@ -1085,6 +1114,26 @@ function App(): ReactElement {
             </button>
           )}
         </div>
+      )}
+
+      {channelMenu && (
+        <ContextMenu
+          x={channelMenu.x}
+          y={channelMenu.y}
+          onClose={() => setChannelMenu(null)}
+          items={[
+            {
+              label: favoriteIds.has(channelMenu.channel.id) ? 'Favorilerden çıkar' : 'Favorilere ekle',
+              icon: <IconStar size={14} filled={favoriteIds.has(channelMenu.channel.id)} />,
+              onClick: () => toggleFavoriteWithUndo(channelMenu.channel.id)
+            },
+            {
+              label: '1 saat kaydet',
+              icon: <IconRecord size={14} />,
+              onClick: () => void quickRecordChannel(channelMenu.channel, 60)
+            }
+          ]}
+        />
       )}
     </div>
   )

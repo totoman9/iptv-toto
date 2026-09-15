@@ -19,6 +19,7 @@ interface RowProps {
   favoriteIds?: Set<string>
   onToggleFavorite?: (id: string) => void
   renderRowExtra?: (item: ListableItem) => ReactNode
+  onContextMenu?: (item: ListableItem, x: number, y: number) => void
 }
 
 function FavButton({
@@ -53,7 +54,8 @@ function Row({
   onSelect,
   favoriteIds,
   onToggleFavorite,
-  renderRowExtra
+  renderRowExtra,
+  onContextMenu
 }: RowComponentProps<RowProps>): ReactElement {
   const item = rows[index]
   return (
@@ -61,6 +63,11 @@ function Row({
       style={style}
       className={`channel-row ${selectedId === item.id ? 'active' : ''}`}
       onClick={() => onSelect(item)}
+      onContextMenu={(e) => {
+        if (!onContextMenu) return
+        e.preventDefault()
+        onContextMenu(item, e.clientX, e.clientY)
+      }}
     >
       <div className="channel-row-logo">
         {item.logo ? (
@@ -82,6 +89,7 @@ interface TileRowProps {
   onSelect: (item: ListableItem) => void
   favoriteIds?: Set<string>
   onToggleFavorite?: (id: string) => void
+  onContextMenu?: (item: ListableItem, x: number, y: number) => void
 }
 
 function TileRow({
@@ -91,7 +99,8 @@ function TileRow({
   selectedId,
   onSelect,
   favoriteIds,
-  onToggleFavorite
+  onToggleFavorite,
+  onContextMenu
 }: RowComponentProps<TileRowProps>): ReactElement {
   return (
     <div style={style} className="tile-row">
@@ -100,6 +109,11 @@ function TileRow({
           key={item.id}
           className={`channel-tile ${selectedId === item.id ? 'active' : ''}`}
           onClick={() => onSelect(item)}
+          onContextMenu={(e) => {
+            if (!onContextMenu) return
+            e.preventDefault()
+            onContextMenu(item, e.clientX, e.clientY)
+          }}
           title={item.name}
         >
           <FavButton item={item} favoriteIds={favoriteIds} onToggleFavorite={onToggleFavorite} />
@@ -133,6 +147,7 @@ interface Props {
   renderRowExtra?: (item: ListableItem) => ReactNode
   // Arama kutusunun üstüne eklenecek şerit (ör. "Son izlenenler")
   topStrip?: ReactNode
+  onContextMenu?: (item: ListableItem, x: number, y: number) => void
 }
 
 const TILE_COLS = 3
@@ -150,7 +165,8 @@ export function ItemListColumn({
   viewMode = 'list',
   onViewModeChange,
   renderRowExtra,
-  topStrip
+  topStrip,
+  onContextMenu
 }: Props): ReactElement {
   const [search, setSearch] = useState('')
 
@@ -212,7 +228,7 @@ export function ItemListColumn({
             rowComponent={TileRow}
             rowCount={tiles.length}
             rowHeight={118}
-            rowProps={{ tiles, selectedId, onSelect, favoriteIds, onToggleFavorite }}
+            rowProps={{ tiles, selectedId, onSelect, favoriteIds, onToggleFavorite, onContextMenu }}
           />
         </div>
       ) : (
@@ -221,7 +237,15 @@ export function ItemListColumn({
             rowComponent={Row}
             rowCount={filtered.length}
             rowHeight={54}
-            rowProps={{ rows: filtered, selectedId, onSelect, favoriteIds, onToggleFavorite, renderRowExtra }}
+            rowProps={{
+              rows: filtered,
+              selectedId,
+              onSelect,
+              favoriteIds,
+              onToggleFavorite,
+              renderRowExtra,
+              onContextMenu
+            }}
           />
         </div>
       )}
