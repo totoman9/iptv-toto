@@ -430,6 +430,14 @@ textarea {
   background: var(--surface);
 }
 
+.channel-row.is-reorderable {
+  cursor: grab;
+}
+
+.channel-row.is-reorderable:active {
+  cursor: grabbing;
+}
+
 .channel-row.active {
   background: var(--surface-hover);
 }

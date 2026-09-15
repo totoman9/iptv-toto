@@ -12,6 +12,8 @@ export type { FavoriteFolder }
 
 export interface FavoritesApi {
   favoriteIds: Set<string>
+  // Favorilere eklenme sırası (elle sıralanabilir — bkz. reorderFavorites)
+  orderedFavoriteIds: string[]
   toggleFavorite: (channelId: string) => void
   isFavorite: (channelId: string) => boolean
   folders: FavoriteFolder[]
@@ -20,6 +22,8 @@ export interface FavoritesApi {
   deleteFolder: (id: string) => void
   // Kanalı klasöre ekler/çıkarır; eklerken favorilere de ekler
   toggleInFolder: (folderId: string, channelId: string) => void
+  // draggedId'yi listede targetId'nin hemen öncesine taşır
+  reorderFavorites: (draggedId: string, targetId: string) => void
 }
 
 export function useFavorites(): FavoritesApi {
@@ -105,14 +109,30 @@ export function useFavorites(): FavoritesApi {
     [updateFolders]
   )
 
+  const reorderFavorites = useCallback((draggedId: string, targetId: string) => {
+    if (draggedId === targetId) return
+    setEntries((prev) => {
+      const dragged = prev.find((e) => e.channelId === draggedId)
+      if (!dragged) return prev
+      const withoutDragged = prev.filter((e) => e.channelId !== draggedId)
+      const targetIndex = withoutDragged.findIndex((e) => e.channelId === targetId)
+      if (targetIndex === -1) return prev
+      const next = [...withoutDragged.slice(0, targetIndex), dragged, ...withoutDragged.slice(targetIndex)]
+      saveFavorites(next)
+      return next
+    })
+  }, [])
+
   return {
     favoriteIds,
+    orderedFavoriteIds: useMemo(() => entries.map((e) => e.channelId), [entries]),
     toggleFavorite,
     isFavorite: (channelId: string) => favoriteIds.has(channelId),
     folders,
     createFolder,
     renameFolder,
     deleteFolder,
-    toggleInFolder
+    toggleInFolder,
+    reorderFavorites
   }
 }

@@ -20,6 +20,8 @@ interface RowProps {
   onToggleFavorite?: (id: string) => void
   renderRowExtra?: (item: ListableItem) => ReactNode
   onContextMenu?: (item: ListableItem, x: number, y: number) => void
+  // Verilirse satırlar sürüklenip elle sıralanabilir (ör. favoriler listesi)
+  onReorder?: (draggedId: string, targetId: string) => void
 }
 
 function FavButton({
@@ -55,13 +57,28 @@ function Row({
   favoriteIds,
   onToggleFavorite,
   renderRowExtra,
-  onContextMenu
+  onContextMenu,
+  onReorder
 }: RowComponentProps<RowProps>): ReactElement {
   const item = rows[index]
   return (
     <div
       style={style}
-      className={`channel-row ${selectedId === item.id ? 'active' : ''}`}
+      className={`channel-row ${selectedId === item.id ? 'active' : ''} ${onReorder ? 'is-reorderable' : ''}`}
+      draggable={!!onReorder}
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = 'move'
+        e.dataTransfer.setData('text/plain', item.id)
+      }}
+      onDragOver={(e) => {
+        if (onReorder) e.preventDefault()
+      }}
+      onDrop={(e) => {
+        if (!onReorder) return
+        e.preventDefault()
+        const draggedId = e.dataTransfer.getData('text/plain')
+        if (draggedId) onReorder(draggedId, item.id)
+      }}
       onClick={() => onSelect(item)}
       onContextMenu={(e) => {
         if (!onContextMenu) return
@@ -148,6 +165,7 @@ interface Props {
   // Arama kutusunun üstüne eklenecek şerit (ör. "Son izlenenler")
   topStrip?: ReactNode
   onContextMenu?: (item: ListableItem, x: number, y: number) => void
+  onReorder?: (draggedId: string, targetId: string) => void
 }
 
 const TILE_COLS = 3
@@ -166,7 +184,8 @@ export function ItemListColumn({
   onViewModeChange,
   renderRowExtra,
   topStrip,
-  onContextMenu
+  onContextMenu,
+  onReorder
 }: Props): ReactElement {
   const [search, setSearch] = useState('')
 
@@ -244,7 +263,8 @@ export function ItemListColumn({
               favoriteIds,
               onToggleFavorite,
               renderRowExtra,
-              onContextMenu
+              onContextMenu,
+              onReorder
             }}
           />
         </div>

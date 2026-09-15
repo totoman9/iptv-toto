@@ -230,10 +230,12 @@ function App(): ReactElement {
   }, [livePrefs, liveGroup])
 
   // ----- Favoriler ve klasörler -----
-  const favoriteChannels = useMemo(
-    () => channels.filter((c) => favoriteIds.has(c.id)),
-    [channels, favoriteIds]
-  )
+  // Favoriler kendi (elle sıralanabilir) sırasında gösterilir, sağlayıcının
+  // listesindeki sırada değil.
+  const favoriteChannels = useMemo(() => {
+    const byId = new Map(channels.map((c) => [c.id, c]))
+    return favorites.orderedFavoriteIds.map((id) => byId.get(id)).filter((c): c is Channel => !!c)
+  }, [channels, favorites.orderedFavoriteIds])
   const folderChannels = useMemo(() => {
     const folder = activeFolder ? folders.find((f) => f.id === activeFolder) : undefined
     if (!folder) return favoriteChannels
@@ -876,7 +878,8 @@ function App(): ReactElement {
           onSelect={playChannel}
           favoriteIds={favoriteIds}
           onToggleFavorite={toggleFavoriteWithUndo}
-            onContextMenu={openChannelMenu}
+          onContextMenu={openChannelMenu}
+          onReorder={activeFolder ? undefined : favorites.reorderFavorites}
           emptyTitle={activeFolder ? 'Bu klasör boş' : 'Favori kanalın yok'}
           emptyHint={
             activeFolder
