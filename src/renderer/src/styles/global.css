@@ -270,6 +270,67 @@ textarea {
   margin: 12px;
 }
 
+/* ---------- Canlı TV: son izlenen kanallar şeridi ---------- */
+.recent-channels-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 12px 12px 0;
+}
+
+.recent-channel-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  width: 66px;
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+}
+
+.recent-channel-chip:hover {
+  background: var(--surface-hover);
+}
+
+.recent-channel-chip.active .recent-channel-logo {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.recent-channel-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text-faint);
+}
+
+.recent-channel-logo img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.recent-channel-name {
+  font-size: 10.5px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
 .pane-search-row .pane-search {
   margin: 0;
   flex: 1;

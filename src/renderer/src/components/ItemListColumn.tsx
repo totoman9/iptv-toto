@@ -131,6 +131,8 @@ interface Props {
   onViewModeChange?: (mode: ListViewMode) => void
   // Liste görünümünde satıra eklenecek ek düğme (ör. klasör menüsü)
   renderRowExtra?: (item: ListableItem) => ReactNode
+  // Arama kutusunun üstüne eklenecek şerit (ör. "Son izlenenler")
+  topStrip?: ReactNode
 }
 
 const TILE_COLS = 3
@@ -147,7 +149,8 @@ export function ItemListColumn({
   headerAction,
   viewMode = 'list',
   onViewModeChange,
-  renderRowExtra
+  renderRowExtra,
+  topStrip
 }: Props): ReactElement {
   const [search, setSearch] = useState('')
 
@@ -168,6 +171,7 @@ export function ItemListColumn({
 
   return (
     <div className={`pane pane-items view-${viewMode}`}>
+      {topStrip}
       <div className="pane-search-row">
         <div className="pane-search">
           <IconSearch size={14} />

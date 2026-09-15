@@ -19,7 +19,8 @@ import { WatchlistView } from './components/WatchlistView'
 import { StatsView } from './components/StatsView'
 import { MultiView } from './components/MultiView'
 import { useFollowChecker } from './hooks/useFollowChecker'
-import { watchlistStore } from './lib/library'
+import { watchlistStore, recentChannelsStore, recordChannelVisit } from './lib/library'
+import { usePersisted } from './lib/persisted'
 import { IconGrid, IconGuide } from './components/Icons'
 import { PlayerPane, type PlayerMode } from './components/PlayerPane'
 import type { ChannelDrawerData } from './components/ChannelDrawer'
@@ -137,6 +138,7 @@ function App(): ReactElement {
   const favorites = useFavorites()
   const { favoriteIds, toggleFavorite, folders } = favorites
   const lockApi = useParentalLock()
+  const recentChannels = usePersisted(recentChannelsStore)
   const categoryPrefs = useCategoryPrefs(activeSourceId)
   const { entries: recordings, active: activeRecording } = useRecordings()
   const reminders = useReminders()
@@ -424,6 +426,7 @@ function App(): ReactElement {
       }
       setTheater(false)
       setPlaying(channelToPlayable(channel))
+      recordChannelVisit(channel)
     })
   }
 
@@ -776,6 +779,29 @@ function App(): ReactElement {
             emptyHint={liveStatus === 'ready' ? 'Bu kaynakta canlı yayın listesi yok.' : ''}
             viewMode={listView}
             onViewModeChange={changeListView}
+            topStrip={
+              liveGroup === ALL_GROUP && recentChannels.length > 0 ? (
+                <div className="recent-channels-strip">
+                  {recentChannels.map((r) => {
+                    const ch = channels.find((c) => c.id === r.channelId)
+                    if (!ch) return null
+                    return (
+                      <button
+                        key={r.channelId}
+                        className={`recent-channel-chip ${playing?.id === ch.id ? 'active' : ''}`}
+                        onClick={() => playChannel(ch)}
+                        title={ch.name}
+                      >
+                        <span className="recent-channel-logo">
+                          {ch.logo ? <img src={ch.logo} alt="" /> : ch.name.slice(0, 1).toUpperCase()}
+                        </span>
+                        <span className="recent-channel-name">{ch.name}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : undefined
+            }
             headerAction={
               <>
                 {activeSource?.type === 'xtream' && (
