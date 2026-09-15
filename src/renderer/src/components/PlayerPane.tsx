@@ -1135,7 +1135,11 @@ export function PlayerPane({
                       setPanelOpen((v) => !v)
                       setMoreOpen(false)
                     }}
-                    title="Ayarlar: görüntü, ses, altyazı ve uyku zamanlayıcısı (G)"
+                    title={
+                      item?.isLive
+                        ? 'Ayarlar: görüntü, tampon (donma önleme), altyazı ve uyku zamanlayıcısı (G)'
+                        : 'Ayarlar: görüntü, ses, altyazı ve uyku zamanlayıcısı (G)'
+                    }
                   >
                     <IconSliders size={15} />
                   </button>

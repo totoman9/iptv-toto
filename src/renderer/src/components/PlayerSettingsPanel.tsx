@@ -78,7 +78,7 @@ export function PlayerSettingsPanel({
             Görüntü
           </button>
           <button className={tab === 'sound' ? 'active' : ''} onClick={() => setTab('sound')}>
-            {isLive ? 'Ses ve akış' : 'Ses ve hız'}
+            {isLive ? 'Ses ve Tampon' : 'Ses ve hız'}
           </button>
           <button className={tab === 'subtitle' ? 'active' : ''} onClick={() => setTab('subtitle')}>
             Altyazı

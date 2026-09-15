@@ -201,6 +201,11 @@ export function ensureSession(target: string): LiveSession | null {
     return session
   }
   if (session && !session.ended && hasRecorder(session)) return null
+  // Kanal değiştiriliyor mu (bambaşka bir kanaldan geçiş), yoksa ilk açılış mı?
+  // Tek bağlantıya sınırlı hesaplarda sunucu, eski bağlantıyı bıraktığımızı
+  // hemen fark etmeyebiliyor; yeni bağlantıyı anında açmaya çalışmak "bağlantı
+  // dolu" hatasına (ve gördüğün donmaya) yol açıyordu.
+  const wasSwitchingChannel = !!(session && !session.ended)
   if (session) closeSession(session)
   ring = []
   ringBytes = 0
@@ -217,6 +222,11 @@ export function ensureSession(target: string): LiveSession | null {
   }
   s.ready = (async (): Promise<ReadyState> => {
     try {
+      // Sunucuya eski bağlantıyı serbest bırakması için kısa bir nefes payı
+      // ver. ffmpeg zaten bu süre boyunca hazırlanıyor olacağı için kanal
+      // değiştirme hızında gözle fark edilir bir yavaşlama olmuyor.
+      if (wasSwitchingChannel) await new Promise((r) => setTimeout(r, 450))
+      if (controller.signal.aborted) return { ok: false, status: 499 }
       const upstream = await fetch(target, {
         signal: controller.signal,
         headers: { 'User-Agent': USER_AGENT }
