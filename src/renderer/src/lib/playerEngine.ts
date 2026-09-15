@@ -392,10 +392,16 @@ function attachVodRemux(
   }
   video.addEventListener('error', onError)
 
+  let cancelStart: (() => void) | null = null
+
   function startAt(sec: number): void {
+    cancelStart?.()
     offsetSec = sec
     video.src = vodRemuxUrl(url, sec)
-    video.play().catch(() => {})
+    // Hemen play() çağırmak, ses ile görüntü daha düzgün oturmadan ekrana
+    // düşüp birinin diğerini "yakalıyormuş" gibi görünmesine yol açıyordu;
+    // canlı yayındaki gibi küçük bir yedek birikene kadar bekleniyor.
+    cancelStart = playWhenBuffered(video, 1.2, 4000)
   }
 
   // Ekranın sarma çubuğunu sürüklerken saniyede onlarca "currentTime = x"
@@ -437,6 +443,7 @@ function attachVodRemux(
     destroy: () => {
       destroyed = true
       if (seekTimer) clearTimeout(seekTimer)
+      cancelStart?.()
       video.removeEventListener('error', onError)
       // Bir dahaki içerik (canlı kanal, kayıt) bu özelliklere tarayıcının
       // kendi native davranışıyla erişsin diye tanımları geri alıyoruz.

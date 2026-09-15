@@ -60,11 +60,14 @@ export function bufferTargetSec(video: HTMLVideoElement): number {
   }
 }
 
-// Kanal açılırken oynatmaya başlamadan önce biriktirilecek yedek (sn)
+// Kanal açılırken oynatmaya başlamadan önce biriktirilecek yedek (sn).
+// Sıfır bekleme, ses ile görüntünün henüz düzgün oturmadan ekrana
+// düşmesine (biri diğerini "yakalıyormuş" gibi görünmesine) yol açıyordu;
+// bu yüzden en hızlı modlarda bile en az 1,5 sn'lik küçük bir pay bırakılıyor.
 export function startBufferSec(video: HTMLVideoElement): number {
   switch (mode) {
     case 'normal':
-      return 0
+      return 1.5
     case 'high':
       return 5
     case 'max':
@@ -72,6 +75,6 @@ export function startBufferSec(video: HTMLVideoElement): number {
     default:
       // Otomatik: çözünürlük belli olana kadar bekle, 4K ise biriktir
       if (largeHint) return 5
-      return video.readyState < 1 ? Infinity : isUhd(video) ? 5 : 0
+      return video.readyState < 1 ? Infinity : isUhd(video) ? 5 : 1.5
   }
 }
