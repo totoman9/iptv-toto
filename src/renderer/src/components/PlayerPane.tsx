@@ -1233,6 +1233,19 @@ export function PlayerPane({
                       <IconMiniWindow size={15} />
                     </button>
                   )}
+                  {compact && window.iptv?.platform !== 'darwin' && (
+                    // Windows/Linux'ta pencere artık çerçevesiz; mini pencerede üst
+                    // çubuk (ve içindeki kapat düğmesi) gizlendiği için buraya da
+                    // bir kapat düğmesi koyuyoruz, yoksa mini izlerken uygulamayı
+                    // kapatmanın görünür bir yolu kalmıyor.
+                    <button
+                      className="icon-btn"
+                      onClick={() => window.iptv.window.close()}
+                      title="Uygulamayı kapat"
+                    >
+                      <IconClose size={15} />
+                    </button>
+                  )}
 
                   {drawer && isFullscreen && (
                     <button
