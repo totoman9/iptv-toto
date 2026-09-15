@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ComponentType, type ReactElement, type ReactNode } from 'react'
 import type { SourceConfig } from '../../../shared/types'
-import { ACCENTS, type Accent, type Theme } from '../lib/theme'
+import { ACCENTS, type Accent, type PosterSize, type Theme } from '../lib/theme'
 import logoUrl from '../assets/logo.svg'
 import {
   IconBookmark,
@@ -43,6 +43,8 @@ interface Props {
   onThemeChange: (theme: Theme) => void
   accent: Accent
   onAccentChange: (accent: Accent) => void
+  posterSize: PosterSize
+  onPosterSizeChange: (size: PosterSize) => void
   onOpenSearch: () => void
   onOpenSettings: () => void
   recordingActive: boolean
@@ -164,6 +166,8 @@ function AccountMenu(props: Props): ReactElement {
     onThemeChange,
     accent,
     onAccentChange,
+    posterSize,
+    onPosterSizeChange,
     onOpenSettings,
     onOpenParentalLock
   } = props
@@ -238,6 +242,18 @@ function AccountMenu(props: Props): ReactElement {
                 title={`Renk: ${a.label}`}
               />
             ))}
+          </div>
+          <div className="menu-label">Afiş boyutu</div>
+          <div className="seg-toggle menu-seg">
+            <button className={posterSize === 'sm' ? 'active' : ''} onClick={() => onPosterSizeChange('sm')}>
+              Küçük
+            </button>
+            <button className={posterSize === 'md' ? 'active' : ''} onClick={() => onPosterSizeChange('md')}>
+              Orta
+            </button>
+            <button className={posterSize === 'lg' ? 'active' : ''} onClick={() => onPosterSizeChange('lg')}>
+              Büyük
+            </button>
           </div>
 
           <div className="menu-sep" />

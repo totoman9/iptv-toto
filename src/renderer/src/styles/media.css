@@ -1,3 +1,12 @@
+/* ---------- Film/dizi afiş boyutu ---------- */
+:root[data-poster-size='sm'] {
+  --poster-width: 118px;
+}
+
+:root[data-poster-size='lg'] {
+  --poster-width: 190px;
+}
+
 /* ---------- Canlı TV: ızgara (kutucuk) görünümü ---------- */
 .view-toggle {
   display: flex;
@@ -365,7 +374,7 @@
 /* Afiş kartı */
 .poster-card {
   flex-shrink: 0;
-  width: 150px;
+  width: var(--poster-width, 150px);
   background: transparent;
   border: none;
   padding: 0;

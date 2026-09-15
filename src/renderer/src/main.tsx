@@ -5,7 +5,7 @@ import { Splash } from './components/Splash'
 import { initProxy } from './lib/proxy'
 import { initSettings } from './lib/settings'
 import { initLibraryStores } from './lib/library'
-import { applyAccent, applyTheme, loadAccent, loadTheme } from './lib/theme'
+import { applyAccent, applyPosterSize, applyTheme, loadAccent, loadPosterSize, loadTheme } from './lib/theme'
 import './styles/global.css'
 import './styles/player.css'
 import './styles/media.css'
@@ -38,6 +38,7 @@ window.addEventListener('unhandledrejection', (e) => {
 // Tema, ilk çizimden önce uygulanır (açılışta beyaz yanıp sönmesin)
 applyTheme(loadTheme())
 applyAccent(loadAccent())
+applyPosterSize(loadPosterSize())
 
 // Mağazalar hazırlanana kadar boş/beyaz bir pencere görünmesin diye kısa
 // bir açılış ekranı gösteriliyor (bkz. Splash.tsx). Hazırlık genelde çok

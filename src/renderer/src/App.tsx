@@ -27,12 +27,16 @@ import { PlayerPane, type PlayerMode } from './components/PlayerPane'
 import type { ChannelDrawerData } from './components/ChannelDrawer'
 import {
   applyAccent,
+  applyPosterSize,
   applyTheme,
   loadAccent,
+  loadPosterSize,
   loadTheme,
   saveAccent,
+  savePosterSize,
   saveTheme,
   type Accent,
+  type PosterSize,
   type Theme
 } from './lib/theme'
 import { applyCategoryOrder, withoutHidden, type CategorySection } from './lib/categoryPrefs'
@@ -180,6 +184,7 @@ function App(): ReactElement {
   const [listView, setListView] = useState<ListViewMode>(loadListView)
   const [theme, setTheme] = useState<Theme>(loadTheme)
   const [accent, setAccent] = useState<Accent>(loadAccent)
+  const [posterSize, setPosterSize] = useState<PosterSize>(loadPosterSize)
   // Mini pencere: uygulama küçülüp köşede her zaman üstte kalır
   const [compact, setCompact] = useState(false)
   // Çoklu ekran açıkken: başlangıç kanalı, hesabın bağlantı sınırı, kapanınca dönülecek yayın
@@ -491,6 +496,12 @@ function App(): ReactElement {
     setAccent(next)
     applyAccent(next)
     saveAccent(next)
+  }
+
+  function changePosterSize(next: PosterSize): void {
+    setPosterSize(next)
+    applyPosterSize(next)
+    savePosterSize(next)
   }
 
   function setCompactMode(on: boolean): void {
@@ -969,6 +980,8 @@ function App(): ReactElement {
         onThemeChange={changeTheme}
         accent={accent}
         onAccentChange={changeAccent}
+        posterSize={posterSize}
+        onPosterSizeChange={changePosterSize}
         onOpenSearch={() => setSearchOpen(true)}
         onOpenSettings={() => setShowSettings(true)}
         recordingActive={!!activeRecording}

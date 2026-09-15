@@ -16,8 +16,12 @@ export const ACCENTS: { id: Accent; label: string; color: string }[] = [
   { id: 'red', label: 'Kırmızı', color: '#dc2626' }
 ]
 
+// Film/dizi afişlerinin ızgara görünümündeki boyutu
+export type PosterSize = 'sm' | 'md' | 'lg'
+
 const THEME_KEY = 'iptv-toto-theme'
 const ACCENT_KEY = 'iptv-toto-accent'
+const POSTER_SIZE_KEY = 'iptv-toto-poster-size'
 
 function read(key: string): string | null {
   try {
@@ -63,4 +67,17 @@ export function applyAccent(accent: Accent): void {
 
 export function saveAccent(accent: Accent): void {
   write(ACCENT_KEY, accent)
+}
+
+export function loadPosterSize(): PosterSize {
+  const stored = read(POSTER_SIZE_KEY)
+  return stored === 'sm' || stored === 'lg' ? stored : 'md'
+}
+
+export function applyPosterSize(size: PosterSize): void {
+  document.documentElement.dataset.posterSize = size
+}
+
+export function savePosterSize(size: PosterSize): void {
+  write(POSTER_SIZE_KEY, size)
 }
