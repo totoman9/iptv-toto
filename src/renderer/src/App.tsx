@@ -23,6 +23,7 @@ import { watchlistStore, recentChannelsStore, recordChannelVisit } from './lib/l
 import { usePersisted } from './lib/persisted'
 import { IconGrid, IconGuide, IconRecord, IconStar } from './components/Icons'
 import { ContextMenu } from './components/ContextMenu'
+import { SkeletonChannelList } from './components/Skeleton'
 import { PlayerPane, type PlayerMode } from './components/PlayerPane'
 import type { ChannelDrawerData } from './components/ChannelDrawer'
 import {
@@ -789,10 +790,7 @@ function App(): ReactElement {
     if (loading && channels.length === 0) {
       leftArea = (
         <div className="pane pane-wide">
-          <div className="empty-state">
-            <div className="spinner" />
-            <p>İçerik yükleniyor…</p>
-          </div>
+          <SkeletonChannelList />
         </div>
       )
     } else if (error && channels.length === 0) {

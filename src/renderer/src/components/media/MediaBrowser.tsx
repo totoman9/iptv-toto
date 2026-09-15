@@ -28,6 +28,7 @@ import {
   IconSearch
 } from '../Icons'
 import { PosterCard, type PosterCardData } from './PosterCard'
+import { SkeletonPosterRows } from '../Skeleton'
 import { PosterGrid } from './PosterGrid'
 import { MovieDetail } from './MovieDetail'
 import { SeriesDetail, episodeProgressId } from './SeriesDetail'
@@ -783,16 +784,19 @@ export function MediaBrowser({
   ) : null
 
   if (entries.length === 0) {
+    if (status === 'loading') {
+      return (
+        <div className="media-browser">
+          {toolbar}
+          <SkeletonPosterRows />
+        </div>
+      )
+    }
     return (
       <div className="media-browser">
         {toolbar}
         <div className="empty-state">
-          {status === 'loading' ? (
-            <>
-              <div className="spinner" />
-              <p>{kind === 'vod' ? 'Filmler' : 'Diziler'} yükleniyor…</p>
-            </>
-          ) : status === 'error' ? (
+          {status === 'error' ? (
             <>
               <h3>{kind === 'vod' ? 'Filmler' : 'Diziler'} yüklenemedi</h3>
               <p>Üstteki yenile düğmesiyle tekrar deneyebilirsin.</p>
