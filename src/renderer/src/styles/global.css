@@ -761,6 +761,22 @@ textarea {
   border-color: var(--primary);
 }
 
+.password-input-row {
+  position: relative;
+}
+
+.password-input-row input {
+  padding-right: 40px;
+}
+
+.password-input-row .password-toggle {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-faint);
+}
+
 .field-error {
   color: var(--danger);
   font-size: 12px;

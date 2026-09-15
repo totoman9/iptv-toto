@@ -1,6 +1,7 @@
 import { useState, type ReactElement } from 'react'
 import type { SourceConfig } from '../../../shared/types'
 import { testXtreamLogin } from '../lib/xtream'
+import { IconEye, IconEyeOff } from './Icons'
 
 interface Props {
   onClose: () => void
@@ -19,6 +20,7 @@ export function AddSourceModal({ onClose, onAdd, editing }: Props): ReactElement
   const [password, setPassword] = useState(editing?.type === 'xtream' ? editing.password : '')
   const [error, setError] = useState<string | null>(null)
   const [checking, setChecking] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   async function handleSubmit(): Promise<void> {
     setError(null)
@@ -112,11 +114,21 @@ export function AddSourceModal({ onClose, onAdd, editing }: Props): ReactElement
             </div>
             <div className="field">
               <label>Şifre</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
+              <div className="password-input-row">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="icon-btn password-toggle"
+                  onClick={() => setShowPassword((v) => !v)}
+                  title={showPassword ? 'Şifreyi gizle' : 'Şifreyi göster'}
+                >
+                  {showPassword ? <IconEyeOff size={15} /> : <IconEye size={15} />}
+                </button>
+              </div>
             </div>
           </>
         )}

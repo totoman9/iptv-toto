@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactElement } from 'react'
 import { updateSettings } from '../lib/settings'
 import { testOmdbKey } from '../lib/omdb'
 import { useSettings } from '../hooks/useSettings'
+import { IconEye, IconEyeOff } from './Icons'
 
 export function SettingsModal({ onClose }: { onClose: () => void }): ReactElement {
   const settings = useSettings()
@@ -14,6 +15,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }): ReactElemen
   const [osUser, setOsUser] = useState('')
   const [osPass, setOsPass] = useState('')
   const [osStatus, setOsStatus] = useState<{ kind: 'ok' | 'error' | 'busy'; text: string } | null>(null)
+  const [showOsPass, setShowOsPass] = useState(false)
 
   useEffect(() => {
     window.iptv.subs.getConfig().then((c) => {
@@ -125,12 +127,22 @@ export function SettingsModal({ onClose }: { onClose: () => void }): ReactElemen
             </div>
             <div className="field" style={{ flex: 1 }}>
               <label>Şifre</label>
-              <input
-                type="password"
-                value={osPass}
-                onChange={(e) => setOsPass(e.target.value)}
-                placeholder={osConfig?.hasPassword ? 'Kayıtlı' : ''}
-              />
+              <div className="password-input-row">
+                <input
+                  type={showOsPass ? 'text' : 'password'}
+                  value={osPass}
+                  onChange={(e) => setOsPass(e.target.value)}
+                  placeholder={osConfig?.hasPassword ? 'Kayıtlı' : ''}
+                />
+                <button
+                  type="button"
+                  className="icon-btn password-toggle"
+                  onClick={() => setShowOsPass((v) => !v)}
+                  title={showOsPass ? 'Şifreyi gizle' : 'Şifreyi göster'}
+                >
+                  {showOsPass ? <IconEyeOff size={15} /> : <IconEye size={15} />}
+                </button>
+              </div>
             </div>
           </div>
           <div className="settings-inline">
