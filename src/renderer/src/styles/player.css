@@ -98,6 +98,17 @@
   box-shadow: 0 12px 34px rgba(30, 15, 60, 0.16);
 }
 
+/* "Ambiyans" efekti: izlenen görüntünün baskın rengi (bkz. PlayerPane'deki
+   örnekleme) oynatıcının çevresine hafif bir parıltı olarak yansıyor —
+   yalnızca yan panelde (docked) dururken, tam ekranda/mini pencerede
+   dikkat dağıtmasın diye kapalı. */
+.mode-docked .player-pane-video-wrap {
+  box-shadow:
+    0 12px 34px rgba(30, 15, 60, 0.16),
+    0 0 80px 8px rgba(var(--ambient-rgb, 0, 0, 0), 0.3);
+  transition: box-shadow 0.8s ease;
+}
+
 .mode-mini .player-pane-video-wrap,
 .mode-theater .player-pane-video-wrap,
 .player-pane-video-wrap:fullscreen {

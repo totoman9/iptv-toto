@@ -473,6 +473,50 @@ export function PlayerPane({
     }
   }, [item?.url])
 
+  // "Ambiyans" efekti: izlenen görüntünün baskın rengini örnekleyip
+  // oynatıcının çevresine hafif bir parıltı olarak yansıtıyoruz (yalnızca
+  // yan panelde — bkz. CSS'teki .mode-docked kuralı).
+  useEffect(() => {
+    const video = videoRef.current
+    const wrap = wrapRef.current
+    if (!video || !wrap || !item) return
+    const canvas = document.createElement('canvas')
+    canvas.width = 16
+    canvas.height = 9
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
+    if (!ctx) return
+
+    const sample = (): void => {
+      if (video.readyState < 2 || !video.videoWidth) return
+      try {
+        ctx.drawImage(video, 0, 0, 16, 9)
+        const { data } = ctx.getImageData(0, 0, 16, 9)
+        let r = 0,
+          g = 0,
+          b = 0
+        const count = data.length / 4
+        if (!count) return
+        for (let i = 0; i < data.length; i += 4) {
+          r += data[i]
+          g += data[i + 1]
+          b += data[i + 2]
+        }
+        wrap.style.setProperty(
+          '--ambient-rgb',
+          `${Math.round(r / count)}, ${Math.round(g / count)}, ${Math.round(b / count)}`
+        )
+      } catch {
+        /* çerçeve henüz okunabilir değil (ör. yayın daha yeni açıldı) */
+      }
+    }
+    const timer = setInterval(sample, 700)
+    sample()
+    return () => {
+      clearInterval(timer)
+      wrap.style.removeProperty('--ambient-rgb')
+    }
+  }, [item?.url])
+
   // Oynatma hızı (yalnızca film/dizi) — yeni içerikte normale döner
   useEffect(() => {
     setSpeed(1)
