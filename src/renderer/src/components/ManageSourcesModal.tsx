@@ -18,14 +18,17 @@ export function ManageSourcesModal({
   onUpdate,
   onRemove
 }: Props): ReactElement {
-  const [editing, setEditing] = useState<SourceConfig | 'new' | null>(null)
+  // Hiç kaynak yoksa boş "Kaynaklarım" listesini göstermeden doğrudan
+  // ekleme formuna geç — ilk kurulumda bir tıklama daha az.
+  const [editing, setEditing] = useState<SourceConfig | 'new' | null>(sources.length === 0 ? 'new' : null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   if (editing) {
     return (
       <AddSourceModal
         editing={editing === 'new' ? undefined : editing}
-        onClose={() => setEditing(null)}
+        isFirstSource={editing === 'new' && sources.length === 0}
+        onClose={() => (sources.length === 0 ? onClose() : setEditing(null))}
         onAdd={(source) => {
           if (editing === 'new') onAdd(source)
           else onUpdate(source.id, source)

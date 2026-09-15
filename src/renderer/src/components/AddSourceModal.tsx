@@ -9,10 +9,13 @@ interface Props {
   // Verilirse pencere "düzenleme" moduna geçer: alanlar bu kaynaktan
   // doldurulur, kaydedince aynı id ile güncellenir.
   editing?: SourceConfig
+  // İlk kurulum: kullanıcının henüz hiç kaynağı yok, daha anlatımlı bir
+  // başlık ve açıklama gösteriyoruz.
+  isFirstSource?: boolean
 }
 
-export function AddSourceModal({ onClose, onAdd, editing }: Props): ReactElement {
-  const [tab, setTab] = useState<'m3u' | 'xtream'>(editing?.type === 'xtream' ? 'xtream' : 'm3u')
+export function AddSourceModal({ onClose, onAdd, editing, isFirstSource }: Props): ReactElement {
+  const [tab, setTab] = useState<'m3u' | 'xtream'>(editing?.type === 'm3u' ? 'm3u' : 'xtream')
   const [name, setName] = useState(editing?.name || '')
   const [m3uUrl, setM3uUrl] = useState(editing?.type === 'm3u' ? editing.url : '')
   const [host, setHost] = useState(editing?.type === 'xtream' ? editing.host : '')
@@ -68,15 +71,19 @@ export function AddSourceModal({ onClose, onAdd, editing }: Props): ReactElement
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>{editing ? 'Kaynağı Düzenle' : 'Kaynak Ekle'}</h2>
-        <p className="modal-sub">M3U linki ya da Xtream Codes hesabınla bağlan.</p>
+        <h2>{isFirstSource ? 'Hoş geldin! Önce bir kaynak ekleyelim' : editing ? 'Kaynağı Düzenle' : 'Kaynak Ekle'}</h2>
+        <p className="modal-sub">
+          {isFirstSource
+            ? 'Kanallarını ve film/dizilerini görebilmen için bir IPTV hesabına (Xtream Codes) ya da M3U linkine ihtiyacın var. Bu bilgileri IPTV hizmeti aldığın kişi ya da siteden alırsın.'
+            : 'M3U linki ya da Xtream Codes hesabınla bağlan.'}
+        </p>
 
         <div className="tab-row">
-          <button className={tab === 'm3u' ? 'active' : ''} onClick={() => setTab('m3u')}>
-            M3U Link
-          </button>
           <button className={tab === 'xtream' ? 'active' : ''} onClick={() => setTab('xtream')}>
-            Xtream Codes
+            Xtream Codes hesabım var
+          </button>
+          <button className={tab === 'm3u' ? 'active' : ''} onClick={() => setTab('m3u')}>
+            M3U linkim var
           </button>
         </div>
 
