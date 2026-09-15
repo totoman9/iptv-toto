@@ -11,6 +11,7 @@ import { findTsSync, getRing, initLive } from './live'
 import { decodeSecret, encodeSecret } from './crypto'
 import { initLog, installCrashLogging } from './log'
 import { initUpdater } from './updater'
+import { initTray } from './tray'
 
 initLive()
 
@@ -448,6 +449,7 @@ function createWindow(): void {
 
   installCrashLogging(() => mainWindow)
   initUpdater(() => mainWindow)
+  initTray(() => mainWindow)
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)

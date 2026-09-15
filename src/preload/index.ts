@@ -26,6 +26,19 @@ const api = {
     error: (scope: string, message: string): void => ipcRenderer.send('log:error', scope, message),
     openFolder: (): Promise<void> => ipcRenderer.invoke('log:openFolder')
   },
+  tray: {
+    // Menü çubuğu/sistem tepsisi menüsünün doğru göstermesi için şu an ne
+    // izlendiğini bildir (kanal/film adı yoksa gizlenir)
+    updateStatus: (status: { title?: string; isLive?: boolean; isPlaying?: boolean }): void =>
+      ipcRenderer.send('tray:updateStatus', status),
+    onCommand: (cb: (command: 'playPause' | 'next' | 'prev') => void): (() => void) => {
+      const handler = (_e: unknown, command: 'playPause' | 'next' | 'prev'): void => cb(command)
+      ipcRenderer.on('tray:command', handler)
+      return () => {
+        ipcRenderer.removeListener('tray:command', handler)
+      }
+    }
+  },
   updater: {
     quitAndInstall: (): void => ipcRenderer.invoke('updater:quitAndInstall') as unknown as void,
     onEvent: (cb: (info: { status: 'downloaded'; version: string }) => void): (() => void) => {

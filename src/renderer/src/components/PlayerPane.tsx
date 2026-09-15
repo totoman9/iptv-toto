@@ -825,6 +825,25 @@ export function PlayerPane({
     }
   }
 
+  // Menü çubuğu / sistem tepsisi: şu an ne izlendiğini bildir, oradan gelen
+  // oynat/duraklat ve kanal değiştirme komutlarını uygula.
+  useEffect(() => {
+    window.iptv.tray?.updateStatus({
+      title: item?.name,
+      isLive: item?.isLive,
+      isPlaying
+    })
+  }, [item?.id, item?.name, item?.isLive, isPlaying])
+
+  useEffect(() => {
+    return window.iptv.tray?.onCommand((command) => {
+      if (command === 'playPause') togglePlay()
+      else if (command === 'next') onNext?.()
+      else if (command === 'prev') onPrev?.()
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onNext, onPrev])
+
   function togglePlay(): void {
     const video = videoRef.current
     if (!video) return
