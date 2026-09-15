@@ -1,7 +1,8 @@
-import { app, ipcMain, safeStorage } from 'electron'
+import { app, ipcMain } from 'electron'
 import { join } from 'node:path'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import type { SubtitleResult, SubtitleSearchParams } from '../shared/types'
+import { decodeSecret, encodeSecret } from './crypto'
 
 // ---------------------------------------------------------------------------
 // İnternetten altyazı (OpenSubtitles)
@@ -25,28 +26,15 @@ let token: { value: string; at: number; base: string } | null = null
 
 const secretsFile = (): string => join(app.getPath('userData'), 'secrets.json')
 
-function encode(value: string): string {
-  return safeStorage.isEncryptionAvailable()
-    ? `enc:${safeStorage.encryptString(value).toString('base64')}`
-    : `raw:${Buffer.from(value).toString('base64')}`
-}
-
-function decode(value?: string): string | undefined {
-  if (!value) return undefined
-  try {
-    if (value.startsWith('enc:')) return safeStorage.decryptString(Buffer.from(value.slice(4), 'base64'))
-    if (value.startsWith('raw:')) return Buffer.from(value.slice(4), 'base64').toString()
-  } catch {
-    /* çözülemedi */
-  }
-  return undefined
-}
-
 async function loadSecrets(): Promise<Secrets> {
   if (secrets) return secrets
   try {
     const raw = JSON.parse(await readFile(secretsFile(), 'utf-8'))
-    secrets = { apiKey: decode(raw.osApiKey), username: decode(raw.osUser), password: decode(raw.osPass) }
+    secrets = {
+      apiKey: decodeSecret(raw.osApiKey),
+      username: decodeSecret(raw.osUser),
+      password: decodeSecret(raw.osPass)
+    }
   } catch {
     secrets = {}
   }
@@ -60,9 +48,9 @@ async function saveSecrets(next: Secrets): Promise<void> {
   await writeFile(
     secretsFile(),
     JSON.stringify({
-      osApiKey: next.apiKey ? encode(next.apiKey) : undefined,
-      osUser: next.username ? encode(next.username) : undefined,
-      osPass: next.password ? encode(next.password) : undefined
+      osApiKey: next.apiKey ? encodeSecret(next.apiKey) : undefined,
+      osUser: next.username ? encodeSecret(next.username) : undefined,
+      osPass: next.password ? encodeSecret(next.password) : undefined
     }),
     'utf-8'
   )

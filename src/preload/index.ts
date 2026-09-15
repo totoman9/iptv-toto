@@ -21,6 +21,11 @@ const api = {
     write: (key: string, value: unknown): Promise<boolean> =>
       ipcRenderer.invoke('cache:write', key, value)
   },
+  log: {
+    // Ekranda yakalanmayan bir hata olursa ana sürece bildirip diske yazdırır
+    error: (scope: string, message: string): void => ipcRenderer.send('log:error', scope, message),
+    openFolder: (): Promise<void> => ipcRenderer.invoke('log:openFolder')
+  },
   http: {
     fetchText: (url: string, options?: { timeoutMs?: number }): Promise<HttpResult<string>> =>
       ipcRenderer.invoke('http:fetchText', url, options),

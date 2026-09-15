@@ -146,6 +146,19 @@ export function SettingsModal({ onClose }: { onClose: () => void }): ReactElemen
           {osStatus && <div className={`settings-status settings-status-${osStatus.kind}`}>{osStatus.text}</div>}
         </section>
 
+        <section className="settings-section">
+          <div className="settings-section-title">Sorun bildirme</div>
+          <p className="modal-sub">
+            Uygulama donduğunda ya da beklenmedik bir hata verdiğinde buraya kaydedilir. Bir sorun
+            yaşadığında bu dosyayı bana gönderebilirsin.
+          </p>
+          <div className="settings-inline">
+            <button className="btn-secondary" onClick={() => void window.iptv.log.openFolder()}>
+              Hata günlüğünü aç
+            </button>
+          </div>
+        </section>
+
         <div className="modal-actions">
           <button className="btn-secondary" onClick={onClose}>
             Kapat

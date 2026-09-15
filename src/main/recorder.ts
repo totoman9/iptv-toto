@@ -5,6 +5,7 @@ import { mkdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promis
 import type { RecordingEntry, RecordingInput, RecordingScheduleResult } from '../shared/types'
 import { clipFileBase, finalizeToMp4 } from './ffmpeg'
 import { allowFileRoot, ensureSession, subscribe } from './live'
+import { log } from './log'
 
 // ---------------------------------------------------------------------------
 // Program kaydı
@@ -52,6 +53,7 @@ async function ensureLoaded(): Promise<void> {
     if (e.status === 'recording') {
       e.status = 'failed'
       e.error = 'Uygulama kapandığı için kayıt yarıda kaldı'
+      void log('warn', 'recorder', `Yarım kalan kayıt: ${e.title} (${e.channelName})`)
     }
   }
 }
@@ -140,6 +142,7 @@ async function stopRecording(): Promise<void> {
   if (a.bytes < 188 * 1000) {
     e.status = 'failed'
     e.error = 'Kanaldan görüntü alınamadı'
+    void log('error', 'recorder', `Kayıt başarısız (görüntü alınamadı): ${e.title} (${e.channelName})`)
     await unlink(a.partPath).catch(() => {})
     notify()
     return
@@ -177,6 +180,7 @@ function tick(): void {
   if (due.end <= now) {
     due.status = 'failed'
     due.error = 'Kayıt saati kaçırıldı (uygulama kapalıydı)'
+    void log('warn', 'recorder', `Kayıt saati kaçırıldı: ${due.title} (${due.channelName})`)
     notify()
   } else {
     void startRecording(due)

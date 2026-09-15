@@ -8,6 +8,8 @@ import { clipFileBase, finalizeToMp4, runFfmpeg } from './ffmpeg'
 import { initRecorder } from './recorder'
 import { initSubtitles } from './subtitles'
 import { findTsSync, getRing, initLive } from './live'
+import { decodeSecret, encodeSecret } from './crypto'
+import { initLog, installCrashLogging } from './log'
 
 initLive()
 
@@ -21,11 +23,40 @@ async function ensureUserDataDir(): Promise<void> {
   await mkdir(app.getPath('userData'), { recursive: true })
 }
 
+// IPTV kaynaklarındaki şifreyi diske yazmadan önce şifreler, okurken çözer.
+// Kaynak listesinin geri kalanı (ad, adres, kullanıcı adı) düz kalır — yalnızca
+// şifre hassas. Eski (şifrelenmemiş) kayıtlar da okunabilir; bir sonraki
+// kayıtta otomatik şifrelenmiş hale geçerler.
+interface StoredXtreamSource {
+  type: string
+  password?: string
+  [key: string]: unknown
+}
+
+function encodeSourcesForDisk(value: unknown): unknown {
+  if (!Array.isArray(value)) return value
+  return value.map((s: StoredXtreamSource) =>
+    s?.type === 'xtream' && typeof s.password === 'string' && s.password
+      ? { ...s, password: encodeSecret(s.password) }
+      : s
+  )
+}
+
+function decodeSourcesFromDisk(value: unknown): unknown {
+  if (!Array.isArray(value)) return value
+  return value.map((s: StoredXtreamSource) =>
+    s?.type === 'xtream' && typeof s.password === 'string' && s.password
+      ? { ...s, password: decodeSecret(s.password) ?? '' }
+      : s
+  )
+}
+
 // Basit JSON tabanlı depolama (kaynaklar, favoriler, ayarlar)
 ipcMain.handle('store:read', async (_event, key: string) => {
   try {
     const raw = await readFile(getUserDataPath(`${key}.json`), 'utf-8')
-    return JSON.parse(raw)
+    const value = JSON.parse(raw)
+    return key === 'sources' ? decodeSourcesFromDisk(value) : value
   } catch {
     return null
   }
@@ -33,7 +64,8 @@ ipcMain.handle('store:read', async (_event, key: string) => {
 
 ipcMain.handle('store:write', async (_event, key: string, value: unknown) => {
   await ensureUserDataDir()
-  await writeFile(getUserDataPath(`${key}.json`), JSON.stringify(value, null, 2), 'utf-8')
+  const toWrite = key === 'sources' ? encodeSourcesForDisk(value) : value
+  await writeFile(getUserDataPath(`${key}.json`), JSON.stringify(toWrite, null, 2), 'utf-8')
   return true
 })
 
@@ -351,6 +383,8 @@ function createWindow(): void {
   mainWindow.on('maximize', () => mainWindow.webContents.send('window:maximized', true))
   mainWindow.on('unmaximize', () => mainWindow.webContents.send('window:maximized', false))
 
+  installCrashLogging(() => mainWindow)
+
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
@@ -393,6 +427,7 @@ app.whenReady().then(() => {
     callback({ requestHeaders: details.requestHeaders })
   })
 
+  initLog()
   initRecorder()
   initSubtitles()
   createWindow()

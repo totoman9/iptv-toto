@@ -21,6 +21,19 @@ if (window.iptv?.platform === 'darwin') {
   document.body.classList.add('platform-win')
 }
 
+// Ekranda yakalanmayan bir hata olursa (beyaz ekran, donma vb.) diske yazılsın
+// — bir sorun olduğunda tek kanıt ekran görüntüsü olmasın.
+window.addEventListener('error', (e) => {
+  window.iptv?.log?.error('renderer:error', e.error?.stack || e.message || String(e))
+})
+window.addEventListener('unhandledrejection', (e) => {
+  const reason = e.reason
+  window.iptv?.log?.error(
+    'renderer:unhandledrejection',
+    reason instanceof Error ? reason.stack || reason.message : String(reason)
+  )
+})
+
 // Tema, ilk çizimden önce uygulanır (açılışta beyaz yanıp sönmesin)
 applyTheme(loadTheme())
 applyAccent(loadAccent())
