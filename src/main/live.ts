@@ -494,8 +494,14 @@ function handleRemux(target: string, back: number, res: http.ServerResponse): vo
       'aac',
       '-b:a',
       '192k',
+      // Kanal ilk açılınca (ya da yeniden bağlanınca) sesin ilk video anahtar
+      // karesinden önceki paketleri hemen çıktıya yazılıp tarayıcının sesi
+      // görüntüden önce başlatmasını engeller: sesi görüntünün en fazla
+      // 1 sn önüne geçirmiyoruz, gerekirse o kadar bekletiyoruz.
+      '-max_interleave_delta',
+      '1000000',
       '-max_muxing_queue_size',
-      '1024',
+      '4096',
       '-f',
       'mp4',
       '-movflags',
@@ -586,6 +592,10 @@ function handleVod(target: string, startSec: number, res: http.ServerResponse): 
       '-nostats',
       '-loglevel',
       'error',
+      // Açılışı ve sarmayı hızlandırır: dosyayı analiz etmek için gereğinden
+      // fazla veri toplamayı bekleme, ilk kareyi elindeki veriyle ver.
+      '-fflags',
+      '+genpts+nobuffer+discardcorrupt',
       '-user_agent',
       USER_AGENT,
       '-reconnect',
@@ -595,9 +605,9 @@ function handleVod(target: string, startSec: number, res: http.ServerResponse): 
       '-reconnect_delay_max',
       '5',
       '-probesize',
-      '2000000',
+      '500000',
       '-analyzeduration',
-      '3000000',
+      '1000000',
       // Uzak sunucu yavaşsa (sarma büyük bir "seek" isteği gerektirebilir)
       // erken zaman aşımına düşmesin
       '-rw_timeout',
@@ -618,7 +628,7 @@ function handleVod(target: string, startSec: number, res: http.ServerResponse): 
       '-b:a',
       '192k',
       '-max_muxing_queue_size',
-      '1024',
+      '4096',
       '-f',
       'mp4',
       // empty_moov KULLANMIYORUZ: kaynağın gerçek (sarılan noktadan itibaren
@@ -714,8 +724,10 @@ function handleMultiView(target: string, slot: number, res: http.ServerResponse)
       'aac',
       '-b:a',
       '128k',
+      '-max_interleave_delta',
+      '1000000',
       '-max_muxing_queue_size',
-      '1024',
+      '4096',
       '-f',
       'mp4',
       '-movflags',
