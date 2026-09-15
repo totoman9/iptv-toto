@@ -253,24 +253,78 @@ ipcMain.handle('shell:showItem', (_event, filePath: string) => {
 // ---------- Mini pencere (her zaman üstte) ----------
 // Uygulama penceresi küçülüp ekranın köşesine yerleşir ve diğer pencerelerin
 // üstünde kalır; yalnızca oynatıcı görünür (arayüz tarafı body sınıfıyla).
+// Kullanıcı bu pencereyi sürükleyip taşıyabilir ve kenarından
+// büyütüp/küçültebilir; en son bıraktığı yer ve boyut hatırlanır (bir
+// dahaki mini pencereye geçişte, hatta uygulama kapatılıp açılsa bile).
 let boundsBeforeCompact: Rectangle | null = null
+let isCompactNow = false
+let compactBounds: Rectangle | null = null
+let compactSaveTimer: ReturnType<typeof setTimeout> | null = null
+
+const COMPACT_DEFAULT = { width: 520, height: 293 }
+const COMPACT_MIN = { width: 320, height: 180 }
+
+function compactWindowFile(): string {
+  return getUserDataPath('compact-window.json')
+}
+
+async function loadCompactBounds(): Promise<void> {
+  try {
+    const raw = JSON.parse(await readFile(compactWindowFile(), 'utf-8'))
+    if (
+      typeof raw?.x === 'number' &&
+      typeof raw?.y === 'number' &&
+      typeof raw?.width === 'number' &&
+      typeof raw?.height === 'number'
+    ) {
+      compactBounds = raw
+    }
+  } catch {
+    /* henüz kaydedilmemiş — varsayılan konum kullanılacak */
+  }
+}
+void loadCompactBounds()
+
+function saveCompactBoundsSoon(bounds: Rectangle): void {
+  compactBounds = bounds
+  if (compactSaveTimer) clearTimeout(compactSaveTimer)
+  compactSaveTimer = setTimeout(() => {
+    void writeFile(compactWindowFile(), JSON.stringify(bounds), 'utf-8').catch(() => {})
+  }, 600)
+}
+
+// Kayıtlı konum artık ekranda yoksa (harici ekran çıkarılmış olabilir) en
+// yakın ekranın çalışma alanına geri çeker.
+function clampToVisibleArea(bounds: Rectangle): Rectangle {
+  const area = screen.getDisplayMatching(bounds).workArea
+  const width = Math.min(bounds.width, area.width)
+  const height = Math.min(bounds.height, area.height)
+  const x = Math.min(Math.max(bounds.x, area.x), area.x + area.width - width)
+  const y = Math.min(Math.max(bounds.y, area.y), area.y + area.height - height)
+  return { x, y, width, height }
+}
 
 ipcMain.handle('window:setCompact', (event, on: boolean) => {
   const win = BrowserWindow.fromWebContents(event.sender)
   if (!win) return false
   if (on) {
     if (!boundsBeforeCompact) boundsBeforeCompact = win.getBounds()
-    const area = screen.getDisplayMatching(win.getBounds()).workArea
-    const width = 520
-    const height = 293
-    win.setMinimumSize(320, 180)
-    win.setBounds(
-      { x: area.x + area.width - width - 24, y: area.y + area.height - height - 24, width, height },
-      true
-    )
+    win.setMinimumSize(COMPACT_MIN.width, COMPACT_MIN.height)
+    if (compactBounds) {
+      win.setBounds(clampToVisibleArea(compactBounds), true)
+    } else {
+      const area = screen.getDisplayMatching(win.getBounds()).workArea
+      const { width, height } = COMPACT_DEFAULT
+      win.setBounds(
+        { x: area.x + area.width - width - 24, y: area.y + area.height - height - 24, width, height },
+        true
+      )
+    }
     win.setAlwaysOnTop(true, 'floating')
     win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+    isCompactNow = true
   } else {
+    isCompactNow = false
     win.setAlwaysOnTop(false)
     win.setVisibleOnAllWorkspaces(false)
     win.setMinimumSize(1024, 640)
@@ -382,6 +436,14 @@ function createWindow(): void {
   // Windows/Linux'taki özel küçült/büyüt/kapat düğmeleri bu pencereyi kontrol eder
   mainWindow.on('maximize', () => mainWindow.webContents.send('window:maximized', true))
   mainWindow.on('unmaximize', () => mainWindow.webContents.send('window:maximized', false))
+
+  // Mini pencerede kullanıcı sürükleyip taşıdığında ya da kenarından
+  // büyütüp/küçülttüğünde, bir dahaki sefere aynı yerde/boyutta açılsın
+  const onCompactBoundsChange = (): void => {
+    if (isCompactNow) saveCompactBoundsSoon(mainWindow.getBounds())
+  }
+  mainWindow.on('move', onCompactBoundsChange)
+  mainWindow.on('resize', onCompactBoundsChange)
 
   installCrashLogging(() => mainWindow)
 

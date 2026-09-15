@@ -1020,7 +1020,11 @@ export function PlayerPane({
 
           {item && !error && mode !== 'mini' && (
             <>
-              <div className="player-topbar" style={{ opacity: showOverlay ? 1 : 0 }}>
+              <div
+                className="player-topbar"
+                style={{ opacity: showOverlay ? 1 : 0 }}
+                title={compact ? 'Sürükleyerek taşı · Kenarından tutup boyutlandır' : undefined}
+              >
                 {mode === 'theater' && !compact && (
                   <button className="icon-btn" onClick={onClose} title="Geri (Esc)">
                     <IconArrowLeft size={15} />
