@@ -322,17 +322,55 @@ function App(): ReactElement {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshFailed])
 
-  // ⌘K / Ctrl+K: her yerde ara
+  // ⌘K / Ctrl+K: her yerde ara. ⌘1-4 / Ctrl+1-4: sekmeler arası hızlı geçiş.
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      if (!(e.metaKey || e.ctrlKey)) return
+      if (e.key.toLowerCase() === 'k') {
         e.preventDefault()
         setSearchOpen(true)
+        return
+      }
+      const tabs: ViewKey[] = ['live', 'vod', 'series', 'guide']
+      const idx = Number(e.key) - 1
+      if (idx >= 0 && idx < tabs.length) {
+        e.preventDefault()
+        setView(tabs[idx])
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+
+  // Kanal numarasıyla geçiş: Canlı TV'deyken rakam tuşlarına basınca (TV
+  // kumandası gibi) yazılan sayıya karşılık gelen sıradaki kanala atlanır.
+  const [channelBuffer, setChannelBuffer] = useState('')
+  const channelBufferTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    const anyOverlayOpen =
+      searchOpen || showManageSources || showParentalLock || showEpgGrid || showSettings || !!editSection
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      if (view !== 'live' || anyOverlayOpen) return
+      if (!/^[0-9]$/.test(e.key)) return
+      const tag = (document.activeElement as HTMLElement | null)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      e.preventDefault()
+      setChannelBuffer((prev) => {
+        const next = (prev + e.key).slice(-3)
+        if (channelBufferTimer.current) clearTimeout(channelBufferTimer.current)
+        channelBufferTimer.current = setTimeout(() => {
+          const target = unlockedChannels[Number(next) - 1]
+          if (target) playChannel(target)
+          setChannelBuffer('')
+        }, 1100)
+        return next
+      })
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, unlockedChannels, searchOpen, showManageSources, showParentalLock, showEpgGrid, showSettings, editSection])
 
   // Planlanmış kayıt başladığında başka bir kanal izleniyorsa: hesap tek
   // bağlantılı olduğu için kaydedilen kanala geç ve kullanıcıya söyle.
