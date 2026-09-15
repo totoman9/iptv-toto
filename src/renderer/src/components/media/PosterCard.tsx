@@ -32,7 +32,9 @@ export function PosterCard({
             onError={(e) => (e.currentTarget.style.visibility = 'hidden')}
           />
         ) : (
-          <div className="poster-fallback">{data.title.slice(0, 2).toUpperCase()}</div>
+          <div className="poster-fallback">
+            <span>{data.title.slice(0, 2).toUpperCase()}</span>
+          </div>
         )}
         {data.locked && (
           <div className="poster-locked">
