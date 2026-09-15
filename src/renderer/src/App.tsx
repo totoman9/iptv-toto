@@ -494,6 +494,33 @@ function App(): ReactElement {
     setNoticeState(text ? { text, action } : null)
   }
 
+  // Favorilerden çıkarma yanlışlıkla olabiliyor; "Geri al" ile hem favoriye
+  // hem de (varsa) bulunduğu klasör(ler)e geri koyuyoruz.
+  function toggleFavoriteWithUndo(channelId: string): void {
+    const wasFavorite = favoriteIds.has(channelId)
+    const priorFolderIds = wasFavorite ? folders.filter((f) => f.channelIds.includes(channelId)).map((f) => f.id) : []
+    const name = channels.find((c) => c.id === channelId)?.name || 'Kanal'
+    toggleFavorite(channelId)
+    if (wasFavorite) {
+      setNotice(`“${name}” favorilerden çıkarıldı.`, {
+        label: 'Geri al',
+        run: () => {
+          toggleFavorite(channelId)
+          for (const folderId of priorFolderIds) favorites.toggleInFolder(folderId, channelId)
+        }
+      })
+    }
+  }
+
+  // Kaynak silme geri alınamaz bir işlemdi ve önceden onay bile sormuyordu.
+  function removeSourceWithUndo(id: string): void {
+    const cfg = sources.find((s) => s.id === id)
+    removeSource(id)
+    if (cfg) {
+      setNotice(`“${cfg.name}” kaynağı silindi.`, { label: 'Geri al', run: () => addSource(cfg) })
+    }
+  }
+
   // ----- Rehber: izle, hatırlat, arşivden izle -----
   function tuneChannelById(channelId: string): void {
     const ch = channelsRef.current.find((c) => c.id === channelId)
@@ -744,7 +771,7 @@ function App(): ReactElement {
             selectedId={playing?.id}
             onSelect={playChannel}
             favoriteIds={favoriteIds}
-            onToggleFavorite={toggleFavorite}
+            onToggleFavorite={toggleFavoriteWithUndo}
             emptyTitle="Canlı kanal bulunamadı"
             emptyHint={liveStatus === 'ready' ? 'Bu kaynakta canlı yayın listesi yok.' : ''}
             viewMode={listView}
@@ -794,7 +821,7 @@ function App(): ReactElement {
           selectedId={playing?.id}
           onSelect={playChannel}
           favoriteIds={favoriteIds}
-          onToggleFavorite={toggleFavorite}
+          onToggleFavorite={toggleFavoriteWithUndo}
           emptyTitle={activeFolder ? 'Bu klasör boş' : 'Favori kanalın yok'}
           emptyHint={
             activeFolder
@@ -906,7 +933,7 @@ function App(): ReactElement {
               source={activeSource}
               mode={compact || hostMode === 'hidden' ? 'docked' : hostMode}
               isFavorite={!!playing && favoriteIds.has(playing.id)}
-              onToggleFavorite={playing?.isLive ? () => toggleFavorite(playing.id) : undefined}
+              onToggleFavorite={playing?.isLive ? () => toggleFavoriteWithUndo(playing.id) : undefined}
               onClose={hostMode === 'theater' ? closeTheater : () => setPlaying(null)}
               onExpand={() => setView('live')}
               onPrev={hostMode === 'docked' && playing?.isLive ? () => stepChannel(-1) : undefined}
@@ -931,7 +958,7 @@ function App(): ReactElement {
           onClose={() => setShowManageSources(false)}
           onAdd={addSource}
           onUpdate={updateSource}
-          onRemove={removeSource}
+          onRemove={removeSourceWithUndo}
         />
       )}
 
