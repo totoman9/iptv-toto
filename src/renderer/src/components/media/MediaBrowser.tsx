@@ -744,7 +744,7 @@ export function MediaBrowser({
   // ----- Üzerine gelince açılan önizleme -----
   const [hover, setHover] = useState<HoverTarget | null>(null)
   const startHover = useCallback<HoverStart>((el, data, onOpen, shape) => {
-    setHover({ data, rect: el.getBoundingClientRect(), onOpen, shape })
+    setHover({ data, rect: el.getBoundingClientRect(), onOpen, shape, el })
   }, [])
   // PosterCard'ın kendi açılış gecikmesini (bekleme sırasında fareyi çekince)
   // iptal etmesi dışında burada yapacak bir şey yok — kapanma artık aşağıdaki
@@ -808,6 +808,16 @@ export function MediaBrowser({
           e.preventDefault()
           el.scrollBy({ top: e.deltaY })
         }
+        // Önizleme, bağlı olduğu asıl posterle birlikte kaysın; poster ekran
+        // dışına çıkınca (artık işaret ettiği bir şey görünmediği için)
+        // önizleme de kapansın — yoksa liste kayarken kutu ekranda sabit
+        // kalıp sonsuza kadar takip ediyormuş gibi görünüyordu.
+        setHover((h) => {
+          if (!h?.el) return h
+          const r = h.el.getBoundingClientRect()
+          if (!r.width || !r.height || r.bottom < 0 || r.top > window.innerHeight) return null
+          return { ...h, rect: r }
+        })
         return
       }
       // Kutunun dışında bir yerde kaydırma oluyorsa (ör. fare başka satırın

@@ -201,6 +201,16 @@ export function LiveShowcase({
           e.preventDefault()
           scrollRef.current.scrollBy({ top: e.deltaY })
         }
+        // Önizleme, bağlı olduğu asıl kutucukla birlikte kaysın; kutucuk
+        // ekran dışına çıkınca önizleme de kapansın — yoksa liste kayarken
+        // kutu ekranda sabit kalıp sonsuza kadar takip ediyormuş gibi
+        // görünüyordu.
+        setHover((h) => {
+          if (!h?.el) return h
+          const r = h.el.getBoundingClientRect()
+          if (!r.width || !r.height || r.bottom < 0 || r.top > window.innerHeight) return null
+          return { ...h, rect: r }
+        })
         return
       }
       setHover(null)
@@ -272,7 +282,7 @@ export function LiveShowcase({
                 locked={isLocked(c.group)}
                 meta={getMeta(c)}
                 onClick={() => play(c)}
-                onHoverStart={(el) => setHover({ channel: c, rect: el.getBoundingClientRect(), meta: getMeta(c) })}
+                onHoverStart={(el) => setHover({ channel: c, rect: el.getBoundingClientRect(), meta: getMeta(c), el })}
                 onHoverEnd={() => {}}
               />
             ))}
@@ -347,7 +357,7 @@ export function LiveShowcase({
                       meta={getMeta(c)}
                       onClick={() => play(c)}
                       onHoverStart={(el) =>
-                        setHover({ channel: c, rect: el.getBoundingClientRect(), meta: getMeta(c) })
+                        setHover({ channel: c, rect: el.getBoundingClientRect(), meta: getMeta(c), el })
                       }
                       onHoverEnd={() => {}}
                     />

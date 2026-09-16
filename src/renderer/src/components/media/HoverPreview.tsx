@@ -9,6 +9,9 @@ export interface HoverTarget {
   rect: DOMRect
   shape: PosterShape
   onOpen: (id: string) => void
+  // Önizlemenin bağlı olduğu asıl kart — liste kayarken önizlemenin onunla
+  // birlikte hareket etmesi (ya da kart ekran dışına çıkınca kapanması) için
+  el?: HTMLElement
 }
 
 const clamp = (v: number, min: number, max: number): number => Math.max(min, Math.min(max, v))

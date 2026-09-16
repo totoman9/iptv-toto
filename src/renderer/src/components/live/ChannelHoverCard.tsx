@@ -8,6 +8,9 @@ export interface ChannelHoverTarget {
   channel: Channel
   rect: DOMRect
   meta?: ChannelMeta
+  // Önizlemenin bağlı olduğu asıl kutucuk — liste kayarken önizlemenin
+  // onunla birlikte hareket etmesi (ya da ekran dışına çıkınca kapanması) için
+  el?: HTMLElement
 }
 
 const clamp = (v: number, min: number, max: number): number => Math.max(min, Math.min(max, v))
