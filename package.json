@@ -30,11 +30,12 @@
       "provider": "github",
       "owner": "totoman9",
       "repo": "iptv-toto",
-      "private": true
+      "private": false
     },
     "mac": {
       "target": [
-        "dmg"
+        "dmg",
+        "zip"
       ],
       "category": "public.app-category.entertainment",
       "extraResources": [

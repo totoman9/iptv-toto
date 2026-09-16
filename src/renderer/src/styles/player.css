@@ -144,6 +144,7 @@
   gap: 6px;
   padding: 8px 10px;
   background: linear-gradient(180deg, rgba(0, 0, 0, 0.7), transparent);
+  background-repeat: no-repeat;
   z-index: 3;
 }
 

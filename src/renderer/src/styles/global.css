@@ -1207,6 +1207,7 @@ textarea {
   gap: 12px;
   padding: 16px 18px;
   background: linear-gradient(180deg, rgba(0, 0, 0, 0.75), transparent);
+  background-repeat: no-repeat;
   z-index: 2;
 }
 
@@ -1271,6 +1272,7 @@ textarea {
   right: 0;
   padding: 18px;
   background: linear-gradient(0deg, rgba(0, 0, 0, 0.8), transparent);
+  background-repeat: no-repeat;
   z-index: 2;
 }
 

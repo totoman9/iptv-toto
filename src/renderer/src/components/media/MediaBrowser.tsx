@@ -804,18 +804,28 @@ export function MediaBrowser({
         // yalnızca fare gerçekten kutunun dışına çıkınca oluyor (yukarıdaki
         // mousemove takibiyle).
         const el = homeListRef.current?.element
+        let actualDelta = 0
         if (el) {
           e.preventDefault()
+          const prevTop = el.scrollTop
           el.scrollBy({ top: e.deltaY })
+          actualDelta = el.scrollTop - prevTop
         }
         // Önizleme, bağlı olduğu asıl posterle birlikte kaysın; poster ekran
         // dışına çıkınca (artık işaret ettiği bir şey görünmediği için)
         // önizleme de kapansın — yoksa liste kayarken kutu ekranda sabit
-        // kalıp sonsuza kadar takip ediyormuş gibi görünüyordu.
+        // kalıp sonsuza kadar takip ediyormuş gibi görünüyordu. Yeni konum
+        // her seferinde getBoundingClientRect() ile YENİDEN ÖLÇÜLMÜYOR —
+        // ölçüm, kaydırmanın tam kendisiyle (özellikle liste en üstte/altta
+        // sıkışıp gerçek kaydırma miktarı istenenden az olduğunda) bire bir
+        // örtüşmeyebiliyor, bu da kutuda ufak bir titreme/sallanmaya yol
+        // açıyordu. Bunun yerine listenin GERÇEKTEN kaydığı miktar kadar
+        // (actualDelta) aritmetik olarak taşınıyor — sıfır oynatma hatası.
+        if (!actualDelta) return
         setHover((h) => {
-          if (!h?.el) return h
-          const r = h.el.getBoundingClientRect()
-          if (!r.width || !r.height || r.bottom < 0 || r.top > window.innerHeight) return null
+          if (!h) return h
+          const r = new DOMRect(h.rect.x, h.rect.y - actualDelta, h.rect.width, h.rect.height)
+          if (r.bottom < 0 || r.top > window.innerHeight) return null
           return { ...h, rect: r }
         })
         return

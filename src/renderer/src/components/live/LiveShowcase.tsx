@@ -197,18 +197,25 @@ export function LiveShowcase({
         // Önizleme kartı sayfanın dışında bir portalda olduğu için tekerlek
         // olayı asıl listeye ulaşmıyordu — elle aktarıyoruz, kutu kaydırma
         // sırasında (Mac'te iki parmakla dahil) açık kalıyor.
+        let actualDelta = 0
         if (scrollRef.current) {
           e.preventDefault()
+          const prevTop = scrollRef.current.scrollTop
           scrollRef.current.scrollBy({ top: e.deltaY })
+          actualDelta = scrollRef.current.scrollTop - prevTop
         }
         // Önizleme, bağlı olduğu asıl kutucukla birlikte kaysın; kutucuk
         // ekran dışına çıkınca önizleme de kapansın — yoksa liste kayarken
         // kutu ekranda sabit kalıp sonsuza kadar takip ediyormuş gibi
-        // görünüyordu.
+        // görünüyordu. Konum getBoundingClientRect() ile yeniden ÖLÇÜLMÜYOR
+        // (bu, listenin en üstünde/altında sıkışan gerçek kaydırma miktarıyla
+        // tam örtüşmeyip ufak bir titremeye yol açıyordu) — listenin
+        // GERÇEKTEN kaydığı miktar kadar aritmetik olarak taşınıyor.
+        if (!actualDelta) return
         setHover((h) => {
-          if (!h?.el) return h
-          const r = h.el.getBoundingClientRect()
-          if (!r.width || !r.height || r.bottom < 0 || r.top > window.innerHeight) return null
+          if (!h) return h
+          const r = new DOMRect(h.rect.x, h.rect.y - actualDelta, h.rect.width, h.rect.height)
+          if (r.bottom < 0 || r.top > window.innerHeight) return null
           return { ...h, rect: r }
         })
         return
