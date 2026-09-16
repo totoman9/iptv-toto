@@ -12,6 +12,7 @@ import {
 import { groupChannels, type ChannelGroup, type ChannelVariant } from './lib/channelGroups'
 import { channelQualityPrefs, setPreferredChannel } from './lib/channelPrefs'
 import { usePersisted } from './lib/persisted'
+import { recentChannelsStore, recordRecentChannel } from './lib/recentChannels'
 import { MediaBrowser } from './components/media/MediaBrowser'
 import { LiveShowcase } from './components/live/LiveShowcase'
 import { ManageSourcesModal } from './components/ManageSourcesModal'
@@ -395,6 +396,11 @@ function App(): ReactElement {
     const byId = new Map(channels.map((c) => [c.id, c]))
     return favorites.orderedFavoriteIds.map((id) => byId.get(id)).filter((c): c is Channel => !!c)
   }, [channels, favorites.orderedFavoriteIds])
+  const recentEntries = usePersisted(recentChannelsStore)
+  const recentChannels = useMemo(() => {
+    const byId = new Map(channels.map((c) => [c.id, c]))
+    return recentEntries.map((e) => byId.get(e.id)).filter((c): c is Channel => !!c)
+  }, [channels, recentEntries])
   const folderChannels = useMemo(() => {
     const folder = activeFolder ? folders.find((f) => f.id === activeFolder) : undefined
     if (!folder) return favoriteChannels
@@ -655,6 +661,7 @@ function App(): ReactElement {
       // seçilen kalite bir dahaki sefere hatırlanır.
       const group = liveGrouped.byId.get(channel.id)
       if (group && group.variants.length > 1) setPreferredChannel(group.key, channel.id)
+      recordRecentChannel({ id: channel.id, name: channel.name, logo: channel.logo, group: channel.group })
       setTheater(false)
       setPlaying(channelToPlayable(channel))
     })
@@ -1235,6 +1242,7 @@ function App(): ReactElement {
             ) : (
               <LiveShowcase
                 channels={liveGrouped.items}
+                recentChannels={recentChannels}
                 categoryOrder={liveOrder}
                 lockedGroups={lockApi.lockedGroups}
                 isLocked={lockApi.isLocked}

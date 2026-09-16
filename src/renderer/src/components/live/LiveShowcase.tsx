@@ -92,6 +92,7 @@ function ChannelTile({
 
 export function LiveShowcase({
   channels,
+  recentChannels,
   categoryOrder,
   lockedGroups,
   isLocked,
@@ -107,6 +108,9 @@ export function LiveShowcase({
   onSwitchClassic
 }: {
   channels: Channel[]
+  // Son izlenen kanallar şeridi (en yeni önce) — sadece kısayol, otomatik
+  // bağlanmaz.
+  recentChannels?: Channel[]
   categoryOrder: string[]
   lockedGroups: string[]
   isLocked: (group: string) => boolean
@@ -338,6 +342,30 @@ export function LiveShowcase({
               </button>
             ))}
           </div>
+
+          {recentChannels && recentChannels.length > 0 && (
+            <div className="media-row">
+              <div className="media-row-head">
+                <span className="media-row-title">Son izlenenler</span>
+              </div>
+              <RowScroller>
+                {recentChannels.map((c) => (
+                  <ChannelTile
+                    key={c.id}
+                    channel={c}
+                    active={selectedId === c.id}
+                    locked={isLocked(c.group)}
+                    meta={getMeta(c)}
+                    onClick={() => play(c)}
+                    onHoverStart={(el) =>
+                      setHover({ channel: c, rect: el.getBoundingClientRect(), meta: getMeta(c), el })
+                    }
+                    onHoverEnd={() => {}}
+                  />
+                ))}
+              </RowScroller>
+            </div>
+          )}
 
           {orderedGroups.map((g) => {
             const list = (byGroup.get(g) || []).slice(0, ROW_LIMIT)
