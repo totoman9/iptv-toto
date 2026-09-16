@@ -202,6 +202,7 @@ textarea {
 
 .icon-btn {
   -webkit-app-region: no-drag;
+  position: relative;
   width: 34px;
   height: 34px;
   border-radius: 10px;
@@ -214,6 +215,24 @@ textarea {
   cursor: pointer;
   font-size: 13px;
   flex-shrink: 0;
+}
+
+.icon-btn-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--gradient);
+  color: #fff;
+  font-size: 9.5px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 .icon-btn:hover {
   color: var(--text);

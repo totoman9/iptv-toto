@@ -36,6 +36,7 @@ import {
   IconDice,
   IconEdit,
   IconFilter,
+  IconBookmark,
   IconGrid,
   IconInfo,
   IconMovie,
@@ -55,6 +56,7 @@ type Layout = 'showcase' | 'grid'
 type Route =
   | { name: 'home' }
   | { name: 'category'; group: string }
+  | { name: 'watchlist' }
   | { name: 'detail'; id: string; back: Route }
 
 interface Entry {
@@ -719,22 +721,51 @@ export function MediaBrowser({
 
   // ----- Üzerine gelince açılan önizleme -----
   const [hover, setHover] = useState<HoverTarget | null>(null)
-  const hoverCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const cancelHoverClose = useCallback(() => {
-    if (hoverCloseTimer.current) clearTimeout(hoverCloseTimer.current)
-    hoverCloseTimer.current = null
+  const startHover = useCallback<HoverStart>((el, data, onOpen, shape) => {
+    setHover({ data, rect: el.getBoundingClientRect(), onOpen, shape })
   }, [])
-  const startHover = useCallback<HoverStart>(
-    (el, data, onOpen, shape) => {
-      cancelHoverClose()
-      setHover({ data, rect: el.getBoundingClientRect(), onOpen, shape })
-    },
-    [cancelHoverClose]
-  )
-  const endHover = useCallback(() => {
-    cancelHoverClose()
-    hoverCloseTimer.current = setTimeout(() => setHover(null), 160)
-  }, [cancelHoverClose])
+  // PosterCard'ın kendi açılış gecikmesini (bekleme sırasında fareyi çekince)
+  // iptal etmesi dışında burada yapacak bir şey yok — kapanma artık aşağıdaki
+  // "fare, kart ya da önizlemenin üzerinde mi" takibiyle yönetiliyor.
+  const endHover = useCallback(() => {}, [])
+  // Netflix'teki gibi: önizleme açıkken kapanma, tek bir elemandan
+  // ayrılma/girme olayına değil, farenin gerçekten kartın VE büyümüş
+  // önizlemenin ikisinin de dışında kalıp kalmadığına bakılarak karar
+  // veriliyor. Önceki onMouseEnter/Leave çifti, önizleme büyürken ya da
+  // kart ile önizleme birebir çakışmayınca (ör. dikey afişte önizleme
+  // 16:9 olduğundan üstte/altta küçük boşluklar kalıyordu) yanlışlıkla
+  // kapanıp hemen yeniden açılmaya (titreşim) yol açıyordu.
+  useEffect(() => {
+    if (!hover) return
+    let closeTimer: ReturnType<typeof setTimeout> | null = null
+    const inRect = (r: DOMRect, x: number, y: number, pad: number): boolean =>
+      x >= r.left - pad && x <= r.right + pad && y >= r.top - pad && y <= r.bottom + pad
+    const scheduleClose = (): void => {
+      if (closeTimer) return
+      closeTimer = setTimeout(() => setHover(null), 220)
+    }
+    const cancelScheduledClose = (): void => {
+      if (closeTimer) {
+        clearTimeout(closeTimer)
+        closeTimer = null
+      }
+    }
+    const onMove = (e: MouseEvent): void => {
+      const overCard = inRect(hover.rect, e.clientX, e.clientY, 8)
+      const previewEl = document.querySelector('.hover-preview')
+      const overPreview = previewEl ? inRect(previewEl.getBoundingClientRect(), e.clientX, e.clientY, 8) : false
+      if (overCard || overPreview) cancelScheduledClose()
+      else scheduleClose()
+    }
+    const onDocLeave = (): void => setHover(null)
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseleave', onDocLeave)
+    return () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseleave', onDocLeave)
+      cancelScheduledClose()
+    }
+  }, [hover])
 
   useEffect(() => {
     if (!hover) return
@@ -769,7 +800,6 @@ export function MediaBrowser({
     setHover(null)
   }, [route, layout, search, filters])
 
-  useEffect(() => () => cancelHoverClose(), [cancelHoverClose])
 
   // Önizleme kartındaki süre bilgisi — kart açılır açılmaz (450ms gecikmeden
   // sonra zaten) bir kez sorulup önbelleğe alınıyor (bkz. getVodDetailsCached).
@@ -909,14 +939,6 @@ export function MediaBrowser({
       if (cards.length) rows.push({ type: 'row', key: 'followed', title: 'Takip ettiğin diziler', cards, onOpen: openDetail })
     }
 
-    // İzleme listem
-    const listCards = watchlist
-      .filter((w) => w.kind === kind)
-      .flatMap((w) => {
-        const e = entriesById.get(w.id)
-        return e ? [toCard(e)] : []
-      })
-    if (listCards.length) rows.push({ type: 'row', key: 'watchlist', title: 'İzleme listem', cards: listCards, onOpen: openDetail })
 
     // Son ziyaretinden beri eklenenler
     const since = getPreviousVisit(kind)
@@ -962,6 +984,20 @@ export function MediaBrowser({
     return rows
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kind, entries, orderedGroups, byGroup, continueList, progressById, seriesLatest, lockedGroups, route, watchlist, followed, heroEntries, top10, top10Source, imdbLoading])
+
+  // İzleme listem — artık vitrinde satır olarak değil, araç çubuğundaki
+  // "İzleme listem" düğmesiyle ayrı bir sayfa olarak açılıyor.
+  const watchlistCards = useMemo(
+    () =>
+      watchlist
+        .filter((w) => w.kind === kind)
+        .flatMap((w) => {
+          const e = entriesById.get(w.id)
+          return e ? [toCard(e)] : []
+        }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [watchlist, kind, entriesById, progressById, seriesLatest, lockedGroups]
+  )
 
   const searchResults = useMemo(() => {
     const q = search.trim().toLocaleLowerCase('tr')
@@ -1093,17 +1129,23 @@ export function MediaBrowser({
 
   const toolbar = (
     <div className="media-toolbar">
-      {route.name === 'category' && !searchResults && (
+      {(route.name === 'category' || route.name === 'watchlist') && !searchResults && (
         <button className="icon-btn" onClick={() => setRoute({ name: 'home' })} title="Geri">
           <IconArrowLeft size={15} />
         </button>
       )}
       <div className="media-toolbar-title">
-        {route.name === 'category' && !searchResults
-          ? route.group
-          : kind === 'vod'
+        {searchResults
+          ? kind === 'vod'
             ? 'Filmler'
-            : 'Diziler'}
+            : 'Diziler'
+          : route.name === 'category'
+            ? route.group
+            : route.name === 'watchlist'
+              ? 'İzleme listem'
+              : kind === 'vod'
+                ? 'Filmler'
+                : 'Diziler'}
       </div>
       <div className="topbar-spacer" />
       <div className="pane-search media-search">
@@ -1128,6 +1170,14 @@ export function MediaBrowser({
       </button>
       <button className="icon-btn" onClick={pickRandom} title="Ne izlesem? Beğenebileceğin rastgele bir öneri">
         <IconDice size={15} />
+      </button>
+      <button
+        className={`icon-btn ${route.name === 'watchlist' ? 'icon-btn-on' : ''}`}
+        onClick={() => setRoute((r) => (r.name === 'watchlist' ? { name: 'home' } : { name: 'watchlist' }))}
+        title="İzleme listem"
+      >
+        <IconBookmark size={15} />
+        {watchlistCards.length > 0 && <span className="icon-btn-badge">{watchlistCards.length}</span>}
       </button>
       <div className="seg-toggle">
         <button
@@ -1302,6 +1352,18 @@ export function MediaBrowser({
         <PosterGrid items={list.map(toCard)} onOpen={openDetail} {...gridProps} />
       </>
     )
+  } else if (route.name === 'watchlist') {
+    body = (
+      <>
+        <div className="media-page-sub">{watchlistCards.length} {label}</div>
+        <PosterGrid
+          items={watchlistCards}
+          onOpen={openDetail}
+          emptyText={`Henüz izleme listene ${label} eklemedin. Afişin üzerine gelip + düğmesine basarak ekleyebilirsin.`}
+          {...gridProps}
+        />
+      </>
+    )
   } else {
     isHome = !filterOpen
     body = (
@@ -1361,8 +1423,8 @@ export function MediaBrowser({
           canList={!!hoverEntry}
           liked={liked.includes(hover.data.id)}
           playLabel={hoverEntry?.vod ? 'Oynat' : kind === 'series' ? 'Bölümler' : 'Aç'}
-          onEnter={cancelHoverClose}
-          onLeave={endHover}
+          onEnter={() => {}}
+          onLeave={() => {}}
           onPlay={closeHoverThen(() => {
             const v = hoverEntry?.vod
             if (hoverEntry && v) guard(hoverEntry.group, () => playMovie(v, false))
