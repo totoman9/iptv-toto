@@ -265,6 +265,10 @@ function App(): ReactElement {
   // kapansa/gözden kaçsa bile hesap menüsündeki rozetten her zaman erişilebilir.
   const [updateInfo, setUpdateInfo] = useState<{ version: string; ready: boolean } | null>(null)
   const [channelMenu, setChannelMenu] = useState<{ channel: Channel; x: number; y: number } | null>(null)
+  const [appVersion, setAppVersion] = useState<string | null>(null)
+  useEffect(() => {
+    window.iptv.getVersion().then(setAppVersion)
+  }, [])
 
   const isLocked = lockApi.isLocked
 
@@ -1210,6 +1214,7 @@ function App(): ReactElement {
         posterShape={posterShape}
         onPosterShapeChange={changePosterShape}
         updateInfo={updateInfo}
+        appVersion={appVersion}
         onInstallUpdate={() => window.iptv.updater.quitAndInstall()}
         onCheckUpdate={checkForUpdateNow}
         onOpenSearch={() => setSearchOpen(true)}

@@ -53,6 +53,8 @@ function decodeSourcesFromDisk(value: unknown): unknown {
   )
 }
 
+ipcMain.handle('app:getVersion', () => app.getVersion())
+
 // Basit JSON tabanlı depolama (kaynaklar, favoriler, ayarlar)
 ipcMain.handle('store:read', async (_event, key: string) => {
   try {

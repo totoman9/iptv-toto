@@ -1384,6 +1384,13 @@
   margin: 6px 4px;
 }
 
+.account-menu-version {
+  padding: 8px 10px 2px;
+  font-size: 11px;
+  color: var(--text-faint);
+  text-align: center;
+}
+
 /* ---------- Sağ tık menüsü (kanal/film satırları) ---------- */
 .context-menu {
   position: fixed;

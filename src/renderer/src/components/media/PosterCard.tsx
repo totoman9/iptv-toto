@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactElement } from 'react'
+import { useEffect, useRef, useState, type ReactElement } from 'react'
 import type { PosterShape } from '../../lib/theme'
 import { IconLock, IconPlay } from '../Icons'
 
@@ -29,19 +29,23 @@ export function LandscapeArt({
   backdrop,
   image,
   onBackdropError,
-  onImageError
+  onImageError,
+  onBackdropLoad,
+  onImageLoad
 }: {
   backdrop?: string
   image?: string
   onBackdropError?: () => void
   onImageError?: () => void
+  onBackdropLoad?: () => void
+  onImageLoad?: () => void
 }): ReactElement | null {
-  if (backdrop) return <img src={backdrop} alt="" loading="lazy" onError={onBackdropError} />
+  if (backdrop) return <img src={backdrop} alt="" loading="lazy" onError={onBackdropError} onLoad={onBackdropLoad} />
   if (!image) return null
   return (
     <>
       <div className="poster-land-blur" style={{ backgroundImage: cssUrl(image) }} />
-      <img className="poster-land-side" src={image} alt="" loading="lazy" onError={onImageError} />
+      <img className="poster-land-side" src={image} alt="" loading="lazy" onError={onImageError} onLoad={onImageLoad} />
     </>
   )
 }
@@ -74,6 +78,20 @@ export function PosterCard({
   const backdrop = landscape && data.backdrop && !backdropBroken ? data.backdrop : undefined
   const hasArt = !data.locked && !!(backdrop || image)
 
+  // Bazı sağlayıcıların görsel sunucusu çok yavaş/erişilemez oluyor; tarayıcı
+  // böyle bir görseli "bozuk" saymadan (onError hiç tetiklenmeden) çok uzun
+  // süre bekleyebiliyor, kart boş/gri kalıyor. Birkaç saniyede yüklenmediyse
+  // bozukmuş gibi davranıp temiz başlık kartına düşüyoruz.
+  const loadedRef = useRef<{ backdrop?: string; image?: string }>({})
+  useEffect(() => {
+    if (!backdrop && !image) return
+    const t = setTimeout(() => {
+      if (backdrop && loadedRef.current.backdrop !== backdrop) setBackdropBroken(true)
+      if (image && loadedRef.current.image !== image) setImageBroken(true)
+    }, 4000)
+    return () => clearTimeout(t)
+  }, [backdrop, image])
+
   return (
     <button
       className={`poster-card shape-${shape}`}
@@ -101,9 +119,23 @@ export function PosterCard({
             image={image}
             onBackdropError={() => setBackdropBroken(true)}
             onImageError={() => setImageBroken(true)}
+            onBackdropLoad={() => {
+              loadedRef.current.backdrop = backdrop
+            }}
+            onImageLoad={() => {
+              loadedRef.current.image = image
+            }}
           />
         ) : (
-          <img src={image} alt="" loading="lazy" onError={() => setImageBroken(true)} />
+          <img
+            src={image}
+            alt=""
+            loading="lazy"
+            onError={() => setImageBroken(true)}
+            onLoad={() => {
+              loadedRef.current.image = image
+            }}
+          />
         )}
         {data.locked && (
           <div className="poster-locked">

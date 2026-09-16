@@ -11,6 +11,7 @@ import type {
 
 const api = {
   platform: process.platform,
+  getVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
   store: {
     read: <T>(key: string): Promise<T | null> => ipcRenderer.invoke('store:read', key),
     write: (key: string, value: unknown): Promise<boolean> =>

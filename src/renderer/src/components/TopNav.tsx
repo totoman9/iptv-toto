@@ -56,6 +56,8 @@ interface Props {
   updateInfo?: { version: string; ready: boolean } | null
   onInstallUpdate?: () => void
   onCheckUpdate?: () => void
+  // Şu an kurulu olan sürüm (hesap menüsünün altında gösterilir)
+  appVersion?: string | null
 }
 
 type IconType = ComponentType<{ size?: number }>
@@ -182,7 +184,8 @@ function AccountMenu(props: Props): ReactElement {
     onOpenParentalLock,
     updateInfo,
     onInstallUpdate,
-    onCheckUpdate
+    onCheckUpdate,
+    appVersion
   } = props
   const { open, setOpen, ref } = useDropdown()
   const active = sources.find((s) => s.id === activeSourceId)
@@ -311,6 +314,7 @@ function AccountMenu(props: Props): ReactElement {
           <MenuItem icon={<IconLock size={14} />} onClick={close(onOpenParentalLock)} hint="Kategorileri PIN ile kilitle">
             Ebeveyn kilidi…
           </MenuItem>
+          {appVersion && <div className="account-menu-version">Sürüm {appVersion}</div>}
         </div>
       )}
     </div>
