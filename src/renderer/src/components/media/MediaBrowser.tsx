@@ -160,6 +160,25 @@ function loadLayout(k: Kind): Layout {
   }
 }
 
+// Açılışta kaldığın kategoriden devam et (film/dizi ızgarası için, ayrı ayrı).
+const gridGroupKey = (k: Kind): string => `iptv-toto-media-group-${k}`
+
+function loadGridGroup(k: Kind): string {
+  try {
+    return window.localStorage.getItem(gridGroupKey(k)) || ALL_GROUP
+  } catch {
+    return ALL_GROUP
+  }
+}
+
+function saveGridGroup(k: Kind, group: string): void {
+  try {
+    window.localStorage.setItem(gridGroupKey(k), group)
+  } catch {
+    /* ignore */
+  }
+}
+
 function entryToPlayable(e: ContinueWatchingEntry): PlayableItem | null {
   if (!e.url) return null
   return {
@@ -418,7 +437,11 @@ export function MediaBrowser({
   const [route, setRoute] = useState<Route>({ name: 'home' })
   const [layout, setLayout] = useState<Layout>(() => loadLayout(kind))
   const [search, setSearch] = useState('')
-  const [gridGroup, setGridGroup] = useState(ALL_GROUP)
+  const [gridGroup, setGridGroupState] = useState(() => loadGridGroup(kind))
+  function setGridGroup(group: string): void {
+    setGridGroupState(group)
+    saveGridGroup(kind, group)
+  }
   const [filterOpen, setFilterOpen] = useState(false)
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
   const watchlist = usePersisted(watchlistStore)

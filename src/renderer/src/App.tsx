@@ -72,6 +72,8 @@ import type { Channel, EpgProgram, PlayableItem, RecordingEntry } from '../../sh
 
 const LIST_VIEW_KEY = 'iptv-toto-live-view'
 const LIVE_LAYOUT_KEY = 'iptv-toto-live-layout'
+const LAST_VIEW_KEY = 'iptv-toto-last-view'
+const LAST_LIVE_GROUP_KEY = 'iptv-toto-last-live-group'
 
 type LiveLayout = 'showcase' | 'classic'
 
@@ -80,6 +82,35 @@ function loadLiveLayout(): LiveLayout {
     return window.localStorage.getItem(LIVE_LAYOUT_KEY) === 'classic' ? 'classic' : 'showcase'
   } catch {
     return 'showcase'
+  }
+}
+
+const VALID_VIEWS: ViewKey[] = [
+  'live',
+  'vod',
+  'series',
+  'guide',
+  'favorites',
+  'watchlist',
+  'recordings',
+  'stats'
+]
+
+// Açılışta kaldığın sekmeden devam et — her seferinde Canlı TV'ye dönmesin.
+function loadLastView(): ViewKey {
+  try {
+    const stored = window.localStorage.getItem(LAST_VIEW_KEY)
+    return (VALID_VIEWS as string[]).includes(stored || '') ? (stored as ViewKey) : 'live'
+  } catch {
+    return 'live'
+  }
+}
+
+function loadLastLiveGroup(): string {
+  try {
+    return window.localStorage.getItem(LAST_LIVE_GROUP_KEY) || ALL_GROUP
+  } catch {
+    return ALL_GROUP
   }
 }
 
@@ -190,7 +221,7 @@ function App(): ReactElement {
     })
   })
 
-  const [view, setView] = useState<ViewKey>('live')
+  const [view, setView] = useState<ViewKey>(loadLastView)
   const [showManageSources, setShowManageSources] = useState(false)
   const [showParentalLock, setShowParentalLock] = useState(false)
   const [showEpgGrid, setShowEpgGrid] = useState(false)
@@ -204,7 +235,7 @@ function App(): ReactElement {
   // dönünce kaldığı kanaldan devam etsin.
   const [theater, setTheater] = useState(false)
   const [liveBeforeTheater, setLiveBeforeTheater] = useState<PlayableItem | null>(null)
-  const [liveGroup, setLiveGroup] = useState(ALL_GROUP)
+  const [liveGroup, setLiveGroup] = useState(loadLastLiveGroup)
   const [liveLayout, setLiveLayoutState] = useState<LiveLayout>(loadLiveLayout)
   function setLiveLayout(next: LiveLayout): void {
     setLiveLayoutState(next)
@@ -340,6 +371,22 @@ function App(): ReactElement {
   useEffect(() => {
     if (liveGroup !== ALL_GROUP && livePrefs.hidden.includes(liveGroup)) setLiveGroup(ALL_GROUP)
   }, [livePrefs, liveGroup])
+
+  // Açılışta kaldığın sekme ve kategoriden devam et.
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(LAST_VIEW_KEY, view)
+    } catch {
+      /* ignore */
+    }
+  }, [view])
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(LAST_LIVE_GROUP_KEY, liveGroup)
+    } catch {
+      /* ignore */
+    }
+  }, [liveGroup])
 
   // ----- Favoriler ve klasörler -----
   // Favoriler kendi (elle sıralanabilir) sırasında gösterilir, sağlayıcının
