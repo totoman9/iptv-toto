@@ -73,7 +73,7 @@ export function MovieDetail({
         </button>
         <div className="detail-hero-content">
           <div className="detail-poster">
-            {poster ? <img src={poster} alt="" /> : <span>{item.name.slice(0, 2)}</span>}
+            {poster ? <img src={poster} alt="" /> : <span>{item.name}</span>}
           </div>
           <div className="detail-info">
             <div className="detail-kicker">{item.group}</div>
