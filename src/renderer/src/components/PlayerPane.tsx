@@ -1095,6 +1095,9 @@ export function PlayerPane({
                 <IconLiveTv size={30} />
               </div>
               <p>Bir kanal seçin</p>
+              <span className="player-pane-idle-hint">
+                Soldaki listeden bir kanala tıkla. Yıldıza basarak favorilerine ekleyebilirsin.
+              </span>
             </div>
           )}
 
@@ -1217,7 +1220,8 @@ export function PlayerPane({
                       className="time-label vod-remaining"
                       title={`${formatTime(currentTime)} / ${formatTime(duration)}`}
                     >
-                      {duration > 0 ? `-${formatTime(Math.max(0, remaining))}` : formatTime(currentTime)}
+                      {/* Süre ilk saniyelerde tahmin edilirken küçük/yanlış olabiliyor */}
+                      {duration > 60 ? `-${formatTime(Math.max(0, remaining))}` : formatTime(currentTime)}
                     </span>
                   </div>
                 )}

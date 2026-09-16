@@ -1126,11 +1126,23 @@ textarea {
 }
 
 .player-pane-idle {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 10px;
+  padding: 0 24px;
+  text-align: center;
   color: var(--player-text-faint);
+}
+
+.player-pane-idle-hint {
+  font-size: 12px;
+  max-width: 260px;
+  line-height: 1.5;
+  opacity: 0.8;
 }
 
 .player-pane-idle-icon {
