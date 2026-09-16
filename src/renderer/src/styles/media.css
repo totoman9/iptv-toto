@@ -43,24 +43,25 @@
 
 .tile-row {
   display: flex;
-  gap: 10px;
-  padding: 0 12px;
+  gap: 12px;
+  padding: 0 14px;
 }
 
 .channel-tile {
   position: relative;
-  width: 98px;
-  height: 108px;
+  width: 104px;
+  height: 114px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 8px 6px;
+  gap: 9px;
+  padding: 10px 7px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-soft);
-  border-radius: 12px;
+  border-radius: 14px;
   cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .channel-tile:hover {
@@ -73,14 +74,27 @@
 }
 
 .channel-tile-logo {
-  width: 58px;
-  height: 44px;
+  position: relative;
+  width: 60px;
+  height: 46px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 12px;
   font-weight: 700;
   color: var(--text-faint);
+}
+
+.channel-tile-live {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--live);
+  box-shadow: 0 0 0 2px var(--bg-elevated);
+  animation: pulse-opacity 1.6s ease-in-out infinite;
 }
 
 .channel-tile-logo img {
@@ -396,11 +410,11 @@
   flex-shrink: 0;
   display: flex;
   align-items: flex-start;
-  padding-left: calc(var(--poster-width, 150px) * 0.56);
+  padding-left: calc(var(--poster-width, 150px) * 0.66);
 }
 
 .top10-item.is-wide {
-  padding-left: calc(var(--poster-width, 150px) * 0.92);
+  padding-left: calc(var(--poster-width, 150px) * 1.02);
 }
 
 .top10-rank {
@@ -430,8 +444,9 @@
 .top10-item .poster-card {
   position: relative;
   z-index: 1;
-  /* afiş, numaranın sağ ucunun üzerine biner — gerçek Netflix görünümü */
-  margin-left: calc(var(--poster-width, 150px) * -0.22);
+  /* afiş, numaranın sağ ucunun üzerine biner — gerçek Netflix görünümü.
+     Numaranın çoğu solda görünür kalsın diye örtüşme az tutuluyor. */
+  margin-left: calc(var(--poster-width, 150px) * -0.12);
 }
 
 /* Afiş kartı */

@@ -170,11 +170,12 @@
   background: var(--bg-elevated);
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-lg);
-  padding: 16px 18px;
+  padding: 18px 20px;
   display: flex;
   flex-direction: column;
   gap: 14px;
   flex-shrink: 0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
 }
 
 .player-info-head {
@@ -184,9 +185,9 @@
 }
 
 .player-info-logo {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
+  width: 50px;
+  height: 50px;
+  border-radius: 14px;
   background: var(--surface);
   display: flex;
   align-items: center;
@@ -194,6 +195,9 @@
   overflow: hidden;
   flex-shrink: 0;
   color: var(--text-faint);
+  box-shadow:
+    0 0 0 1px var(--border-soft),
+    0 6px 16px rgba(var(--accent-rgb), 0.12);
 }
 
 .player-info-logo img {
@@ -207,8 +211,9 @@
 }
 
 .player-info-name {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 800;
+  letter-spacing: -0.01em;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -250,13 +255,25 @@
 }
 
 .epg-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.06em;
   color: #fff;
   background: var(--live);
-  padding: 2px 7px;
+  padding: 3px 8px 3px 7px;
   border-radius: 999px;
+}
+
+.epg-chip::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #fff;
+  animation: pulse-opacity 1.4s ease-in-out infinite;
 }
 
 .player-info-time {
@@ -266,20 +283,24 @@
 }
 
 .player-info-now-title {
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 15.5px;
+  font-weight: 800;
+  letter-spacing: -0.005em;
 }
 
 .info-progress {
-  height: 5px;
-  border-radius: 3px;
+  height: 6px;
+  border-radius: 999px;
   background: var(--surface-2);
   overflow: hidden;
 }
 
 .info-progress-fill {
   height: 100%;
+  border-radius: 999px;
   background: var(--gradient);
+  box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.5);
+  transition: width 0.4s ease;
 }
 
 .player-info-desc {
@@ -302,12 +323,25 @@
   margin-bottom: 6px;
 }
 
+.player-info-upcoming {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .upcoming-row {
   display: flex;
+  align-items: center;
   gap: 12px;
-  padding: 6px 0;
-  border-top: 1px solid var(--border-soft);
+  padding: 7px 8px;
+  margin: 0 -8px;
+  border-radius: 9px;
   font-size: 12.5px;
+  transition: background 0.12s;
+}
+
+.upcoming-row:hover {
+  background: var(--surface);
 }
 
 .upcoming-time {
@@ -316,6 +350,11 @@
   font-variant-numeric: tabular-nums;
   width: 42px;
   flex-shrink: 0;
+  text-align: center;
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 2px 0;
+  font-size: 11px;
 }
 
 .upcoming-title {

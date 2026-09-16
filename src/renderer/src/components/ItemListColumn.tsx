@@ -129,6 +129,7 @@ interface TileRowProps {
   favoriteIds?: Set<string>
   onToggleFavorite?: (id: string) => void
   onContextMenu?: (item: ListableItem, x: number, y: number) => void
+  getMeta?: (item: ListableItem) => ChannelMeta | undefined
 }
 
 function TileRow({
@@ -139,33 +140,38 @@ function TileRow({
   onSelect,
   favoriteIds,
   onToggleFavorite,
-  onContextMenu
+  onContextMenu,
+  getMeta
 }: RowComponentProps<TileRowProps>): ReactElement {
   return (
     <div style={style} className="tile-row">
-      {tiles[index].map((item) => (
-        <div
-          key={item.id}
-          className={`channel-tile ${selectedId === item.id ? 'active' : ''}`}
-          onClick={() => onSelect(item)}
-          onContextMenu={(e) => {
-            if (!onContextMenu) return
-            e.preventDefault()
-            onContextMenu(item, e.clientX, e.clientY)
-          }}
-          title={item.name}
-        >
-          <FavButton item={item} favoriteIds={favoriteIds} onToggleFavorite={onToggleFavorite} />
-          <div className="channel-tile-logo">
-            {item.logo ? (
-              <img src={item.logo} alt="" onError={(e) => (e.currentTarget.style.display = 'none')} />
-            ) : (
-              <span>{item.name.slice(0, 2).toUpperCase()}</span>
-            )}
+      {tiles[index].map((item) => {
+        const meta = getMeta?.(item)
+        return (
+          <div
+            key={item.id}
+            className={`channel-tile ${selectedId === item.id ? 'active' : ''}`}
+            onClick={() => onSelect(item)}
+            onContextMenu={(e) => {
+              if (!onContextMenu) return
+              e.preventDefault()
+              onContextMenu(item, e.clientX, e.clientY)
+            }}
+            title={item.name}
+          >
+            <FavButton item={item} favoriteIds={favoriteIds} onToggleFavorite={onToggleFavorite} />
+            <div className="channel-tile-logo">
+              {item.logo ? (
+                <img src={item.logo} alt="" onError={(e) => (e.currentTarget.style.display = 'none')} />
+              ) : (
+                <span>{item.name.slice(0, 2).toUpperCase()}</span>
+              )}
+              {meta?.now && <span className="channel-tile-live" title={meta.now} />}
+            </div>
+            <span className="channel-tile-name">{item.name}</span>
           </div>
-          <span className="channel-tile-name">{item.name}</span>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -273,8 +279,9 @@ export function ItemListColumn({
           <List
             rowComponent={TileRow}
             rowCount={tiles.length}
-            rowHeight={118}
-            rowProps={{ tiles, selectedId, onSelect, favoriteIds, onToggleFavorite, onContextMenu }}
+            rowHeight={124}
+            overscanCount={3}
+            rowProps={{ tiles, selectedId, onSelect, favoriteIds, onToggleFavorite, onContextMenu, getMeta }}
           />
         </div>
       ) : (
