@@ -409,6 +409,16 @@ function App(): ReactElement {
     [liveChannels, isLocked]
   )
   const drawerGroups = useMemo(() => liveOrder.filter((g) => !isLocked(g)), [liveOrder, isLocked])
+  const unlockedGrouped = useMemo(() => groupedView(unlockedChannels), [unlockedChannels, qualityPrefs])
+  const getUnlockedVariants = useMemo(
+    () =>
+      (channel: Channel): QualityVariant[] | undefined => {
+        const group = unlockedGrouped.byId.get(channel.id)
+        if (!group || group.variants.length < 2) return undefined
+        return toQualityVariants(group, channel.id)
+      },
+    [unlockedGrouped]
+  )
 
   const editorGroups = useMemo(() => {
     if (editSection === 'live') return groupsWithCounts(channels, liveCategoryOrder)
@@ -902,11 +912,12 @@ function App(): ReactElement {
   }
 
   const drawerData: ChannelDrawerData = {
-    channels: unlockedChannels,
+    channels: unlockedGrouped.items,
     groups: drawerGroups,
     activeGroup: liveGroup,
     onGroupChange: setLiveGroup,
-    onPick: playChannel
+    onPick: playChannel,
+    getVariants: getUnlockedVariants
   }
 
   if (!ready) {
@@ -1173,7 +1184,7 @@ function App(): ReactElement {
               </div>
             ) : (
               <LiveShowcase
-                channels={liveChannels}
+                channels={liveGrouped.items}
                 categoryOrder={liveOrder}
                 lockedGroups={lockApi.lockedGroups}
                 isLocked={lockApi.isLocked}

@@ -630,9 +630,15 @@
 }
 
 .drawer-row-name {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+.drawer-row .quality-badges {
+  flex-shrink: 0;
 }
 
 /* ---------- Koyu tema düzeltmeleri ---------- */

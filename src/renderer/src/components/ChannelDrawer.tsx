@@ -3,6 +3,7 @@ import { List, useListRef, type RowComponentProps } from 'react-window'
 import type { Channel } from '../../../shared/types'
 import { ALL_GROUP } from './CategoryColumn'
 import { IconClose } from './Icons'
+import type { QualityVariant } from './ItemListColumn'
 
 // Tam ekranda sağdan açılan kanal listesi: tam ekrandan çıkmadan kategori
 // seçip kanal değiştirmek için.
@@ -12,16 +13,19 @@ export interface ChannelDrawerData {
   activeGroup: string
   onGroupChange: (group: string) => void
   onPick: (channel: Channel) => void
+  getVariants?: (channel: Channel) => QualityVariant[] | undefined
 }
 
 interface RowProps {
   rows: Channel[]
   selectedId: string
   onPick: (channel: Channel) => void
+  getVariants?: (channel: Channel) => QualityVariant[] | undefined
 }
 
-function Row({ index, style, rows, selectedId, onPick }: RowComponentProps<RowProps>): ReactElement {
+function Row({ index, style, rows, selectedId, onPick, getVariants }: RowComponentProps<RowProps>): ReactElement {
   const ch = rows[index]
+  const variants = getVariants?.(ch)
   return (
     <div
       style={style}
@@ -37,6 +41,20 @@ function Row({ index, style, rows, selectedId, onPick }: RowComponentProps<RowPr
         )}
       </div>
       <span className="drawer-row-name">{ch.name}</span>
+      {variants && variants.length > 1 && (
+        <span className="quality-badges" onClick={(e) => e.stopPropagation()}>
+          {variants.map((v) => (
+            <button
+              key={v.item.id}
+              className={`quality-badge ${v.active ? 'active' : ''}`}
+              onClick={() => onPick(v.item as Channel)}
+              title={`${v.badge} kaliteyle aç`}
+            >
+              {v.badge}
+            </button>
+          ))}
+        </span>
+      )}
     </div>
   )
 }
@@ -48,7 +66,7 @@ interface Props {
 }
 
 export function ChannelDrawer({ data, selectedId, onClose }: Props): ReactElement {
-  const { channels, groups, activeGroup, onGroupChange, onPick } = data
+  const { channels, groups, activeGroup, onGroupChange, onPick, getVariants } = data
   const [search, setSearch] = useState('')
   const listRef = useListRef(null)
 
@@ -100,7 +118,7 @@ export function ChannelDrawer({ data, selectedId, onClose }: Props): ReactElemen
             rowComponent={Row}
             rowCount={rows.length}
             rowHeight={50}
-            rowProps={{ rows, selectedId, onPick }}
+            rowProps={{ rows, selectedId, onPick, getVariants }}
           />
         )}
       </div>
