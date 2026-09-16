@@ -88,7 +88,7 @@ export function PosterCard({
     const t = setTimeout(() => {
       if (backdrop && loadedRef.current.backdrop !== backdrop) setBackdropBroken(true)
       if (image && loadedRef.current.image !== image) setImageBroken(true)
-    }, 4000)
+    }, 2500)
     return () => clearTimeout(t)
   }, [backdrop, image])
 

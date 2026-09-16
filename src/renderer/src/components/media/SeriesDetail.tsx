@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactElement } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type {
   MediaDetails,
   SeriesEpisode,
@@ -40,13 +40,33 @@ interface Props {
 export const episodeProgressId = (ep: SeriesEpisode): string => `episode-${ep.id}`
 
 // Bölüm listesinde küçük görsel (Netflix'teki gibi) — sağlayıcı vermiyorsa ya
-// da adres bozuksa oynat ikonuna düşer.
+// da adres bozuksa/sunucusu yanıt vermiyorsa oynat ikonuna düşer. Bazı
+// sağlayıcıların görsel sunucusu hiç yanıt vermiyor (ne yükleniyor ne de
+// hata veriyor) — bu yüzden PosterCard'daki gibi bir süre sonra pes ediyoruz.
 function EpisodeThumb({ image }: { image?: string }): ReactElement {
   const [broken, setBroken] = useState(false)
+  const loadedRef = useRef(false)
+  useEffect(() => {
+    if (!image) return
+    loadedRef.current = false
+    setBroken(false)
+    const t = setTimeout(() => {
+      if (!loadedRef.current) setBroken(true)
+    }, 2500)
+    return () => clearTimeout(t)
+  }, [image])
   return (
     <span className="episode-thumb">
       {image && !broken ? (
-        <img src={image} alt="" loading="lazy" onError={() => setBroken(true)} />
+        <img
+          src={image}
+          alt=""
+          loading="lazy"
+          onError={() => setBroken(true)}
+          onLoad={() => {
+            loadedRef.current = true
+          }}
+        />
       ) : (
         <IconPlay size={14} />
       )}
