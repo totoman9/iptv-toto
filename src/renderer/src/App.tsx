@@ -306,7 +306,10 @@ function App(): ReactElement {
     const map = new Map<number, ChannelMeta>()
     for (const ch of epgIndex.channels) {
       const p = currentProgram(ch, minuteTick)
-      if (p) map.set(ch.streamId, { now: p.title, progress: (minuteTick - p.start) / (p.end - p.start) })
+      if (p) {
+        const span = p.end - p.start
+        map.set(ch.streamId, { now: p.title, progress: span > 0 ? (minuteTick - p.start) / span : 0 })
+      }
     }
     return map
   }, [epgIndex.channels, minuteTick])

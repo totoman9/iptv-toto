@@ -1,5 +1,6 @@
 import type { PlayableItem, SeriesItem } from '../../../shared/types'
 import { createPersisted } from './persisted'
+import { fold } from './search'
 
 // ---------- İzleme listesi ("Sonra izle") ----------
 
@@ -14,10 +15,18 @@ export interface WatchlistEntry {
 
 export const watchlistStore = createPersisted<WatchlistEntry[]>('watchlist', [])
 
+// Aynı film/dizi farklı bir kaynaktan (ör. arama ile kütüphaneden) farklı bir
+// kimlikle gelip iki kez eklenebiliyordu — id'nin yanı sıra aynı tür + aynı
+// (sadeleştirilmiş) isimde bir kayıt var mı diye de bakıyoruz.
 export function toggleWatchlist(entry: Omit<WatchlistEntry, 'addedAt'>): boolean {
   const list = watchlistStore.get()
-  const exists = list.some((x) => x.id === entry.id)
-  watchlistStore.set(exists ? list.filter((x) => x.id !== entry.id) : [{ ...entry, addedAt: Date.now() }, ...list])
+  const name = fold(entry.name)
+  const exists = list.some((x) => x.id === entry.id || (x.kind === entry.kind && fold(x.name) === name))
+  watchlistStore.set(
+    exists
+      ? list.filter((x) => x.id !== entry.id && !(x.kind === entry.kind && fold(x.name) === name))
+      : [{ ...entry, addedAt: Date.now() }, ...list]
+  )
   return !exists
 }
 

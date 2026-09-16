@@ -426,7 +426,7 @@ export function MediaBrowser({
   const liked = usePersisted(likedStore)
   const { entries: progressEntries, byId: progressById } = useProgress()
   const settings = useSettings()
-  const top10Source = settings.top10Source ?? 'provider'
+  const top10Source = settings.top10Source ?? 'imdb'
   const [scrolled, setScrolled] = useState(false)
 
   const entries = useMemo<Entry[]>(
