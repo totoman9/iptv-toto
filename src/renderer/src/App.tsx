@@ -204,6 +204,9 @@ function App(): ReactElement {
     resume: PlayableItem | null
   } | null>(null)
   const [notice, setNoticeState] = useState<{ text: string; action?: NoticeAction } | null>(null)
+  // Güncelleme durumu, geçici bildirimden bağımsız olarak kalıcı: bildirim
+  // kapansa/gözden kaçsa bile hesap menüsündeki rozetten her zaman erişilebilir.
+  const [updateInfo, setUpdateInfo] = useState<{ version: string; ready: boolean } | null>(null)
   const [channelMenu, setChannelMenu] = useState<{ channel: Channel; x: number; y: number } | null>(null)
 
   const isLocked = lockApi.isLocked
@@ -369,14 +372,42 @@ function App(): ReactElement {
   // Yeni sürüm arka planda inip hazır olunca haber ver
   useEffect(() => {
     return window.iptv.updater?.onEvent((info) => {
-      if (info.status === 'downloaded') {
+      if (info.status === 'available') {
+        setUpdateInfo({ version: info.version || '', ready: false })
+      } else if (info.status === 'downloaded') {
+        setUpdateInfo({ version: info.version || '', ready: true })
         setNotice(`Yeni sürüm hazır (${info.version}). Yüklemek için uygulama yeniden başlayacak.`, {
           label: 'Şimdi yükle',
           run: () => window.iptv.updater.quitAndInstall()
         })
+      } else if (info.status === 'error') {
+        // Otomatik indirme/kurulum bir sebeple başarısız oldu (ör. Mac'te
+        // imzasız paket) — kullanıcı en azından sürüm sayfasından elle
+        // indirebilsin diye bir seçenek bırakıyoruz.
+        setUpdateInfo((cur) => cur ?? { version: '', ready: false })
       }
     })
   }, [])
+
+  function checkForUpdateNow(): void {
+    setNotice('Güncelleme kontrol ediliyor…')
+    window.iptv.updater
+      ?.checkNow()
+      .then((res) => {
+        if (!res.ok) {
+          setNotice('Güncelleme kontrol edilemedi. İnternet bağlantını kontrol et.', {
+            label: 'Sürüm sayfasını aç',
+            run: () => window.iptv.updater.openReleasePage()
+          })
+        } else if (!res.version) {
+          setNotice('Uygulama güncel.')
+        }
+        // res.version varsa 'available'/'downloaded' olayı zaten gelecek
+      })
+      .catch(() => {
+        setNotice('Güncelleme kontrol edilemedi.')
+      })
+  }
 
   // ⌘K / Ctrl+K: her yerde ara. ⌘1-4 / Ctrl+1-4: sekmeler arası hızlı geçiş.
   useEffect(() => {
@@ -1014,6 +1045,9 @@ function App(): ReactElement {
         onPosterSizeChange={changePosterSize}
         posterShape={posterShape}
         onPosterShapeChange={changePosterShape}
+        updateInfo={updateInfo}
+        onInstallUpdate={() => window.iptv.updater.quitAndInstall()}
+        onCheckUpdate={checkForUpdateNow}
         onOpenSearch={() => setSearchOpen(true)}
         onOpenSettings={() => setShowSettings(true)}
         recordingActive={!!activeRecording}

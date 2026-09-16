@@ -41,8 +41,16 @@ const api = {
   },
   updater: {
     quitAndInstall: (): void => ipcRenderer.invoke('updater:quitAndInstall') as unknown as void,
-    onEvent: (cb: (info: { status: 'downloaded'; version: string }) => void): (() => void) => {
-      const handler = (_e: unknown, info: { status: 'downloaded'; version: string }): void => cb(info)
+    checkNow: (): Promise<{ ok: boolean; version?: string; error?: string }> =>
+      ipcRenderer.invoke('updater:checkNow'),
+    openReleasePage: (): void => ipcRenderer.invoke('updater:openReleasePage') as unknown as void,
+    onEvent: (
+      cb: (info: { status: 'available' | 'downloaded' | 'error'; version?: string; message?: string }) => void
+    ): (() => void) => {
+      const handler = (
+        _e: unknown,
+        info: { status: 'available' | 'downloaded' | 'error'; version?: string; message?: string }
+      ): void => cb(info)
       ipcRenderer.on('updater:event', handler)
       return () => {
         ipcRenderer.removeListener('updater:event', handler)

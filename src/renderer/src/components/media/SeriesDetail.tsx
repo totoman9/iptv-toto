@@ -7,7 +7,7 @@ import type {
   SourceConfig
 } from '../../../../shared/types'
 import type { ContinueWatchingEntry } from '../../lib/storage'
-import { getSeriesSeasons } from '../../lib/xtream'
+import { getSeriesSeasonsCached } from '../../lib/xtream'
 import { isFinished, progressRatio } from '../../lib/continueWatching'
 import { formatTime, minutesLeft } from '../../lib/format'
 import { IconArrowLeft, IconBell, IconBookmark, IconCheck, IconPlay, IconPlayCircle } from '../Icons'
@@ -60,7 +60,7 @@ export function SeriesDetail({
     }
     let cancelled = false
     setLoading(true)
-    getSeriesSeasons(source, item.seriesId)
+    getSeriesSeasonsCached(source, item.seriesId)
       .then((data) => {
         if (cancelled) return
         setSeasons(data.seasons)

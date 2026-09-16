@@ -9,6 +9,21 @@ import type {
   XtreamSourceConfig
 } from '../../../shared/types'
 
+// "01:39:14", "39:14", ya da düz saniye ("5940") gelebiliyor
+function parseDurationToSeconds(text?: string): number | undefined {
+  if (!text) return undefined
+  const trimmed = text.trim()
+  if (/^\d+$/.test(trimmed)) {
+    const n = parseInt(trimmed, 10)
+    return n > 0 ? n : undefined
+  }
+  const parts = trimmed.split(':').map((p) => parseInt(p, 10))
+  if (parts.some((p) => !Number.isFinite(p))) return undefined
+  let sec = 0
+  for (const p of parts) sec = sec * 60 + p
+  return sec > 0 ? sec : undefined
+}
+
 interface XtreamCategory {
   category_id: string
   category_name: string
@@ -57,6 +72,7 @@ interface XtreamSeriesInfoEpisode {
   title: string
   episode_num: number
   container_extension?: string
+  info?: { duration?: string; duration_secs?: number | string }
 }
 
 interface XtreamSeriesInfo {
@@ -248,6 +264,7 @@ function mapMediaInfo(info: XtreamMediaInfo | undefined): MediaDetails {
     releaseDate: info.releasedate || info.release_date || undefined,
     rating: info.rating !== undefined ? String(info.rating) : undefined,
     durationText: info.duration || undefined,
+    durationSeconds: parseDurationToSeconds(info.duration),
     coverBig: info.cover_big || info.movie_image || info.backdrop_path?.[0] || undefined,
     backdrop: info.backdrop_path?.[0] || undefined,
     originalName: info.o_name || undefined,
@@ -263,6 +280,20 @@ export async function getVodDetails(
     apiUrl(cfg, 'get_vod_info', `&vod_id=${streamId}`)
   )
   return mapMediaInfo(res.data?.info)
+}
+
+// Aynı film birden yerde (vitrin, önizleme kartı, detay sayfası, oynatma) bilgi
+// isteyebiliyor; sunucuyu ve hesabı yormamak için oturum boyunca önbelleğe alınır.
+const vodDetailsCache = new Map<string, Promise<MediaDetails>>()
+
+export function getVodDetailsCached(cfg: XtreamSourceConfig, streamId: number): Promise<MediaDetails> {
+  const key = `${cfg.id}:${streamId}`
+  let hit = vodDetailsCache.get(key)
+  if (!hit) {
+    hit = getVodDetails(cfg, streamId).catch((): MediaDetails => ({}))
+    vodDetailsCache.set(key, hit)
+  }
+  return hit
 }
 
 export interface SeriesListResult {
@@ -326,7 +357,9 @@ export async function getSeriesSeasons(
         episodeNum: ep.episode_num,
         url: `${host}/series/${cfg.username}/${cfg.password}/${ep.id}.${
           ep.container_extension || 'mp4'
-        }`
+        }`,
+        durationSeconds:
+          toNumber(ep.info?.duration_secs) || parseDurationToSeconds(ep.info?.duration)
       }))
       return { season: Number(seasonNum), episodes: seasonEpisodes }
     })
@@ -348,6 +381,22 @@ export async function getSeriesSeasons(
 
   return { seasons, details }
 }
+
+const seriesSeasonsCache = new Map<string, Promise<SeriesSeasonsResult>>()
+
+export function getSeriesSeasonsCached(
+  cfg: XtreamSourceConfig,
+  seriesId: number
+): Promise<SeriesSeasonsResult> {
+  const key = `${cfg.id}:${seriesId}`
+  let hit = seriesSeasonsCache.get(key)
+  if (!hit) {
+    hit = getSeriesSeasons(cfg, seriesId).catch((): SeriesSeasonsResult => ({ seasons: [], details: {} }))
+    seriesSeasonsCache.set(key, hit)
+  }
+  return hit
+}
+
 
 export async function getShortEpg(
   cfg: XtreamSourceConfig,

@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactElement } from 'react'
 import type { MediaDetails, SourceConfig, VodItem } from '../../../../shared/types'
 import type { ContinueWatchingEntry } from '../../lib/storage'
-import { getVodDetails } from '../../lib/xtream'
+import { getVodDetailsCached } from '../../lib/xtream'
 import { isFinished, progressRatio } from '../../lib/continueWatching'
 import { formatTime, minutesLeft } from '../../lib/format'
 import { IconArrowLeft, IconBookmark, IconCheck, IconPlay, IconPlayCircle } from '../Icons'
@@ -43,7 +43,7 @@ export function MovieDetail({
     }
     let cancelled = false
     setLoading(true)
-    getVodDetails(source, item.streamId)
+    getVodDetailsCached(source, item.streamId)
       .then((d) => {
         if (!cancelled) setDetails(d)
       })

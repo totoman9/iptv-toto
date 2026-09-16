@@ -376,11 +376,19 @@ function attachVodRemux(
   // için diğer attach* fonksiyonlarıyla aynı parametreler korunuyor.
   _onInfo: (info: StreamInfo) => void,
   onFatal: () => void,
-  startSec: number
+  startSec: number,
+  // Sağlayıcıdan (Xtream get_vod_info / get_series_info) bilinen gerçek süre.
+  // fMP4 akışı parça parça geldiği için tarayıcının kendi süre tahmini
+  // başlangıçta çok küçük ya da sonsuz gelebiliyor — bu yüzden ilerleme
+  // çubuğu "bozuk" görünüyordu. Bilinen süre varsa baştan onu kullanıyoruz.
+  knownDurationSec?: number
 ): EngineHandle {
   let destroyed = false
   let offsetSec = 0
-  let totalDuration: number | undefined
+  let totalDuration: number | undefined =
+    knownDurationSec !== undefined && Number.isFinite(knownDurationSec) && knownDurationSec > 0
+      ? knownDurationSec
+      : undefined
   let pendingSeek: number | null = null
   let seekTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -438,6 +446,9 @@ function attachVodRemux(
       // sıkışıp kalıyordu. Artık en büyük (en gerçekçi) tahmini kullanıyoruz.
       if (Number.isFinite(remaining)) {
         const candidate = offsetSec + remaining
+        // Bilinen (sağlayıcı) süreden biraz bile büyük bir tahmin gelirse,
+        // gerçek dosya biraz daha uzunmuş demektir — güncelle. Küçük
+        // tahminleri (fMP4'ün parça parça büyüyen değerleri) yok say.
         if (totalDuration === undefined || candidate > totalDuration) totalDuration = candidate
       }
       return totalDuration ?? remaining
@@ -475,6 +486,7 @@ export function attachStream(
     liveBackSec?: number
     onStatus?: (status: 'reconnecting') => void
     vodRemux?: boolean
+    vodDurationSec?: number
   } = {}
 ): AttachedPlayer {
   let info: StreamInfo = {}
@@ -566,7 +578,8 @@ export function attachStream(
             onFatalError('Video oynatılamadı.')
           }
         },
-        0
+        0,
+        options.vodDurationSec
       )
     } else {
       // Native fallback: mp4/mkv/doğrudan oynatılabilen VOD dosyaları

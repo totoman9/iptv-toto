@@ -21,6 +21,17 @@ export function toggleWatchlist(entry: Omit<WatchlistEntry, 'addedAt'>): boolean
   return !exists
 }
 
+// ---------- Beğeniler (Netflix'teki başparmak yukarı gibi) ----------
+
+export const likedStore = createPersisted<string[]>('liked-titles', [])
+
+export function toggleLike(id: string): boolean {
+  const list = likedStore.get()
+  const exists = list.includes(id)
+  likedStore.set(exists ? list.filter((x) => x !== id) : [id, ...list])
+  return !exists
+}
+
 // ---------- Dizi takibi (yeni bölüm bildirimi) ----------
 
 export interface FollowedSeries {

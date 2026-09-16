@@ -68,6 +68,7 @@ export interface SeriesEpisode {
   season: number
   episodeNum: number
   url: string
+  durationSeconds?: number
 }
 
 export interface SeriesSeason {
@@ -84,6 +85,9 @@ export interface MediaDetails {
   releaseDate?: string
   rating?: string
   durationText?: string
+  // durationText'ten (sağlayıcı verisi) hesaplanan saniye cinsinden süre —
+  // akış meta verisinin sağlayamadığı durumlarda oynatıcı buna güvenir
+  durationSeconds?: number
   coverBig?: string
   backdrop?: string
   // Filmin orijinal adı (IMDb eşleştirmesi için)
@@ -112,6 +116,9 @@ export interface PlayableItem {
   // Biliniyorsa IMDb kimlikleri (internetten altyazı bulmak için)
   imdbId?: string
   seriesImdbId?: string
+  // Sağlayıcıdan bilinen gerçek süre (sn) — akışın kendi süre tahmini
+  // güvenilmezken ilerleme çubuğunu doğru göstermek için kullanılır
+  durationSeconds?: number
 }
 
 export interface EpgProgram {

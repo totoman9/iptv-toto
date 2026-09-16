@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
-import { List, type RowComponentProps } from 'react-window'
+import { List, useListRef, type RowComponentProps } from 'react-window'
 import type {
   PlayableItem,
   SeriesEpisode,
@@ -11,10 +11,21 @@ import type { SectionStatus } from '../../hooks/useLibrary'
 import type { ContinueWatchingEntry } from '../../lib/storage'
 import { clearProgress, isFinished, progressRatio } from '../../lib/continueWatching'
 import { useProgress } from '../../hooks/useProgress'
-import { getSeriesSeasons, getVodDetails, getVodStreamUrl } from '../../lib/xtream'
+import {
+  getSeriesSeasonsCached,
+  getVodDetailsCached,
+  getVodStreamUrl
+} from '../../lib/xtream'
 import { CategoryColumn, ALL_GROUP } from '../CategoryColumn'
 import { usePersisted } from '../../lib/persisted'
-import { followStore, getPreviousVisit, toggleWatchlist, watchlistStore } from '../../lib/library'
+import {
+  followStore,
+  getPreviousVisit,
+  likedStore,
+  toggleLike,
+  toggleWatchlist,
+  watchlistStore
+} from '../../lib/library'
 import { cleanTitle, lookupImdb } from '../../lib/omdb'
 import { updateSettings } from '../../lib/settings'
 import { useSettings } from '../../hooks/useSettings'
@@ -33,6 +44,7 @@ import {
 } from '../Icons'
 import { PosterCard, cssUrl, type PosterCardData } from './PosterCard'
 import { HoverPreview, type HoverTarget } from './HoverPreview'
+import { QuickView } from './QuickView'
 import { SkeletonPosterRows } from '../Skeleton'
 import { PosterGrid } from './PosterGrid'
 import { MovieDetail } from './MovieDetail'
@@ -395,6 +407,7 @@ export function MediaBrowser({
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
   const watchlist = usePersisted(watchlistStore)
   const followed = usePersisted(followStore)
+  const liked = usePersisted(likedStore)
   const { entries: progressEntries, byId: progressById } = useProgress()
   const settings = useSettings()
   const top10Source = settings.top10Source ?? 'provider'
@@ -486,9 +499,12 @@ export function MediaBrowser({
   }
 
   // ----- oynatma -----
-  function playMovie(v: VodItem, fromStart: boolean, imdbId?: string): void {
+  async function playMovie(v: VodItem, fromStart: boolean, imdbId?: string): Promise<void> {
     if (!source || source.type !== 'xtream') return
     if (fromStart) clearProgress(v.id)
+    // Sağlayıcının bildirdiği gerçek süre — akışın kendi tahminine göre daha
+    // güvenilir olduğu için ilerleme çubuğu bunu kullanır (bkz. playerEngine).
+    const details = await getVodDetailsCached(source, v.streamId)
     onPlay({
       id: v.id,
       name: v.name,
@@ -497,7 +513,8 @@ export function MediaBrowser({
       isLive: false,
       logo: v.logo,
       kind: 'movie',
-      imdbId
+      imdbId,
+      durationSeconds: details.durationSeconds
     })
   }
 
@@ -514,7 +531,8 @@ export function MediaBrowser({
       seriesName: s.name,
       season: ep.season,
       episodeNum: ep.episodeNum,
-      seriesImdbId
+      seriesImdbId,
+      durationSeconds: ep.durationSeconds
     }
   }
 
@@ -618,9 +636,9 @@ export function MediaBrowser({
     }
     let cancelled = false
     const load: Promise<HeroExtra> | null = heroEntry.vod
-      ? getVodDetails(source, heroEntry.vod.streamId).then((d) => ({ plot: d.plot, backdrop: d.backdrop }))
+      ? getVodDetailsCached(source, heroEntry.vod.streamId).then((d) => ({ plot: d.plot, backdrop: d.backdrop }))
       : heroEntry.series
-        ? getSeriesSeasons(source, heroEntry.series.seriesId).then((r) => ({ plot: r.details.plot }))
+        ? getSeriesSeasonsCached(source, heroEntry.series.seriesId).then((r) => ({ plot: r.details.plot }))
         : null
     load
       ?.then((x) => {
@@ -695,6 +713,10 @@ export function MediaBrowser({
 
   const top10Rank = useMemo(() => new Map(top10.map(({ e }, i) => [e.id, i])), [top10])
 
+  // Ana sanal listenin kaydırılabilir DOM öğesi — önizleme kartı üzerinde
+  // fare tekerleği çevrilince kaydırmayı buraya elle aktarmak için gerekiyor.
+  const homeListRef = useListRef(null)
+
   // ----- Üzerine gelince açılan önizleme -----
   const [hover, setHover] = useState<HoverTarget | null>(null)
   const hoverCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -716,12 +738,28 @@ export function MediaBrowser({
 
   useEffect(() => {
     if (!hover) return
+    // Önizleme kartı sayfanın geri kalanının dışında (bkz. HoverPreview'daki
+    // portal) çizildiği için üzerine gelip fare tekerleğini çevirince sayfa
+    // hiç kaymıyordu — tekerlek olayı, kaydırılabilen listenin dışına
+    // düştüğü için tarayıcı hiçbir şeyi kaydırmıyordu. Kart üzerindeyken
+    // tekerlek hareketini elle asıl listeye aktarıyoruz.
+    const onWheel = (e: WheelEvent): void => {
+      const target = e.target as HTMLElement | null
+      if (target?.closest('.hover-preview')) {
+        const el = homeListRef.current?.element
+        if (el) {
+          e.preventDefault()
+          el.scrollBy({ top: e.deltaY })
+        }
+      }
+      setHover(null)
+    }
     const close = (): void => setHover(null)
-    window.addEventListener('wheel', close, { passive: true })
+    window.addEventListener('wheel', onWheel, { passive: false })
     window.addEventListener('scroll', close, true)
     window.addEventListener('resize', close)
     return () => {
-      window.removeEventListener('wheel', close)
+      window.removeEventListener('wheel', onWheel)
       window.removeEventListener('scroll', close, true)
       window.removeEventListener('resize', close)
     }
@@ -732,6 +770,61 @@ export function MediaBrowser({
   }, [route, layout, search, filters])
 
   useEffect(() => () => cancelHoverClose(), [cancelHoverClose])
+
+  // Önizleme kartındaki süre bilgisi — kart açılır açılmaz (450ms gecikmeden
+  // sonra zaten) bir kez sorulup önbelleğe alınıyor (bkz. getVodDetailsCached).
+  const [hoverDuration, setHoverDuration] = useState<Record<string, string>>({})
+  useEffect(() => {
+    if (!hover || !source || source.type !== 'xtream') return
+    const e = entriesById.get(hover.data.id)
+    if (!e || hoverDuration[e.id] !== undefined) return
+    let cancelled = false
+    const load = e.vod
+      ? getVodDetailsCached(source, e.vod.streamId).then((d) => d.durationText)
+      : e.series
+        ? getSeriesSeasonsCached(source, e.series.seriesId).then(
+            (r) => `${r.seasons.length} sezon`
+          )
+        : null
+    load?.then((text) => {
+      if (!cancelled) setHoverDuration((p) => ({ ...p, [e.id]: text || '' }))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [hover, source, entriesById, hoverDuration])
+
+  // ----- Genişletilmiş önizleme (QuickView) -----
+  const [quickView, setQuickView] = useState<{ id: string } | null>(null)
+  const [quickViewDetails, setQuickViewDetails] = useState<{ plot?: string; durationText?: string } | null>(null)
+  const quickViewEntry = quickView ? entriesById.get(quickView.id) : undefined
+
+  useEffect(() => {
+    if (!quickViewEntry || !source || source.type !== 'xtream') {
+      setQuickViewDetails(quickViewEntry ? {} : null)
+      return
+    }
+    setQuickViewDetails(null)
+    let cancelled = false
+    const load = quickViewEntry.vod
+      ? getVodDetailsCached(source, quickViewEntry.vod.streamId).then((d) => ({
+          plot: d.plot,
+          durationText: d.durationText
+        }))
+      : quickViewEntry.series
+        ? getSeriesSeasonsCached(source, quickViewEntry.series.seriesId).then((r) => ({
+            plot: r.details.plot,
+            durationText: `${r.seasons.length} sezon`
+          }))
+        : Promise.resolve({})
+    load.then((d) => {
+      if (!cancelled) setQuickViewDetails(d)
+    })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quickViewEntry?.id, source])
 
   // ----- Vitrin satırları -----
   const homeRows = useMemo<HomeRow[]>(() => {
@@ -967,7 +1060,7 @@ export function MediaBrowser({
     if (e?.vod) {
       const v = e.vod
       return (
-        <div className="media-browser">
+        <div className="media-browser" key={route.id}>
           <MovieDetail
             item={v}
             source={source}
@@ -983,7 +1076,7 @@ export function MediaBrowser({
     if (e?.series) {
       const s = e.series
       return (
-        <div className="media-browser">
+        <div className="media-browser" key={route.id}>
           <SeriesDetail
             item={s}
             source={source}
@@ -1215,6 +1308,7 @@ export function MediaBrowser({
       <div className="media-scroll">
         <List
           key={`${posterShape}-${posterSize}`}
+          listRef={homeListRef}
           rowComponent={HomeListRow}
           rowCount={homeRows.length}
           overscanCount={3}
@@ -1262,8 +1356,10 @@ export function MediaBrowser({
           key={hover.data.id}
           target={hover}
           genres={hoverEntry?.genres}
+          durationText={hoverDuration[hover.data.id]}
           inList={watchlist.some((w) => w.id === hover.data.id)}
           canList={!!hoverEntry}
+          liked={liked.includes(hover.data.id)}
           playLabel={hoverEntry?.vod ? 'Oynat' : kind === 'series' ? 'Bölümler' : 'Aç'}
           onEnter={cancelHoverClose}
           onLeave={endHover}
@@ -1282,7 +1378,47 @@ export function MediaBrowser({
                 group: hoverEntry.group
               })
           }}
-          onInfo={closeHoverThen(() => hover.onOpen(hover.data.id))}
+          onToggleLike={() => toggleLike(hover.data.id)}
+          onInfo={() => {
+            const id = hover.data.id
+            setHover(null)
+            setQuickView({ id })
+          }}
+        />
+      )}
+      {quickView && quickViewEntry && (
+        <QuickView
+          data={toCard(quickViewEntry)}
+          genres={quickViewEntry.genres}
+          plot={quickViewDetails?.plot}
+          durationText={quickViewDetails?.durationText}
+          loading={quickViewDetails === null}
+          inList={watchlist.some((w) => w.id === quickView.id)}
+          canList
+          liked={liked.includes(quickView.id)}
+          playLabel={quickViewEntry.vod ? 'Oynat' : kind === 'series' ? 'Bölümler' : 'Aç'}
+          onClose={() => setQuickView(null)}
+          onPlay={() => {
+            const v = quickViewEntry.vod
+            setQuickView(null)
+            if (v) guard(quickViewEntry.group, () => playMovie(v, false))
+            else openDetail(quickView.id)
+          }}
+          onToggleList={() =>
+            toggleWatchlist({
+              id: quickViewEntry.id,
+              kind,
+              name: quickViewEntry.name,
+              logo: quickViewEntry.logo,
+              group: quickViewEntry.group
+            })
+          }
+          onToggleLike={() => toggleLike(quickView.id)}
+          onOpenFull={() => {
+            const id = quickView.id
+            setQuickView(null)
+            openDetail(id)
+          }}
         />
       )}
     </div>

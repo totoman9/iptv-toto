@@ -1,7 +1,7 @@
 import { useState, type ReactElement } from 'react'
 import { createPortal } from 'react-dom'
 import type { PosterShape } from '../../lib/theme'
-import { IconCheck, IconChevronDown, IconPlay, IconPlus } from '../Icons'
+import { IconCheck, IconChevronDown, IconPlay, IconPlus, IconThumbsUp } from '../Icons'
 import { LandscapeArt, type PosterCardData } from './PosterCard'
 
 export interface HoverTarget {
@@ -18,22 +18,28 @@ const clamp = (v: number, min: number, max: number): number => Math.max(min, Mat
 export function HoverPreview({
   target,
   genres,
+  durationText,
   inList,
   canList,
+  liked,
   playLabel,
   onPlay,
   onToggleList,
+  onToggleLike,
   onInfo,
   onEnter,
   onLeave
 }: {
   target: HoverTarget
   genres?: string[]
+  durationText?: string
   inList: boolean
   canList: boolean
+  liked: boolean
   playLabel: string
   onPlay: () => void
   onToggleList: () => void
+  onToggleLike: () => void
   onInfo: () => void
   onEnter: () => void
   onLeave: () => void
@@ -96,7 +102,16 @@ export function HoverPreview({
               {inList ? <IconCheck size={16} /> : <IconPlus size={16} />}
             </button>
           )}
-          <button className="hp-btn hp-btn-more" onClick={onInfo} title="Detaylar ve bölümler">
+          {canList && (
+            <button
+              className={`hp-btn ${liked ? 'hp-btn-liked' : ''}`}
+              onClick={onToggleLike}
+              title={liked ? 'Beğenmekten vazgeç' : 'Beğendim'}
+            >
+              <IconThumbsUp size={15} filled={liked} />
+            </button>
+          )}
+          <button className="hp-btn hp-btn-more" onClick={onInfo} title="Genişlet: detaylar ve bölümler">
             <IconChevronDown size={16} />
           </button>
         </div>
@@ -104,6 +119,7 @@ export function HoverPreview({
           {data.isNew && <span className="hp-new">Yeni</span>}
           {data.rating && data.rating > 0 ? <span className="hp-rating">★ {data.rating.toFixed(1)}</span> : null}
           {data.year && <span className="hp-chip">{data.year}</span>}
+          {durationText && <span>{durationText}</span>}
           {data.subtitle && data.subtitle !== data.year && <span>{data.subtitle}</span>}
         </div>
         {tags.length > 0 && <div className="hp-genres">{tags.join(' • ')}</div>}

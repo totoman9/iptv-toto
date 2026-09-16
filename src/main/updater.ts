@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { log } from './log'
 
@@ -27,17 +27,37 @@ export function initUpdater(getWindow: () => BrowserWindow | null): void {
   // dahaki kapatışında indirilen güncelleme kendiliğinden kurulur.
   autoUpdater.autoInstallOnAppQuit = true
 
+  // "available" ile hemen haber veriyoruz ki kullanıcı indirilirken beklemesin;
+  // asıl "şimdi yükle" düğmesi indirme bitince (downloaded) çıkıyor.
+  autoUpdater.on('update-available', (info) => {
+    send(getWindow(), 'updater:event', { status: 'available', version: info.version })
+  })
   autoUpdater.on('update-downloaded', (info) => {
     send(getWindow(), 'updater:event', { status: 'downloaded', version: info.version })
   })
   autoUpdater.on('error', (err) => {
-    // Sessizce günlüğe yaz — internet yoksa ya da GitHub'a ulaşılamıyorsa
-    // kullanıcıyı rahatsız etmeye gerek yok.
     void log('warn', 'updater', err?.message || String(err))
+    // Sessizce yutmuyoruz: indirme/kurulum bir sebeple başarısız olursa
+    // (ör. imzasız Mac paketinde otomatik kurulum engellenirse) kullanıcı
+    // en azından GitHub'daki sürüm sayfasına gidip elle indirebilsin.
+    send(getWindow(), 'updater:event', { status: 'error', message: err?.message || String(err) })
   })
 
   ipcMain.handle('updater:quitAndInstall', () => {
     autoUpdater.quitAndInstall()
+  })
+
+  ipcMain.handle('updater:checkNow', async () => {
+    try {
+      const result = await autoUpdater.checkForUpdates()
+      return { ok: true, version: result?.updateInfo?.version }
+    } catch (err) {
+      return { ok: false, error: (err as Error)?.message || String(err) }
+    }
+  })
+
+  ipcMain.handle('updater:openReleasePage', () => {
+    void shell.openExternal('https://github.com/totoman9/iptv-toto/releases/latest')
   })
 
   const check = (): void => {

@@ -333,6 +333,25 @@ export function IconRewind({ size, ...rest }: IconProps): ReactElement {
   )
 }
 
+export function IconThumbsUp({ filled, size, ...rest }: IconProps & { filled?: boolean }): ReactElement {
+  return (
+    <svg {...base(size)} fill={filled ? 'currentColor' : 'none'} {...rest}>
+      <path d="M7 11v9H4a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1Z" />
+      <path d="M7 11l4.2-8a1.6 1.6 0 0 1 3 .7v4.3H18a2 2 0 0 1 1.94 2.48l-1.6 6.5A2 2 0 0 1 16.4 20H10a3 3 0 0 1-3-3v-6Z" />
+    </svg>
+  )
+}
+
+export function IconDownload({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <path d="M12 3v12" />
+      <path d="M7 10l5 5 5-5" />
+      <path d="M4 19h16" />
+    </svg>
+  )
+}
+
 export function IconForward10({ size, ...rest }: IconProps): ReactElement {
   return (
     <svg {...base(size)} {...rest}>

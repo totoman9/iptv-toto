@@ -387,19 +387,20 @@
   opacity: 1;
 }
 
-/* Top 10 satırı — afişin solunda, afişin alt çizgisine oturan büyük sıra
-   numarası. Numara ayrı bir kutuda ve afiş görseliyle aynı yükseklikte;
-   böylece başlık uzunluğu ne olursa olsun tüm afişler aynı hizada durur. */
+/* Top 10 satırı — Netflix'teki gibi büyük sıra numarası afişin arkasında,
+   sol alt köşesinden taşıyor (afiş numaranın sağ tarafını örtüyor). Numara
+   afiş görseliyle aynı yükseklikte ve alt çizgisine hizalı; böylece başlık
+   uzunluğu ne olursa olsun tüm afişler aynı seviyede durur. */
 .top10-item {
   position: relative;
   flex-shrink: 0;
   display: flex;
   align-items: flex-start;
-  padding-left: calc(var(--poster-width, 150px) * 0.62);
+  padding-left: calc(var(--poster-width, 150px) * 0.56);
 }
 
 .top10-item.is-wide {
-  padding-left: calc(var(--poster-width, 150px) * 1.05);
+  padding-left: calc(var(--poster-width, 150px) * 0.92);
 }
 
 .top10-rank {
@@ -418,6 +419,7 @@
   paint-order: stroke fill;
   user-select: none;
   pointer-events: none;
+  z-index: 0;
 }
 
 .top10-rank span {
@@ -428,6 +430,8 @@
 .top10-item .poster-card {
   position: relative;
   z-index: 1;
+  /* afiş, numaranın sağ ucunun üzerine biner — gerçek Netflix görünümü */
+  margin-left: calc(var(--poster-width, 150px) * -0.22);
 }
 
 /* Afiş kartı */
@@ -666,6 +670,16 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  /* Benzer film/diziye tıklayınca sayfa aniden değişmiyor, belli olsun diye
+     hafif bir geçiş efektiyle açılıyor (bkz. MediaBrowser'daki key={route.id}) */
+  animation: detail-page-in 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes detail-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
 }
 
 .detail-hero {
@@ -1234,6 +1248,15 @@
   border-color: transparent;
 }
 
+.hp-btn-liked {
+  border-color: var(--text);
+  color: var(--text);
+}
+
+.hp-btn-liked svg {
+  color: #46d369;
+}
+
 .hp-btn-more {
   margin-left: auto;
 }
@@ -1382,4 +1405,144 @@
 
 .channel-tile.active {
   box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.35);
+}
+
+/* ---------------------------------------------------------------------------
+   Genişletilmiş önizleme (QuickView) — önizleme kartındaki aşağı ok'a
+   basınca açılan, Netflix'teki gibi büyük popup. Tam detay sayfasına gitmeden
+   özet bilgi ve aksiyonlar sunar; "Tüm detaylar" tam sayfaya götürür.
+--------------------------------------------------------------------------- */
+.quickview-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 3, 10, 0.72);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 24px;
+  animation: quickview-backdrop-in 0.18s ease-out;
+}
+
+@keyframes quickview-backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.quickview-card {
+  width: min(720px, 100%);
+  max-height: 88vh;
+  overflow-y: auto;
+  background: var(--bg-elevated);
+  border-radius: 14px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+  position: relative;
+  animation: quickview-card-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes quickview-card-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(10px);
+  }
+}
+
+.quickview-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(10, 8, 19, 0.6);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.quickview-close:hover {
+  background: rgba(10, 8, 19, 0.85);
+}
+
+.quickview-art {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: var(--surface-2);
+  border-radius: 14px 14px 0 0;
+  cursor: pointer;
+}
+
+.quickview-art > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.quickview-art img.poster-land-side {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: auto;
+  height: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  box-shadow: -16px 0 30px rgba(0, 0, 0, 0.45);
+}
+
+.quickview-title {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 60px 26px 20px;
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.85));
+  color: #fff;
+  font-size: 26px;
+  font-weight: 900;
+  line-height: 1.15;
+  text-shadow: 0 3px 14px rgba(0, 0, 0, 0.6);
+}
+
+.quickview-title.has-side {
+  right: 34%;
+}
+
+.quickview-body {
+  padding: 20px 26px 26px;
+}
+
+.quickview-body .hp-actions {
+  gap: 10px;
+}
+
+.quickview-body .hp-btn {
+  width: 40px;
+  height: 40px;
+}
+
+.quickview-full-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.quickview-body .hp-meta {
+  margin-top: 14px;
+  font-size: 13px;
+}
+
+.quickview-plot {
+  margin: 14px 0 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text-dim);
 }

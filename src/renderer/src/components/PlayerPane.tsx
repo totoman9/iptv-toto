@@ -254,7 +254,8 @@ export function PlayerPane({
       onStatus: (status) => setConn(status),
       // Kayıtlar zaten uygun formatta (bkz. finalizeToMp4); yalnızca sağlayıcıdan
       // doğrudan çekilen film/dizilerin sesini AAC'ye çevirmemiz gerekiyor.
-      vodRemux: !item.isLive && item.kind !== 'recording'
+      vodRemux: !item.isLive && item.kind !== 'recording',
+      vodDurationSec: item.durationSeconds
     })
     setPlayer(attached)
 

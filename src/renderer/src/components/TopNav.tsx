@@ -21,6 +21,7 @@ import {
   IconSliders,
   IconStar,
   IconSun,
+  IconDownload,
   IconWinClose,
   IconWinMaximize,
   IconWinMinimize,
@@ -50,6 +51,11 @@ interface Props {
   onOpenSearch: () => void
   onOpenSettings: () => void
   recordingActive: boolean
+  // Güncelleme: version boşsa henüz kontrol edilmedi/güncel; ready true ise
+  // indirme bitti ve "şimdi yükle" gösterilebilir.
+  updateInfo?: { version: string; ready: boolean } | null
+  onInstallUpdate?: () => void
+  onCheckUpdate?: () => void
 }
 
 type IconType = ComponentType<{ size?: number }>
@@ -173,7 +179,10 @@ function AccountMenu(props: Props): ReactElement {
     posterShape,
     onPosterShapeChange,
     onOpenSettings,
-    onOpenParentalLock
+    onOpenParentalLock,
+    updateInfo,
+    onInstallUpdate,
+    onCheckUpdate
   } = props
   const { open, setOpen, ref } = useDropdown()
   const active = sources.find((s) => s.id === activeSourceId)
@@ -191,6 +200,7 @@ function AccountMenu(props: Props): ReactElement {
       >
         <span className={`account-avatar ${loading ? 'is-loading' : ''}`}>
           {(active?.name || 'T').slice(0, 1).toUpperCase()}
+          {updateInfo?.ready && <span className="account-avatar-dot" title="Güncelleme hazır" />}
         </span>
         <span className="account-name">{active?.name || 'Kaynak ekle'}</span>
         <IconChevronDown size={13} />
@@ -278,6 +288,23 @@ function AccountMenu(props: Props): ReactElement {
           </div>
 
           <div className="menu-sep" />
+          {updateInfo?.ready ? (
+            <MenuItem
+              icon={<IconDownload size={14} />}
+              onClick={close(() => onInstallUpdate?.())}
+              hint={`v${updateInfo.version} indirildi`}
+            >
+              Güncellemeyi yükle
+            </MenuItem>
+          ) : (
+            <MenuItem
+              icon={<IconRefresh size={14} />}
+              onClick={close(() => onCheckUpdate?.())}
+              hint={updateInfo?.version ? `v${updateInfo.version} iniyor…` : 'Şu an hangi sürümü kullandığını kontrol et'}
+            >
+              Güncellemeleri kontrol et
+            </MenuItem>
+          )}
           <MenuItem icon={<IconSliders size={14} />} onClick={close(onOpenSettings)} hint="IMDb ve altyazı hesapları">
             Ayarlar…
           </MenuItem>
