@@ -5,6 +5,7 @@ import { Splash } from './components/Splash'
 import { initProxy } from './lib/proxy'
 import { initSettings } from './lib/settings'
 import { initLibraryStores } from './lib/library'
+import { channelQualityPrefs } from './lib/channelPrefs'
 import { applyAccent, applyPosterSize, applyTheme, loadAccent, loadPosterSize, loadTheme } from './lib/theme'
 import './styles/global.css'
 import './styles/player.css'
@@ -52,7 +53,7 @@ const splashStart = performance.now()
 
 // Yerel canlı yayın aktarıcısının portunu uygulama açılmadan önce al
 // (oynatıcı motoru bunu senkron olarak kullanıyor).
-Promise.all([initProxy(), initSettings(), initLibraryStores()]).finally(() => {
+Promise.all([initProxy(), initSettings(), initLibraryStores(), channelQualityPrefs.init()]).finally(() => {
   const remaining = MIN_SPLASH_MS - (performance.now() - splashStart)
   setTimeout(
     () => {

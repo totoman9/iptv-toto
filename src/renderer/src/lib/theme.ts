@@ -42,7 +42,9 @@ function write(key: string, value: string): void {
 export function loadTheme(): Theme {
   const stored = read(THEME_KEY)
   if (stored === 'light' || stored === 'dark' || stored === 'black') return stored
-  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  // Bir video uygulaması için koyu tema daha uygun — sistem açık modda olsa
+  // bile ilk açılış koyu başlar (Ayarlar'dan istendiğinde değiştirilebilir).
+  return 'dark'
 }
 
 export function applyTheme(theme: Theme): void {

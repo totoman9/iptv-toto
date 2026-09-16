@@ -1394,6 +1394,55 @@
   flex: none;
 }
 
+.channel-row-title-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.channel-row-title-line .channel-row-name {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Aynı kanalın kalite kopyaları (bkz. lib/channelGroups.ts) tek kartta:
+   hangi kaliteler var, hangisi şu an gösteriliyor. */
+.quality-badges {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.quality-badge {
+  border: 1px solid var(--border-soft);
+  background: var(--surface-2);
+  color: var(--text-faint);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  padding: 1px 5px;
+  border-radius: 5px;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.quality-badge:hover {
+  border-color: var(--primary-light);
+  color: var(--text);
+}
+
+.quality-badge.active {
+  background: color-mix(in srgb, var(--primary) 22%, var(--surface-2));
+  border-color: var(--primary);
+  color: var(--text);
+}
+
+.channel-tile .quality-badges {
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
 .channel-row-now {
   display: flex;
   align-items: center;

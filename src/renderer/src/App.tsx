@@ -6,8 +6,12 @@ import {
   ItemListColumn,
   type ChannelMeta,
   type ListableItem,
-  type ListViewMode
+  type ListViewMode,
+  type QualityVariant
 } from './components/ItemListColumn'
+import { groupChannels, type ChannelGroup, type ChannelVariant } from './lib/channelGroups'
+import { channelQualityPrefs, setPreferredChannel } from './lib/channelPrefs'
+import { usePersisted } from './lib/persisted'
 import { MediaBrowser } from './components/media/MediaBrowser'
 import { LiveShowcase } from './components/live/LiveShowcase'
 import { ManageSourcesModal } from './components/ManageSourcesModal'
@@ -237,6 +241,49 @@ function App(): ReactElement {
   const vodPrefs = categoryPrefs.get('vod')
   const seriesPrefs = categoryPrefs.get('series')
   const liveChannels = useMemo(() => withoutHidden(channels, livePrefs), [channels, livePrefs])
+
+  // ----- Kalite kopyalarını tek kartta birleştirme (bkz. lib/channelGroups.ts) -----
+  // "beIN Sports 1 HD/4K/UHD" gibi aynı kanalın kopyaları favorilerde ve
+  // listede tek karta düşer; hangisinin gösterileceği (tercih varsa o, yoksa
+  // en iyi kalite) ve rozetler burada hesaplanır.
+  const qualityPrefs = usePersisted(channelQualityPrefs)
+  function groupedView(list: Channel[]): { items: Channel[]; byId: Map<string, ChannelGroup> } {
+    const groups = groupChannels(list)
+    const byId = new Map<string, ChannelGroup>()
+    const items = groups.map((g) => {
+      for (const v of g.variants) byId.set(v.channel.id, g)
+      const preferredId = qualityPrefs[g.key]
+      const preferred = (preferredId && g.variants.find((v) => v.channel.id === preferredId)) || g.variants[0]
+      return preferred.channel
+    })
+    return { items, byId }
+  }
+  // Aynı rozete sahip birden fazla yedek akış olabilir (ör. iki ayrı "HD"
+  // yedeği) — kullanıcıya aynı görünen iki düğme göstermemek için rozet
+  // metnine göre tekilleştiriyoruz (şu an gösterilen tercih edilir).
+  function toQualityVariants(group: ChannelGroup, activeId: string): QualityVariant[] {
+    const byBadge = new Map<string, ChannelVariant>()
+    for (const v of group.variants) {
+      const label = v.badge ?? 'SD'
+      const existing = byBadge.get(label)
+      if (!existing || v.channel.id === activeId) byBadge.set(label, v)
+    }
+    return [...byBadge.entries()].map(([badge, v]) => ({
+      item: v.channel,
+      badge,
+      active: v.channel.id === activeId
+    }))
+  }
+  const liveGrouped = useMemo(() => groupedView(liveChannels), [liveChannels, qualityPrefs])
+  const getLiveVariants = useMemo(
+    () =>
+      (item: ListableItem): QualityVariant[] | undefined => {
+        const group = liveGrouped.byId.get(item.id)
+        if (!group || group.variants.length < 2) return undefined
+        return toQualityVariants(group, item.id)
+      },
+    [liveGrouped]
+  )
   const liveOrder = useMemo(() => applyCategoryOrder(liveCategoryOrder, livePrefs), [liveCategoryOrder, livePrefs])
   const vodVisible = useMemo(() => withoutHidden(vod, vodPrefs), [vod, vodPrefs])
   const vodOrder = useMemo(() => applyCategoryOrder(vodCategoryOrder, vodPrefs), [vodCategoryOrder, vodPrefs])
@@ -304,6 +351,20 @@ function App(): ReactElement {
     const ids = new Set(folder.channelIds)
     return channels.filter((c) => ids.has(c.id))
   }, [activeFolder, folders, favoriteChannels, channels])
+  const folderGrouped = useMemo(() => groupedView(folderChannels), [folderChannels, qualityPrefs])
+  const getFolderVariants = useMemo(
+    () =>
+      (item: ListableItem): QualityVariant[] | undefined => {
+        const group = folderGrouped.byId.get(item.id)
+        if (!group || group.variants.length < 2) return undefined
+        return toQualityVariants(group, item.id)
+      },
+    [folderGrouped]
+  )
+  const groupedFavoriteCount = useMemo(
+    () => groupedView(favoriteChannels).items.length,
+    [favoriteChannels, qualityPrefs]
+  )
 
   const allGroups = useMemo(() => {
     const set = new Set<string>([...liveCategoryOrder, ...vodCategoryOrder, ...seriesCategoryOrder])
@@ -530,6 +591,10 @@ function App(): ReactElement {
       ) {
         return
       }
+      // Bu kanal bir kalite grubuna aitse (bkz. lib/channelGroups.ts),
+      // seçilen kalite bir dahaki sefere hatırlanır.
+      const group = liveGrouped.byId.get(channel.id)
+      if (group && group.variants.length > 1) setPreferredChannel(group.key, channel.id)
       setTheater(false)
       setPlaying(channelToPlayable(channel))
     })
@@ -923,7 +988,7 @@ function App(): ReactElement {
             onEdit={() => setEditSection('live')}
           />
           <ItemListColumn
-            items={liveChannels}
+            items={liveGrouped.items}
             activeGroup={liveGroup}
             selectedId={playing?.id}
             onSelect={playChannel}
@@ -931,6 +996,7 @@ function App(): ReactElement {
             onToggleFavorite={toggleFavoriteWithUndo}
             onContextMenu={openChannelMenu}
             getMeta={getLiveMeta}
+            getVariants={getLiveVariants}
             emptyIcon="search"
             emptyTitle="Canlı kanal bulunamadı"
             emptyHint={liveStatus === 'ready' ? 'Bu kaynakta canlı yayın listesi yok.' : ''}
@@ -972,7 +1038,7 @@ function App(): ReactElement {
       <>
         <FavoriteFoldersColumn
           folders={folders}
-          allCount={favoriteChannels.length}
+          allCount={groupedFavoriteCount}
           activeFolder={activeFolder}
           onSelect={setActiveFolder}
           onCreate={(name) => setActiveFolder(favorites.createFolder(name))}
@@ -983,7 +1049,7 @@ function App(): ReactElement {
           }}
         />
         <ItemListColumn
-          items={folderChannels}
+          items={folderGrouped.items}
           activeGroup={ALL_GROUP}
           selectedId={playing?.id}
           onSelect={playChannel}
@@ -992,6 +1058,7 @@ function App(): ReactElement {
           onContextMenu={openChannelMenu}
           onReorder={activeFolder ? undefined : favorites.reorderFavorites}
           getMeta={getLiveMeta}
+          getVariants={getFolderVariants}
           emptyIcon={activeFolder ? 'folder' : 'favorite'}
           emptyTitle={activeFolder ? 'Bu klasör boş' : 'Favori kanalın yok'}
           emptyHint={

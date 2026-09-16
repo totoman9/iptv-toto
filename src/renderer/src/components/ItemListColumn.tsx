@@ -19,6 +19,15 @@ export interface ListableItem {
   group: string
 }
 
+// Aynı kanalın farklı kalite kopyaları (bkz. lib/channelGroups.ts) tek satırda
+// rozetlerle gösterildiğinde: hangi rozetin hangi gerçek öğeye karşılık
+// geldiği ve şu an gösterilenin hangisi olduğu.
+export interface QualityVariant {
+  item: ListableItem
+  badge: string
+  active: boolean
+}
+
 interface RowProps {
   rows: ListableItem[]
   selectedId?: string
@@ -30,6 +39,7 @@ interface RowProps {
   // Verilirse satırlar sürüklenip elle sıralanabilir (ör. favoriler listesi)
   onReorder?: (draggedId: string, targetId: string) => void
   getMeta?: (item: ListableItem) => ChannelMeta | undefined
+  getVariants?: (item: ListableItem) => QualityVariant[] | undefined
 }
 
 function FavButton({
@@ -56,6 +66,32 @@ function FavButton({
   )
 }
 
+// Aynı kanalın kalite kopyaları arasında (bkz. lib/channelGroups.ts) geçiş —
+// bir rozete tıklamak o kaliteyi hemen seçer/oynatır ve sonraki sefer için
+// hatırlar.
+function QualityBadges({
+  variants,
+  onSelect
+}: {
+  variants: QualityVariant[]
+  onSelect: (item: ListableItem) => void
+}): ReactElement {
+  return (
+    <span className="quality-badges" onClick={(e) => e.stopPropagation()}>
+      {variants.map((v) => (
+        <button
+          key={v.item.id}
+          className={`quality-badge ${v.active ? 'active' : ''}`}
+          onClick={() => onSelect(v.item)}
+          title={`${v.badge} kaliteyle aç`}
+        >
+          {v.badge}
+        </button>
+      ))}
+    </span>
+  )
+}
+
 function Row({
   index,
   style,
@@ -67,10 +103,12 @@ function Row({
   renderRowExtra,
   onContextMenu,
   onReorder,
-  getMeta
+  getMeta,
+  getVariants
 }: RowComponentProps<RowProps>): ReactElement {
   const item = rows[index]
   const meta = getMeta?.(item)
+  const variants = getVariants?.(item)
   return (
     <div
       style={style}
@@ -104,7 +142,10 @@ function Row({
         )}
       </div>
       <div className="channel-row-text">
-        <span className="channel-row-name">{item.name}</span>
+        <span className="channel-row-title-line">
+          <span className="channel-row-name">{item.name}</span>
+          {variants && variants.length > 1 && <QualityBadges variants={variants} onSelect={onSelect} />}
+        </span>
         {meta?.now && (
           <span className="channel-row-now">
             <span className="channel-row-now-title">{meta.now}</span>
@@ -196,6 +237,7 @@ interface Props {
   onReorder?: (draggedId: string, targetId: string) => void
   emptyIcon?: EmptyIllustrationKind
   getMeta?: (item: ListableItem) => ChannelMeta | undefined
+  getVariants?: (item: ListableItem) => QualityVariant[] | undefined
 }
 
 const TILE_COLS = 3
@@ -217,7 +259,8 @@ export function ItemListColumn({
   onContextMenu,
   onReorder,
   emptyIcon,
-  getMeta
+  getMeta,
+  getVariants
 }: Props): ReactElement {
   const [search, setSearch] = useState('')
 
@@ -299,6 +342,7 @@ export function ItemListColumn({
               onToggleFavorite,
               renderRowExtra,
               onContextMenu,
+              getVariants,
               onReorder,
               getMeta
             }}
