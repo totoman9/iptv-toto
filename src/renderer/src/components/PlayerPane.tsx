@@ -214,6 +214,9 @@ export function PlayerPane({
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [controlsVisible, setControlsVisible] = useState(true)
+  // Tam ekranda kanal değişince logo/isim/şimdi kısa süreliğine görünüp
+  // kaybolur — fare hiç oynatılmasa bile (Netflix/YouTube'daki gibi).
+  const [switchOsd, setSwitchOsd] = useState(false)
   const [retryTick, setRetryTick] = useState(0)
   const [audioTracks, setAudioTracks] = useState<TrackInfo[]>([])
   const [subtitleAppearance, setSubtitleAppearance] = useState<SubtitleAppearance>(loadSubtitleAppearance)
@@ -940,6 +943,15 @@ export function PlayerPane({
     })
   }, [item?.id, item?.name, item?.isLive, isPlaying])
 
+  // Tam ekranda kanal değişince kısa bir bildirim göster (fare oynatılmasa
+  // bile) — Netflix/YouTube'daki gibi.
+  useEffect(() => {
+    if (!item?.isLive) return
+    setSwitchOsd(true)
+    const t = setTimeout(() => setSwitchOsd(false), 3000)
+    return () => clearTimeout(t)
+  }, [item?.id, item?.isLive])
+
   useEffect(() => {
     return window.iptv.tray?.onCommand((command) => {
       if (command === 'playPause') togglePlay()
@@ -1250,6 +1262,24 @@ export function PlayerPane({
                 : conn === 'stalled'
                   ? 'Yayın takıldı, bekleniyor…'
                   : 'Bağlantı koptu, yeniden bağlanılıyor…'}
+            </div>
+          )}
+
+          {isFullscreen && item?.isLive && (
+            <div className={`channel-osd ${switchOsd ? 'is-visible' : ''}`}>
+              <div className="channel-osd-logo">
+                {item.logo ? <img src={item.logo} alt="" /> : <IconLiveTv size={20} />}
+              </div>
+              <div className="channel-osd-text">
+                <div className="channel-osd-name">{item.name}</div>
+                {now ? (
+                  <div className="channel-osd-now">
+                    <span className="channel-osd-tag">ŞİMDİ</span> {now.title}
+                  </div>
+                ) : (
+                  <div className="channel-osd-now channel-osd-muted">{item.group}</div>
+                )}
+              </div>
             </div>
           )}
 

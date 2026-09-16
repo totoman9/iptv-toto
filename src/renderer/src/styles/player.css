@@ -165,6 +165,84 @@
   color: var(--player-text);
 }
 
+/* Tam ekranda kanal değişince kısa süreliğine beliren logo/isim/şimdi
+   bildirimi — fare hiç oynatılmasa bile görünüp kendiliğinden kaybolur. */
+.channel-osd {
+  position: absolute;
+  top: 28px;
+  left: 28px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px 10px 10px;
+  border-radius: 14px;
+  background: rgba(10, 8, 19, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(8px);
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+  transition:
+    opacity 0.35s ease,
+    transform 0.35s ease;
+}
+
+.channel-osd.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.channel-osd-logo {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: var(--player-text-dim);
+}
+
+.channel-osd-logo img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.channel-osd-name {
+  color: var(--player-text);
+  font-size: 16px;
+  font-weight: 800;
+  max-width: 320px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.channel-osd-now {
+  margin-top: 3px;
+  font-size: 12.5px;
+  color: var(--player-text-dim);
+  max-width: 320px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.channel-osd-muted {
+  color: var(--player-text-faint);
+}
+
+.channel-osd-tag {
+  color: var(--live, #e5484d);
+  font-weight: 800;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+}
+
 /* ---------- Bilgi paneli (yan panelde videonun altı) ---------- */
 .player-info {
   margin-top: 14px;
