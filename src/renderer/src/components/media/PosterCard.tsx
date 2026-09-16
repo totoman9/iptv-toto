@@ -93,7 +93,7 @@ export function PosterCard({
       <div className="poster-img">
         {!hasArt ? (
           <div className="poster-fallback">
-            <span>{data.title.slice(0, 2).toUpperCase()}</span>
+            <span>{data.title}</span>
           </div>
         ) : landscape ? (
           <LandscapeArt

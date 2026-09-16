@@ -502,6 +502,64 @@ export function PlayerPane({
     }
   }, [item?.url])
 
+  // Sarma çubuğunun üzerinde gezinirken küçük bir önizleme karesi göster
+  // (YouTube/Netflix'teki gibi). Ekstra bir sunucu bağlantısı açmadan (hesap
+  // tek bağlantılı) yapabilmek için, o ana kadar zaten OYNANMIŞ olan anları
+  // izlerken arka planda periyodik olarak küçük kareler biriktiriyoruz —
+  // henüz görülmemiş (ileride kalan) bir ana gelince önizleme yok, sadece
+  // zaman gösteriliyor.
+  const thumbCacheRef = useRef<Map<number, string>>(new Map())
+  const [seekHover, setSeekHover] = useState<{ time: number; x: number; thumb?: string } | null>(null)
+
+  useEffect(() => {
+    thumbCacheRef.current = new Map()
+    setSeekHover(null)
+    const video = videoRef.current
+    if (!video || !item || item.isLive) return
+    const canvas = document.createElement('canvas')
+    canvas.width = 160
+    canvas.height = 90
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    let lastCaptured = -Infinity
+    const capture = (): void => {
+      const t = video.currentTime
+      if (!Number.isFinite(t) || t - lastCaptured < 4 || video.readyState < 2 || !video.videoWidth) return
+      lastCaptured = t
+      try {
+        canvas.height = Math.round((canvas.width * video.videoHeight) / video.videoWidth) || 90
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+        const bucket = Math.round(t / 5) * 5
+        const cache = thumbCacheRef.current
+        cache.set(bucket, canvas.toDataURL('image/jpeg', 0.5))
+        if (cache.size > 500) {
+          const first = cache.keys().next().value
+          if (first !== undefined) cache.delete(first)
+        }
+      } catch {
+        /* kare henüz okunabilir değil */
+      }
+    }
+    video.addEventListener('timeupdate', capture)
+    return () => video.removeEventListener('timeupdate', capture)
+  }, [item?.url])
+
+  function onSeekBarHover(e: React.MouseEvent<HTMLDivElement>): void {
+    if (!duration) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
+    const time = ratio * duration
+    const bucket = Math.round(time / 5) * 5
+    let thumb = thumbCacheRef.current.get(bucket)
+    if (!thumb) {
+      // Tam o saniye yoksa yakın bir kareye bak (izlerken sıçramalar olabilir)
+      for (let d = 5; d <= 15 && !thumb; d += 5) {
+        thumb = thumbCacheRef.current.get(bucket - d) || thumbCacheRef.current.get(bucket + d)
+      }
+    }
+    setSeekHover({ time, x: e.clientX - rect.left, thumb })
+  }
+
   // "Ambiyans" efekti: izlenen görüntünün baskın rengini örnekleyip
   // oynatıcının çevresine hafif bir parıltı olarak yansıtıyoruz (yalnızca
   // yan panelde — bkz. CSS'teki .mode-docked kuralı).
@@ -934,7 +992,13 @@ export function PlayerPane({
   function seekBy(seconds: number): void {
     const video = videoRef.current
     if (!video || item?.isLive) return
-    const d = video.duration
+    // Akışın kendi süre tahmini (video.duration) oynatmanın başında gerçek
+    // süreden çok daha küçük olabiliyor (bkz. playerEngine — zamanla büyüyor);
+    // buna göre sınırlarsak ileri atlama, gerçekte çok daha uzun bir filmde
+    // yanlışlıkla o küçük tahminin sonuna zıplıyordu. Sağlayıcıdan bilinen
+    // gerçek süre varsa (item.durationSeconds) onu esas alıyoruz.
+    const known = item?.durationSeconds
+    const d = known && known > 0 ? known : video.duration
     const t = video.currentTime + seconds
     video.currentTime = Math.max(0, Number.isFinite(d) && d > 0 ? Math.min(d - 1, t) : t)
   }
@@ -1251,16 +1315,32 @@ export function PlayerPane({
 
                 {!item.isLive && (
                   <div className="vod-seek-row">
-                    <input
-                      type="range"
-                      className="seek-bar"
-                      min={0}
-                      max={duration || 0}
-                      step={0.5}
-                      value={currentTime}
-                      onChange={onSeek}
-                      style={{ '--seek-pct': `${seekPct}%` } as CSSProperties}
-                    />
+                    <div
+                      className="seek-bar-wrap"
+                      onMouseMove={onSeekBarHover}
+                      onMouseLeave={() => setSeekHover(null)}
+                    >
+                      {seekHover && (
+                        <div className="seek-preview" style={{ left: seekHover.x }}>
+                          {seekHover.thumb ? (
+                            <img src={seekHover.thumb} alt="" />
+                          ) : (
+                            <div className="seek-preview-empty" />
+                          )}
+                          <span>{formatTime(seekHover.time)}</span>
+                        </div>
+                      )}
+                      <input
+                        type="range"
+                        className="seek-bar"
+                        min={0}
+                        max={duration || 0}
+                        step={0.5}
+                        value={currentTime}
+                        onChange={onSeek}
+                        style={{ '--seek-pct': `${seekPct}%` } as CSSProperties}
+                      />
+                    </div>
                     <span
                       className="time-label vod-remaining"
                       title={`${formatTime(currentTime)} / ${formatTime(duration)}`}

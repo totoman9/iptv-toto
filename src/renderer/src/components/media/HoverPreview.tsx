@@ -78,7 +78,7 @@ export function HoverPreview({
           />
         ) : (
           <div className="poster-fallback">
-            <span>{data.title.slice(0, 2).toUpperCase()}</span>
+            <span>{data.title}</span>
           </div>
         )}
         <div className={`hover-preview-title ${!backdrop && image ? 'has-side' : ''}`}>{data.title}</div>

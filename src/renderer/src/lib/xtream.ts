@@ -256,6 +256,7 @@ interface XtreamMediaInfo {
 
 function mapMediaInfo(info: XtreamMediaInfo | undefined): MediaDetails {
   if (!info) return {}
+  const durationSeconds = parseDurationToSeconds(info.duration)
   return {
     plot: info.plot || undefined,
     cast: info.cast || undefined,
@@ -263,8 +264,11 @@ function mapMediaInfo(info: XtreamMediaInfo | undefined): MediaDetails {
     genre: info.genre || undefined,
     releaseDate: info.releasedate || info.release_date || undefined,
     rating: info.rating !== undefined ? String(info.rating) : undefined,
-    durationText: info.duration || undefined,
-    durationSeconds: parseDurationToSeconds(info.duration),
+    // Sağlayıcı bazen "00:00:00" gibi anlamsız bir süre veriyor —
+    // parseDurationToSeconds bunu zaten eleyip undefined döndürüyor, metni
+    // de aynı koşula bağlıyoruz ki ekranda "00:00:00" görünmesin.
+    durationText: durationSeconds ? info.duration : undefined,
+    durationSeconds,
     coverBig: info.cover_big || info.movie_image || info.backdrop_path?.[0] || undefined,
     backdrop: info.backdrop_path?.[0] || undefined,
     originalName: info.o_name || undefined,

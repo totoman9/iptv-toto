@@ -97,6 +97,20 @@ const ROW_LIMIT = 30
 // bundan uzun, ilk satır vitrinin solan alt kısmının üzerine biner.
 const HERO_ROW_H = 480
 const HERO_ROTATE_MS = 10_000
+
+// Güne göre sabit ama ertesi gün değişen bir "rastgelelik" — vitrin ve
+// "bugün senin için" gibi satırlar her açılışta aynı 4-5 şeyi göstermesin
+// diye (uygulama canlılığı), ama gün içinde de sürekli değişip kararsız
+// durmasın diye.
+function daySeed(): number {
+  const dayKey = new Date().toISOString().slice(0, 10)
+  return Array.from(dayKey).reduce((sum, c) => sum + c.charCodeAt(0), 0)
+}
+function hashId(id: string): number {
+  let h = 0
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0
+  return Math.abs(h)
+}
 const NEW_WINDOW_S = 7 * 24 * 3600
 
 interface HeroExtra {
@@ -612,8 +626,16 @@ export function MediaBrowser({
         : entries
             .filter((e) => (e.rating || 0) > 0)
             .sort((a, b) => (b.backdrop ? 1 : 0) - (a.backdrop ? 1 : 0) || (b.rating || 0) - (a.rating || 0))
-    const pick = pool.filter((e) => e.logo && !isLocked(e.group)).slice(0, 5)
-    return pick.length ? pick : entries.filter((e) => e.logo && !isLocked(e.group)).slice(0, 1)
+    const usable = pool.filter((e) => e.logo && !isLocked(e.group))
+    // Hep aynı 5 kaliteli içerik yerine, güçlü bir aday havuzundan (ör. en
+    // yeni/yüksek puanlı ~20) her gün farklı bir 5'li seçilip karıştırılıyor
+    // — vitrin her açılışta aynı görünmesin diye.
+    const seed = daySeed()
+    const candidates = usable.slice(0, 20)
+    const pick = [...candidates]
+      .sort((a, b) => ((hashId(a.id) + seed) % 991) - ((hashId(b.id) + seed) % 991))
+      .slice(0, 5)
+    return pick.length ? pick : usable.slice(0, 1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kind, entries, lockedGroups])
 
@@ -777,21 +799,26 @@ export function MediaBrowser({
     const onWheel = (e: WheelEvent): void => {
       const target = e.target as HTMLElement | null
       if (target?.closest('.hover-preview')) {
+        // Kartın/kutunun üzerindeyken (Mac'te iki parmakla kaydırma dahil)
+        // kaydırma listeye aktarılıyor ama önizleme AÇIK kalıyor — kapanma
+        // yalnızca fare gerçekten kutunun dışına çıkınca oluyor (yukarıdaki
+        // mousemove takibiyle).
         const el = homeListRef.current?.element
         if (el) {
           e.preventDefault()
           el.scrollBy({ top: e.deltaY })
         }
+        return
       }
+      // Kutunun dışında bir yerde kaydırma oluyorsa (ör. fare başka satırın
+      // üzerinde) önizleme açık kalmasın
       setHover(null)
     }
     const close = (): void => setHover(null)
     window.addEventListener('wheel', onWheel, { passive: false })
-    window.addEventListener('scroll', close, true)
     window.addEventListener('resize', close)
     return () => {
       window.removeEventListener('wheel', onWheel)
-      window.removeEventListener('scroll', close, true)
       window.removeEventListener('resize', close)
     }
   }, [hover])
@@ -1451,6 +1478,7 @@ export function MediaBrowser({
       {quickView && quickViewEntry && (
         <QuickView
           data={toCard(quickViewEntry)}
+          kind={kind === 'vod' ? 'movie' : 'series'}
           genres={quickViewEntry.genres}
           plot={quickViewDetails?.plot}
           durationText={quickViewDetails?.durationText}

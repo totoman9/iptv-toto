@@ -124,6 +124,7 @@ export function LiveShowcase({
   const [search, setSearch] = useState('')
   const [hover, setHover] = useState<ChannelHoverTarget | null>(null)
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   const byGroup = useMemo(() => {
     const map = new Map<string, Channel[]>()
@@ -190,12 +191,23 @@ export function LiveShowcase({
   }, [hover])
 
   useEffect(() => {
-    const close = (): void => setHover(null)
-    window.addEventListener('wheel', close, { passive: true })
-    window.addEventListener('scroll', close, true)
+    const onWheel = (e: WheelEvent): void => {
+      const target = e.target as HTMLElement | null
+      if (target?.closest('.lv-hover')) {
+        // Önizleme kartı sayfanın dışında bir portalda olduğu için tekerlek
+        // olayı asıl listeye ulaşmıyordu — elle aktarıyoruz, kutu kaydırma
+        // sırasında (Mac'te iki parmakla dahil) açık kalıyor.
+        if (scrollRef.current) {
+          e.preventDefault()
+          scrollRef.current.scrollBy({ top: e.deltaY })
+        }
+        return
+      }
+      setHover(null)
+    }
+    window.addEventListener('wheel', onWheel, { passive: false })
     return () => {
-      window.removeEventListener('wheel', close)
-      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('wheel', onWheel)
     }
   }, [])
 
@@ -247,7 +259,7 @@ export function LiveShowcase({
       </div>
 
       {searchResults ? (
-        <div className="media-scroll" style={{ overflowY: 'auto', padding: '14px 22px' }}>
+        <div className="media-scroll" ref={scrollRef} style={{ overflowY: 'auto', padding: '14px 22px' }}>
           <div className="media-page-sub" style={{ padding: 0, marginBottom: 10 }}>
             “{search.trim()}” için {searchResults.length} sonuç
           </div>
@@ -267,7 +279,7 @@ export function LiveShowcase({
           </div>
         </div>
       ) : (
-        <div className="media-scroll" style={{ overflowY: 'auto' }}>
+        <div className="media-scroll" ref={scrollRef} style={{ overflowY: 'auto' }}>
           {heroChannel && (
             <div className="lv-hero">
               <div className="lv-hero-glow" />

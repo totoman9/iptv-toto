@@ -2,12 +2,15 @@ import { useEffect, useState, type ReactElement } from 'react'
 import { createPortal } from 'react-dom'
 import { IconCheck, IconChevronRight, IconClose, IconPlay, IconPlus, IconThumbsUp } from '../Icons'
 import { LandscapeArt, type PosterCardData } from './PosterCard'
+import { useImdb } from '../../hooks/useImdb'
+import { ImdbBadge } from './ImdbBadge'
 
 // Netflix'teki "aşağı ok"a basınca açılan büyük önizleme kartı: küçük
 // önizlemeden daha fazla bilgi (özet) ve buton içerir, ama tüm sezon/bölüm
 // listesi ve benzer içerikler için hâlâ tam detay sayfasına yönlendirir.
 export function QuickView({
   data,
+  kind,
   genres,
   plot,
   durationText,
@@ -23,6 +26,7 @@ export function QuickView({
   onClose
 }: {
   data: PosterCardData
+  kind: 'movie' | 'series'
   genres?: string[]
   plot?: string
   durationText?: string
@@ -37,6 +41,7 @@ export function QuickView({
   onOpenFull: () => void
   onClose: () => void
 }): ReactElement {
+  const imdb = useImdb([data.title], data.year, kind, true)
   const [imageBroken, setImageBroken] = useState(false)
   const [backdropBroken, setBackdropBroken] = useState(false)
   const image = data.image && !imageBroken ? data.image : undefined
@@ -67,7 +72,7 @@ export function QuickView({
             />
           ) : (
             <div className="poster-fallback">
-              <span>{data.title.slice(0, 2).toUpperCase()}</span>
+              <span>{data.title}</span>
             </div>
           )}
           <div className={`quickview-title ${!backdrop && image ? 'has-side' : ''}`}>{data.title}</div>
@@ -106,6 +111,11 @@ export function QuickView({
             {durationText && <span>{durationText}</span>}
             {data.subtitle && data.subtitle !== data.year && <span>{data.subtitle}</span>}
           </div>
+          {imdb.status !== 'idle' && imdb.status !== 'nokey' && (
+            <div className="quickview-imdb">
+              <ImdbBadge state={imdb} />
+            </div>
+          )}
           <p className="quickview-plot">
             {loading ? 'Yükleniyor…' : plot || 'Bu içerik için özet bilgisi yok.'}
           </p>

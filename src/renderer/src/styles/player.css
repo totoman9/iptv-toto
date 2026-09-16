@@ -1098,7 +1098,16 @@ body.compact-mode .settings-panel {
   gap: 14px;
 }
 
+.seek-bar-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 60px;
+  display: flex;
+  align-items: center;
+}
+
 .vod-seek-row .seek-bar {
+  width: 100%;
   height: 5px;
   background: linear-gradient(
     90deg,
@@ -1110,6 +1119,40 @@ body.compact-mode .settings-panel {
 
 .vod-seek-row .seek-bar:hover {
   height: 8px;
+}
+
+/* Sarma çubuğu üzerinde gezinirken çıkan küçük önizleme karesi */
+.seek-preview {
+  position: absolute;
+  bottom: 22px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.seek-preview img,
+.seek-preview-empty {
+  width: 128px;
+  height: 72px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: rgba(10, 8, 19, 0.85);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.seek-preview span {
+  background: rgba(10, 8, 19, 0.85);
+  color: var(--player-text);
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
 }
 
 .vod-seek-row .time-label {

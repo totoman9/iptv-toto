@@ -425,13 +425,34 @@ function attachVodRemux(
     },
     set(v: number) {
       if (destroyed) return
-      pendingSeek = Math.max(0, v)
+      const target = Math.max(0, v)
+      // Hedef, tarayıcının bu akıştan zaten indirip elinde tuttuğu (arabellek)
+      // bir noktadaysa ffmpeg'i yeniden başlatmadan direkt oraya atlıyoruz —
+      // "10/30 sn ileri" donmadan çalışıyor, ama ancak önden yeterince veri
+      // gelmişse (Netflix'te de aynı mantık: önbelleklenmiş kısımda sarma anlık).
+      // Yeterince ilerisi henüz yoksa eskisi gibi akışı o noktadan yeniden kurar.
+      const local = target - offsetSec
+      if (local >= 0) {
+        const buf = video.buffered
+        for (let i = 0; i < buf.length; i++) {
+          if (local >= buf.start(i) && local < buf.end(i) - 0.4) {
+            if (seekTimer) {
+              clearTimeout(seekTimer)
+              seekTimer = null
+            }
+            pendingSeek = null
+            rawCurrentTime.set!.call(video, local)
+            return
+          }
+        }
+      }
+      pendingSeek = target
       if (seekTimer) clearTimeout(seekTimer)
       seekTimer = setTimeout(() => {
         seekTimer = null
-        const target = pendingSeek
+        const t = pendingSeek
         pendingSeek = null
-        if (target !== null) startAt(target)
+        if (t !== null) startAt(t)
       }, 350)
     }
   })
