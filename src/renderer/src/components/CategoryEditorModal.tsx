@@ -12,6 +12,8 @@ interface Props {
   onTogglePinned: (group: string) => void
   onMovePinned: (group: string, dir: -1 | 1) => void
   onReset: () => void
+  onHideAll: () => void
+  onShowAll: () => void
   onClose: () => void
 }
 
@@ -23,6 +25,8 @@ export function CategoryEditorModal({
   onTogglePinned,
   onMovePinned,
   onReset,
+  onHideAll,
+  onShowAll,
   onClose
 }: Props): ReactElement {
   const [search, setSearch] = useState('')
@@ -101,6 +105,24 @@ export function CategoryEditorModal({
             </button>
             <button className={onlyHidden ? 'active' : ''} onClick={() => setOnlyHidden(true)}>
               Gizlenenler ({prefs.hidden.length})
+            </button>
+          </div>
+        </div>
+
+        <div className="cat-edit-bulk">
+          <span>Çok sayıda kategori mi var?</span>
+          <div className="cat-edit-bulk-actions">
+            <button
+              className="btn-secondary btn-sm"
+              onClick={() => {
+                if (confirm(`${groups.length} kategorinin tümü gizlensin mi? Sonra istediklerini tek tek gösterebilirsin.`))
+                  onHideAll()
+              }}
+            >
+              Tümünü gizle
+            </button>
+            <button className="btn-secondary btn-sm" onClick={onShowAll}>
+              Tümünü göster
             </button>
           </div>
         </div>

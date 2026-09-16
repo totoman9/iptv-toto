@@ -14,6 +14,10 @@ export interface CategoryPrefsApi {
   togglePinned: (section: CategorySection, group: string) => void
   movePinned: (section: CategorySection, group: string, dir: -1 | 1) => void
   reset: (section: CategorySection) => void
+  // 200+ kategorisi olan hesaplarda teker teker gizlemek yerine hepsini
+  // gizleyip sonra kullanacaklarını tek tek göstermek çok daha hızlı
+  hideAll: (section: CategorySection, allGroups: string[]) => void
+  showAll: (section: CategorySection) => void
 }
 
 export function useCategoryPrefs(sourceId: string | null): CategoryPrefsApi {
@@ -65,6 +69,9 @@ export function useCategoryPrefs(sourceId: string | null): CategoryPrefsApi {
         ;[pinned[i], pinned[j]] = [pinned[j], pinned[i]]
         return { ...p, pinned }
       }),
-    reset: (section) => update(section, () => EMPTY_PREFS)
+    reset: (section) => update(section, () => EMPTY_PREFS),
+    // Sabitlenen bir kategori gizli olamaz; hepsini gizlerken sabitlemeler de kalkar
+    hideAll: (section, allGroups) => update(section, () => ({ hidden: allGroups, pinned: [] })),
+    showAll: (section) => update(section, (p) => ({ ...p, hidden: [] }))
   }
 }

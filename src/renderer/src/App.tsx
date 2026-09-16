@@ -1217,6 +1217,8 @@ function App(): ReactElement {
           onTogglePinned={(g) => categoryPrefs.togglePinned(editSection, g)}
           onMovePinned={(g, dir) => categoryPrefs.movePinned(editSection, g, dir)}
           onReset={() => categoryPrefs.reset(editSection)}
+          onHideAll={() => categoryPrefs.hideAll(editSection, editorGroups.map((g) => g.name))}
+          onShowAll={() => categoryPrefs.showAll(editSection)}
           onClose={() => setEditSection(null)}
         />
       )}
