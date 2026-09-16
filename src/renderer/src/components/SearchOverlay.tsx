@@ -215,7 +215,7 @@ export function SearchOverlay({
                           {item.logo ? (
                             <img src={item.logo} alt="" onError={(e) => (e.currentTarget.style.display = 'none')} />
                           ) : (
-                            item.name.slice(0, 2)
+                            item.name
                           )}
                         </span>
                         <span className="search-poster-name">{item.name}</span>

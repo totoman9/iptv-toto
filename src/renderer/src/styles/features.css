@@ -460,15 +460,23 @@
 
 .search-poster-img {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-end;
+  justify-content: flex-start;
   aspect-ratio: 2 / 3;
   border-radius: 10px;
   background: var(--surface);
   overflow: hidden;
   color: var(--text-faint);
   font-weight: 700;
+  font-size: 12px;
+  padding: 8px 7px;
   border: 2px solid transparent;
+}
+
+.search-poster-img:not(:has(img)) {
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
 }
 
 .search-poster:hover .search-poster-img {
