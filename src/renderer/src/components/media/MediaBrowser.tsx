@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { List, type RowComponentProps } from 'react-window'
 import type {
   PlayableItem,
@@ -11,11 +11,14 @@ import type { SectionStatus } from '../../hooks/useLibrary'
 import type { ContinueWatchingEntry } from '../../lib/storage'
 import { clearProgress, isFinished, progressRatio } from '../../lib/continueWatching'
 import { useProgress } from '../../hooks/useProgress'
-import { getVodStreamUrl } from '../../lib/xtream'
+import { getSeriesSeasons, getVodDetails, getVodStreamUrl } from '../../lib/xtream'
 import { CategoryColumn, ALL_GROUP } from '../CategoryColumn'
 import { usePersisted } from '../../lib/persisted'
-import { followStore, getPreviousVisit, watchlistStore } from '../../lib/library'
-import { cleanTitle } from '../../lib/omdb'
+import { followStore, getPreviousVisit, toggleWatchlist, watchlistStore } from '../../lib/library'
+import { cleanTitle, lookupImdb } from '../../lib/omdb'
+import { updateSettings } from '../../lib/settings'
+import { useSettings } from '../../hooks/useSettings'
+import { cardHeight, type PosterShape, type PosterSize } from '../../lib/theme'
 import {
   IconArrowLeft,
   IconChevronRight,
@@ -23,11 +26,13 @@ import {
   IconEdit,
   IconFilter,
   IconGrid,
+  IconInfo,
   IconMovie,
   IconPlay,
   IconSearch
 } from '../Icons'
-import { PosterCard, type PosterCardData } from './PosterCard'
+import { PosterCard, cssUrl, type PosterCardData } from './PosterCard'
+import { HoverPreview, type HoverTarget } from './HoverPreview'
 import { SkeletonPosterRows } from '../Skeleton'
 import { PosterGrid } from './PosterGrid'
 import { MovieDetail } from './MovieDetail'
@@ -69,9 +74,24 @@ interface Props {
   // Aramadan gelen "şu filmi/diziyi aç" isteği
   openRequest?: { id: string; nonce: number } | null
   onEditCategories?: () => void
+  posterSize: PosterSize
+  posterShape: PosterShape
 }
 
 const ROW_LIMIT = 30
+// Vitrin satırının yüksekliği; vitrinin kendisi (CSS: .media-hero 540px)
+// bundan uzun, ilk satır vitrinin solan alt kısmının üzerine biner.
+const HERO_ROW_H = 480
+const HERO_ROTATE_MS = 10_000
+const NEW_WINDOW_S = 7 * 24 * 3600
+
+interface HeroExtra {
+  plot?: string
+  backdrop?: string
+}
+
+// Vitrindeki içeriğin özeti ve geniş görseli — her içerik için bir kez sorulur
+const heroExtraCache = new Map<string, HeroExtra>()
 
 interface Filters {
   genre: string | null
@@ -129,10 +149,17 @@ function entryToPlayable(e: ContinueWatchingEntry): PlayableItem | null {
   }
 }
 
+// Süresi bilinmiyorsa (sağlayıcı bildirmediyse) "0 dk kaldı" yerine
+function continueLabel(e: ContinueWatchingEntry): string {
+  if (!(e.durationSeconds > 0) || !Number.isFinite(e.durationSeconds)) return 'Devam et'
+  const min = Math.round((e.durationSeconds - e.positionSeconds) / 60)
+  return min >= 1 ? `${min} dk kaldı` : 'Bitmek üzere'
+}
+
 // ---------- Vitrin satırları ----------
 
 type HomeRow =
-  | { type: 'hero'; entry: Entry }
+  | { type: 'hero'; entries: Entry[] }
   | {
       type: 'row'
       key: string
@@ -148,23 +175,35 @@ type HomeRow =
       title: string
       cards: PosterCardData[]
       onOpen: (id: string) => void
+      source: 'provider' | 'imdb'
+      loading: boolean
     }
+
+type HoverStart = (el: HTMLElement, data: PosterCardData, onOpen: (id: string) => void, shape: PosterShape) => void
 
 interface HomeRowProps {
   rows: HomeRow[]
   kind: Kind
+  shape: PosterShape
+  heroIndex: number
+  heroExtra: Record<string, HeroExtra>
+  top10Rank: Map<string, number>
+  onHeroIndex: (i: number) => void
+  onHeroHover: (paused: boolean) => void
   onHeroPlay: (e: Entry) => void
   onHeroInfo: (e: Entry) => void
+  onHoverStart: HoverStart
+  onHoverEnd: () => void
 }
 
-function RowScroller({ children }: { children: ReactElement[] }): ReactElement {
+function RowScroller({ children, landscape }: { children: ReactElement[]; landscape?: boolean }): ReactElement {
   const ref = useRef<HTMLDivElement>(null)
   const scroll = (dir: 1 | -1): void => {
     const el = ref.current
     if (el) el.scrollBy({ left: dir * (el.clientWidth - 120), behavior: 'smooth' })
   }
   return (
-    <div className="media-row-scroller-wrap">
+    <div className={`media-row-scroller-wrap ${landscape ? 'is-landscape' : ''}`}>
       <button className="row-arrow row-arrow-left" onClick={() => scroll(-1)} aria-label="Sola kaydır">
         <IconChevronRight size={18} style={{ transform: 'rotate(180deg)' }} />
       </button>
@@ -183,40 +222,77 @@ function HomeListRow({
   style,
   rows,
   kind,
+  shape,
+  heroIndex,
+  heroExtra,
+  top10Rank,
+  onHeroIndex,
+  onHeroHover,
   onHeroPlay,
-  onHeroInfo
+  onHeroInfo,
+  onHoverStart,
+  onHoverEnd
 }: RowComponentProps<HomeRowProps>): ReactElement {
   const row = rows[index]
   if (row.type === 'hero') {
-    const e = row.entry
-    const bg = e.backdrop || e.logo
+    const e = row.entries[heroIndex % row.entries.length]
+    const extra = heroExtra[e.id]
+    const sharp = extra?.backdrop || e.backdrop
+    const bg = sharp || e.logo
+    const rank = top10Rank.get(e.id)
     return (
       <div style={style}>
-        <div className="media-hero">
-          {bg && <div className="media-hero-bg" style={{ backgroundImage: `url("${bg}")` }} />}
+        <div className="media-hero" onMouseEnter={() => onHeroHover(true)} onMouseLeave={() => onHeroHover(false)}>
+          {bg && (
+            <div
+              key={bg}
+              className={`media-hero-bg ${sharp ? 'is-sharp' : ''}`}
+              style={{ backgroundImage: cssUrl(bg) }}
+            />
+          )}
           <div className="media-hero-shade" />
-          <div className="media-hero-content">
-            {e.logo && <img className="media-hero-poster" src={e.logo} alt="" />}
+          <div className="media-hero-content" key={e.id}>
+            {e.logo && !sharp && <img className="media-hero-poster" src={e.logo} alt="" />}
             <div>
-              <div className="media-hero-kicker">
-                {kind === 'vod' ? 'Son eklenen film' : 'Öne çıkan dizi'}
-              </div>
+              {rank !== undefined ? (
+                <div className="media-hero-top10">
+                  <b>
+                    TOP<em>10</em>
+                  </b>
+                  Bugün {kind === 'vod' ? 'filmlerde' : 'dizilerde'} {rank + 1} numara
+                </div>
+              ) : (
+                <div className="media-hero-kicker">{kind === 'vod' ? 'Son eklenen film' : 'Öne çıkan dizi'}</div>
+              )}
               <div className="media-hero-title">{e.name}</div>
               <div className="media-hero-meta">
                 {e.year && <span>{e.year}</span>}
                 {e.rating ? <span>★ {e.rating.toFixed(1)}</span> : null}
                 <span>{e.group}</span>
               </div>
+              {extra?.plot && <p className="media-hero-plot">{extra.plot}</p>}
               <div className="media-hero-actions">
                 <button className="btn-light" onClick={() => onHeroPlay(e)}>
                   <IconPlay size={14} /> {kind === 'vod' ? 'Oynat' : 'Bölümler'}
                 </button>
                 <button className="btn-glass" onClick={() => onHeroInfo(e)}>
-                  Detaylar
+                  <IconInfo size={15} /> Daha fazla bilgi
                 </button>
               </div>
             </div>
           </div>
+          {row.entries.length > 1 && (
+            <div className="media-hero-dots">
+              {row.entries.map((x, i) => (
+                <button
+                  key={x.id}
+                  className={i === heroIndex % row.entries.length ? 'active' : ''}
+                  onClick={() => onHeroIndex(i)}
+                  aria-label={x.name}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     )
@@ -226,12 +302,40 @@ function HomeListRow({
       <div style={style} className="media-row">
         <div className="media-row-head">
           <span className="media-row-title">{row.title}</span>
+          <span className="media-row-count">
+            {row.source === 'imdb'
+              ? row.loading
+                ? 'IMDb puanları alınıyor…'
+                : 'IMDb puanına göre'
+              : 'Sağlayıcı puanına göre'}
+          </span>
+          <div className="seg-toggle seg-mini" title="Top 10 neye göre sıralansın?">
+            <button
+              className={row.source === 'provider' ? 'active' : ''}
+              onClick={() => updateSettings({ top10Source: 'provider' })}
+            >
+              Sağlayıcı
+            </button>
+            <button
+              className={row.source === 'imdb' ? 'active' : ''}
+              onClick={() => updateSettings({ top10Source: 'imdb' })}
+            >
+              IMDb
+            </button>
+          </div>
         </div>
         <RowScroller>
           {row.cards.map((c, i) => (
-            <div className="top10-item" key={c.id}>
-              <span className="top10-rank">{i + 1}</span>
-              <PosterCard data={c} onClick={() => row.onOpen(c.id)} />
+            <div className={`top10-item ${i >= 9 ? 'is-wide' : ''}`} key={c.id}>
+              <span className="top10-rank">
+                <span>{i + 1}</span>
+              </span>
+              <PosterCard
+                data={c}
+                onClick={() => row.onOpen(c.id)}
+                onHoverStart={(el, d) => onHoverStart(el, d, row.onOpen, 'portrait')}
+                onHoverEnd={onHoverEnd}
+              />
             </div>
           ))}
         </RowScroller>
@@ -249,9 +353,16 @@ function HomeListRow({
           </button>
         )}
       </div>
-      <RowScroller>
+      <RowScroller landscape={shape === 'landscape'}>
         {row.cards.map((c) => (
-          <PosterCard key={c.id} data={c} onClick={() => row.onOpen(c.id)} />
+          <PosterCard
+            key={c.id}
+            data={c}
+            shape={shape}
+            onClick={() => row.onOpen(c.id)}
+            onHoverStart={(el, d) => onHoverStart(el, d, row.onOpen, shape)}
+            onHoverEnd={onHoverEnd}
+          />
         ))}
       </RowScroller>
     </div>
@@ -272,7 +383,9 @@ export function MediaBrowser({
   guard,
   onPlay,
   openRequest,
-  onEditCategories
+  onEditCategories,
+  posterSize,
+  posterShape
 }: Props): ReactElement {
   const [route, setRoute] = useState<Route>({ name: 'home' })
   const [layout, setLayout] = useState<Layout>(() => loadLayout(kind))
@@ -283,6 +396,9 @@ export function MediaBrowser({
   const watchlist = usePersisted(watchlistStore)
   const followed = usePersisted(followStore)
   const { entries: progressEntries, byId: progressById } = useProgress()
+  const settings = useSettings()
+  const top10Source = settings.top10Source ?? 'provider'
+  const [scrolled, setScrolled] = useState(false)
 
   const entries = useMemo<Entry[]>(
     () =>
@@ -359,9 +475,13 @@ export function MediaBrowser({
       title: e.name,
       subtitle,
       image: e.logo,
+      backdrop: e.backdrop,
       rating: e.rating,
       progress,
-      locked: isLocked(e.group)
+      locked: isLocked(e.group),
+      isNew: kind === 'vod' && !!e.added && Date.now() / 1000 - e.added < NEW_WINDOW_S,
+      year: e.year,
+      group: e.group
     }
   }
 
@@ -464,6 +584,155 @@ export function MediaBrowser({
     })
   }
 
+  // ----- Vitrin (üst bant): en fazla 5 içerik, 10 sn'de bir döner -----
+  const heroEntries = useMemo(() => {
+    const pool =
+      kind === 'vod'
+        ? entries.filter((e) => e.added).sort((a, b) => (b.added || 0) - (a.added || 0))
+        : entries
+            .filter((e) => (e.rating || 0) > 0)
+            .sort((a, b) => (b.backdrop ? 1 : 0) - (a.backdrop ? 1 : 0) || (b.rating || 0) - (a.rating || 0))
+    const pick = pool.filter((e) => e.logo && !isLocked(e.group)).slice(0, 5)
+    return pick.length ? pick : entries.filter((e) => e.logo && !isLocked(e.group)).slice(0, 1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kind, entries, lockedGroups])
+
+  const [heroIndex, setHeroIndex] = useState(0)
+  const [heroPaused, setHeroPaused] = useState(false)
+  const [heroExtra, setHeroExtra] = useState<Record<string, HeroExtra>>({})
+
+  useEffect(() => {
+    if (heroEntries.length < 2 || heroPaused) return
+    const t = setInterval(() => setHeroIndex((i) => (i + 1) % heroEntries.length), HERO_ROTATE_MS)
+    return () => clearInterval(t)
+  }, [heroEntries.length, heroPaused])
+
+  const heroEntry = heroEntries.length ? heroEntries[heroIndex % heroEntries.length] : undefined
+  useEffect(() => {
+    if (!heroEntry || !source || source.type !== 'xtream') return
+    const cacheKey = `${source.id}:${heroEntry.id}`
+    const cached = heroExtraCache.get(cacheKey)
+    if (cached) {
+      setHeroExtra((x) => (x[heroEntry.id] ? x : { ...x, [heroEntry.id]: cached }))
+      return
+    }
+    let cancelled = false
+    const load: Promise<HeroExtra> | null = heroEntry.vod
+      ? getVodDetails(source, heroEntry.vod.streamId).then((d) => ({ plot: d.plot, backdrop: d.backdrop }))
+      : heroEntry.series
+        ? getSeriesSeasons(source, heroEntry.series.seriesId).then((r) => ({ plot: r.details.plot }))
+        : null
+    load
+      ?.then((x) => {
+        heroExtraCache.set(cacheKey, x)
+        if (!cancelled) setHeroExtra((p) => ({ ...p, [heroEntry.id]: x }))
+      })
+      .catch(() => heroExtraCache.set(cacheKey, {}))
+    return () => {
+      cancelled = true
+    }
+  }, [heroEntry, source])
+
+  // ----- Top 10: sağlayıcı puanı ya da (tercihe bağlı) IMDb puanı -----
+  const top10Candidates = useMemo(() => {
+    const usable = entries.filter((e) => e.logo && !isLocked(e.group))
+    const rated = usable.filter((e) => (e.rating || 0) > 0).sort((a, b) => (b.rating || 0) - (a.rating || 0))
+    if (rated.length >= 10) return rated.slice(0, 30)
+    // Sağlayıcı puan vermiyorsa IMDb için son eklenenlerden aday seç
+    return [...rated, ...usable.filter((e) => !(e.rating || 0)).sort((a, b) => (b.added || b.updated || 0) - (a.added || a.updated || 0))].slice(0, 30)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entries, lockedGroups])
+
+  const [imdbRatings, setImdbRatings] = useState<Map<string, number> | null>(null)
+  const [imdbLoading, setImdbLoading] = useState(false)
+
+  useEffect(() => {
+    if (top10Source !== 'imdb' || top10Candidates.length === 0) {
+      setImdbRatings(null)
+      setImdbLoading(false)
+      return
+    }
+    let cancelled = false
+    setImdbLoading(true)
+    void (async () => {
+      const ratings = new Map<string, number>()
+      for (const e of top10Candidates) {
+        if (cancelled) return
+        const started = Date.now()
+        try {
+          const info = await lookupImdb([e.name], e.year, kind === 'vod' ? 'movie' : 'series')
+          if (info?.rating) ratings.set(e.id, info.rating)
+        } catch {
+          // Anahtar/limit hatası: elimizdekilerle yetin
+          break
+        }
+        // Önbellekten gelmediyse OMDb'yi yormamak için kısa ara
+        if (Date.now() - started > 40) await new Promise((r) => setTimeout(r, 250))
+      }
+      if (!cancelled) {
+        setImdbRatings(ratings)
+        setImdbLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [top10Source, top10Candidates, kind])
+
+  const top10 = useMemo(() => {
+    if (top10Source === 'imdb' && imdbRatings && imdbRatings.size >= 3) {
+      return top10Candidates
+        .filter((e) => imdbRatings.has(e.id))
+        .sort((a, b) => imdbRatings.get(b.id)! - imdbRatings.get(a.id)!)
+        .slice(0, 10)
+        .map((e) => ({ e, rating: imdbRatings.get(e.id) }))
+    }
+    return top10Candidates
+      .filter((e) => (e.rating || 0) > 0)
+      .slice(0, 10)
+      .map((e) => ({ e, rating: e.rating }))
+  }, [top10Source, imdbRatings, top10Candidates])
+
+  const top10Rank = useMemo(() => new Map(top10.map(({ e }, i) => [e.id, i])), [top10])
+
+  // ----- Üzerine gelince açılan önizleme -----
+  const [hover, setHover] = useState<HoverTarget | null>(null)
+  const hoverCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const cancelHoverClose = useCallback(() => {
+    if (hoverCloseTimer.current) clearTimeout(hoverCloseTimer.current)
+    hoverCloseTimer.current = null
+  }, [])
+  const startHover = useCallback<HoverStart>(
+    (el, data, onOpen, shape) => {
+      cancelHoverClose()
+      setHover({ data, rect: el.getBoundingClientRect(), onOpen, shape })
+    },
+    [cancelHoverClose]
+  )
+  const endHover = useCallback(() => {
+    cancelHoverClose()
+    hoverCloseTimer.current = setTimeout(() => setHover(null), 160)
+  }, [cancelHoverClose])
+
+  useEffect(() => {
+    if (!hover) return
+    const close = (): void => setHover(null)
+    window.addEventListener('wheel', close, { passive: true })
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('resize', close)
+    return () => {
+      window.removeEventListener('wheel', close)
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('resize', close)
+    }
+  }, [hover])
+
+  useEffect(() => {
+    setHover(null)
+  }, [route, layout, search, filters])
+
+  useEffect(() => () => cancelHoverClose(), [cancelHoverClose])
+
   // ----- Vitrin satırları -----
   const homeRows = useMemo<HomeRow[]>(() => {
     const rows: HomeRow[] = []
@@ -472,10 +741,7 @@ export function MediaBrowser({
         ? [...entries].filter((e) => e.added).sort((a, b) => (b.added || 0) - (a.added || 0))
         : [...entries].filter((e) => (e.rating || 0) > 0).sort((a, b) => (b.rating || 0) - (a.rating || 0))
 
-    const featured =
-      recent.find((e) => e.logo && !isLocked(e.group)) ||
-      entries.find((e) => e.logo && !isLocked(e.group))
-    if (featured) rows.push({ type: 'hero', entry: featured })
+    if (heroEntries.length > 0) rows.push({ type: 'hero', entries: heroEntries })
 
     // Bugün senin için seçtiklerimiz — gün boyunca sabit kalan (ertesi gün
     // değişen), izlemekte olduğun ya da listende olanları tekrar önermeyen
@@ -506,18 +772,15 @@ export function MediaBrowser({
       })
     }
 
-    // Top 10 — en yüksek puanlı içerikler
-    const top10 = [...entries]
-      .filter((e) => (e.rating || 0) > 0 && e.logo && !isLocked(e.group))
-      .sort((a, b) => (b.rating || 0) - (a.rating || 0))
-      .slice(0, 10)
     if (top10.length >= 3) {
       rows.push({
         type: 'top10',
         key: 'top10',
-        title: kind === 'vod' ? "Filmlerde bugün 10 numara" : "Dizilerde bugün 10 numara",
-        cards: top10.map(toCard),
-        onOpen: openDetail
+        title: kind === 'vod' ? 'Filmlerde bugün 10 numara' : 'Dizilerde bugün 10 numara',
+        cards: top10.map(({ e, rating }) => ({ ...toCard(e), rating })),
+        onOpen: openDetail,
+        source: top10Source,
+        loading: top10Source === 'imdb' && imdbLoading
       })
     }
 
@@ -535,7 +798,7 @@ export function MediaBrowser({
               subtitle:
                 kind === 'series'
                   ? `S${e.season} · B${e.episodeNum}${isFinished(e) ? ' · izlendi' : ''}`
-                  : `${Math.max(0, Math.round((e.durationSeconds - e.positionSeconds) / 60))} dk kaldı`,
+                  : continueLabel(e),
               image: e.logo,
               progress: isFinished(e) ? undefined : progressRatio(e),
               locked: isLocked(e.group || '')
@@ -605,7 +868,7 @@ export function MediaBrowser({
     }
     return rows
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind, entries, orderedGroups, byGroup, continueList, progressById, seriesLatest, lockedGroups, route, watchlist, followed])
+  }, [kind, entries, orderedGroups, byGroup, continueList, progressById, seriesLatest, lockedGroups, route, watchlist, followed, heroEntries, top10, top10Source, imdbLoading])
 
   const searchResults = useMemo(() => {
     const q = search.trim().toLocaleLowerCase('tr')
@@ -888,14 +1151,24 @@ export function MediaBrowser({
     )
   }
 
+  const gridProps = {
+    shape: posterShape,
+    size: posterSize,
+    onHoverStart: (el: HTMLElement, d: PosterCardData) => startHover(el, d, openDetail, posterShape),
+    onHoverEnd: endHover
+  }
+  const rowH = cardHeight(posterSize, posterShape) + 72
+  const top10H = cardHeight(posterSize, 'portrait') + 80
+
   let body: ReactElement
+  let isHome = false
   if (searchResults) {
     body = (
       <>
         <div className="media-page-sub">
           “{search.trim()}” için {searchResults.length} sonuç
         </div>
-        <PosterGrid items={searchResults} onOpen={openDetail} emptyText="Sonuç bulunamadı" />
+        <PosterGrid items={searchResults} onOpen={openDetail} emptyText="Sonuç bulunamadı" {...gridProps} />
       </>
     )
   } else if (filterActive) {
@@ -904,7 +1177,12 @@ export function MediaBrowser({
         <div className="media-page-sub">
           Filtreye uyan {filtered.length.toLocaleString('tr-TR')} {label}
         </div>
-        <PosterGrid items={filtered.map(toCard)} onOpen={openDetail} emptyText="Bu filtreye uyan içerik yok" />
+        <PosterGrid
+          items={filtered.map(toCard)}
+          onOpen={openDetail}
+          emptyText="Bu filtreye uyan içerik yok"
+          {...gridProps}
+        />
       </>
     )
   } else if (layout === 'grid') {
@@ -920,7 +1198,7 @@ export function MediaBrowser({
           lockedGroups={lockedGroups}
           onEdit={onEditCategories}
         />
-        <PosterGrid items={list.map(toCard)} onOpen={openDetail} />
+        <PosterGrid items={list.map(toCard)} onOpen={openDetail} {...gridProps} />
       </div>
     )
   } else if (route.name === 'category') {
@@ -928,39 +1206,85 @@ export function MediaBrowser({
     body = (
       <>
         <div className="media-page-sub">{list.length} {label}</div>
-        <PosterGrid items={list.map(toCard)} onOpen={openDetail} />
+        <PosterGrid items={list.map(toCard)} onOpen={openDetail} {...gridProps} />
       </>
     )
   } else {
+    isHome = !filterOpen
     body = (
       <div className="media-scroll">
         <List
+          key={`${posterShape}-${posterSize}`}
           rowComponent={HomeListRow}
           rowCount={homeRows.length}
+          overscanCount={3}
           rowHeight={(index) =>
-            homeRows[index].type === 'hero' ? 462 : homeRows[index].type === 'top10' ? 380 : 346
+            homeRows[index].type === 'hero' ? HERO_ROW_H : homeRows[index].type === 'top10' ? top10H : rowH
           }
+          onScroll={(ev) => setScrolled(ev.currentTarget.scrollTop > 30)}
           rowProps={{
             rows: homeRows,
             kind,
+            shape: posterShape,
+            heroIndex,
+            heroExtra,
+            top10Rank,
+            onHeroIndex: setHeroIndex,
+            onHeroHover: setHeroPaused,
             onHeroPlay: (e) => {
               if (e.vod) {
                 const v = e.vod
                 guard(e.group, () => playMovie(v, false))
               } else openDetail(e.id)
             },
-            onHeroInfo: (e) => openDetail(e.id)
+            onHeroInfo: (e) => openDetail(e.id),
+            onHoverStart: startHover,
+            onHoverEnd: endHover
           }}
         />
       </div>
     )
   }
 
+  const hoverEntry = hover ? entriesById.get(hover.data.id) : undefined
+  const closeHoverThen = (fn: () => void) => () => {
+    setHover(null)
+    fn()
+  }
+
   return (
-    <div className="media-browser">
+    <div className={`media-browser ${isHome ? 'is-home' : ''} ${isHome && scrolled ? 'is-scrolled' : ''}`}>
       {toolbar}
       {filterBar}
       {body}
+      {hover && (
+        <HoverPreview
+          key={hover.data.id}
+          target={hover}
+          genres={hoverEntry?.genres}
+          inList={watchlist.some((w) => w.id === hover.data.id)}
+          canList={!!hoverEntry}
+          playLabel={hoverEntry?.vod ? 'Oynat' : kind === 'series' ? 'Bölümler' : 'Aç'}
+          onEnter={cancelHoverClose}
+          onLeave={endHover}
+          onPlay={closeHoverThen(() => {
+            const v = hoverEntry?.vod
+            if (hoverEntry && v) guard(hoverEntry.group, () => playMovie(v, false))
+            else hover.onOpen(hover.data.id)
+          })}
+          onToggleList={() => {
+            if (hoverEntry)
+              toggleWatchlist({
+                id: hoverEntry.id,
+                kind,
+                name: hoverEntry.name,
+                logo: hoverEntry.logo,
+                group: hoverEntry.group
+              })
+          }}
+          onInfo={closeHoverThen(() => hover.onOpen(hover.data.id))}
+        />
+      )}
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ComponentType, type ReactElement, type ReactNode } from 'react'
 import type { SourceConfig } from '../../../shared/types'
-import { ACCENTS, type Accent, type PosterSize, type Theme } from '../lib/theme'
+import { ACCENTS, type Accent, type PosterShape, type PosterSize, type Theme } from '../lib/theme'
 import logoUrl from '../assets/logo.svg'
 import {
   IconBookmark,
@@ -45,6 +45,8 @@ interface Props {
   onAccentChange: (accent: Accent) => void
   posterSize: PosterSize
   onPosterSizeChange: (size: PosterSize) => void
+  posterShape: PosterShape
+  onPosterShapeChange: (shape: PosterShape) => void
   onOpenSearch: () => void
   onOpenSettings: () => void
   recordingActive: boolean
@@ -168,6 +170,8 @@ function AccountMenu(props: Props): ReactElement {
     onAccentChange,
     posterSize,
     onPosterSizeChange,
+    posterShape,
+    onPosterShapeChange,
     onOpenSettings,
     onOpenParentalLock
   } = props
@@ -253,6 +257,23 @@ function AccountMenu(props: Props): ReactElement {
             </button>
             <button className={posterSize === 'lg' ? 'active' : ''} onClick={() => onPosterSizeChange('lg')}>
               Büyük
+            </button>
+          </div>
+          <div className="menu-label">Afiş şekli</div>
+          <div className="seg-toggle menu-seg">
+            <button
+              className={posterShape === 'landscape' ? 'active' : ''}
+              onClick={() => onPosterShapeChange('landscape')}
+              title="Netflix'teki gibi geniş kartlar"
+            >
+              Yatay
+            </button>
+            <button
+              className={posterShape === 'portrait' ? 'active' : ''}
+              onClick={() => onPosterShapeChange('portrait')}
+              title="Klasik dikey film afişi"
+            >
+              Dikey
             </button>
           </div>
 

@@ -333,6 +333,18 @@ export function IconRewind({ size, ...rest }: IconProps): ReactElement {
   )
 }
 
+export function IconForward10({ size, ...rest }: IconProps): ReactElement {
+  return (
+    <svg {...base(size)} {...rest}>
+      <path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1" />
+      <path d="M20.5 4v4.5H16" />
+      <text x="12" y="15.2" fontSize="7" fontWeight="700" textAnchor="middle" fill="currentColor" stroke="none">
+        10
+      </text>
+    </svg>
+  )
+}
+
 export function IconCamera({ size, ...rest }: IconProps): ReactElement {
   return (
     <svg {...base(size)} {...rest}>

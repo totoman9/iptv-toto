@@ -103,6 +103,28 @@ export function SettingsModal({ onClose }: { onClose: () => void }): ReactElemen
         </section>
 
         <section className="settings-section">
+          <div className="settings-section-title">“Top 10” sıralaması</div>
+          <p className="modal-sub">
+            Film ve dizi vitrinindeki “Bugün 10 numara” satırı neye göre sıralansın? Sağlayıcı puanı anında
+            gelir; IMDb puanı daha isabetlidir ama ilk seferde birkaç saniye sürer (sonra hatırlanır).
+          </p>
+          <div className="seg-toggle" style={{ alignSelf: 'flex-start', width: 'fit-content' }}>
+            <button
+              className={(settings.top10Source ?? 'provider') === 'provider' ? 'active' : ''}
+              onClick={() => updateSettings({ top10Source: 'provider' })}
+            >
+              Sağlayıcı puanı
+            </button>
+            <button
+              className={settings.top10Source === 'imdb' ? 'active' : ''}
+              onClick={() => updateSettings({ top10Source: 'imdb' })}
+            >
+              IMDb puanı
+            </button>
+          </div>
+        </section>
+
+        <section className="settings-section">
           <div className="settings-section-title">İnternetten altyazı (OpenSubtitles)</div>
           <p className="modal-sub">
             Filmde/dizide altyazı yoksa Türkçe altyazıyı internetten bulup ekler. Ücretsiz hesap açıp{' '}

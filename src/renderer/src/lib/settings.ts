@@ -4,6 +4,9 @@
 export interface AppSettings {
   // Kullanıcının kendi OMDb anahtarı (boşsa uygulamayla gelen anahtar kullanılır)
   omdbKey?: string
+  // "Top 10" satırının neye göre sıralanacağı: sağlayıcının kendi puanı
+  // (varsayılan, anında) ya da IMDb puanı (OMDb'den sorulur, önbelleğe alınır)
+  top10Source?: 'provider' | 'imdb'
 }
 
 // Uygulamayla birlikte gelen OMDb anahtarı: IMDb puanları kurulumdan hemen

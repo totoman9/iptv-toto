@@ -1049,3 +1049,84 @@ body.compact-mode .settings-panel {
   width: calc(100% - 16px);
   max-height: calc(100% - 64px);
 }
+
+/* ---------- Film/dizi: Netflix tarzı alt çubuk ----------
+   Üstte tam genişlik sarma çubuğu + kalan süre; altında solda oynat,
+   10 sn geri/ileri ve ses, ortada başlık, sağda ayarlar. */
+.vod-seek-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.vod-seek-row .seek-bar {
+  height: 5px;
+  background: linear-gradient(
+    90deg,
+    var(--primary-light) var(--seek-pct, 0%),
+    rgba(255, 255, 255, 0.25) var(--seek-pct, 0%)
+  );
+  transition: height 0.12s;
+}
+
+.vod-seek-row .seek-bar:hover {
+  height: 8px;
+}
+
+.vod-seek-row .time-label {
+  min-width: 64px;
+  text-align: right;
+  font-size: 13px;
+  color: var(--player-text);
+}
+
+.player-controls.is-vod {
+  margin-top: 10px;
+}
+
+.player-controls.is-vod .icon-btn {
+  width: 38px;
+  height: 38px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--player-text);
+  transition: transform 0.12s;
+}
+
+.player-controls.is-vod .icon-btn:hover {
+  border-color: transparent;
+  transform: scale(1.14);
+}
+
+.player-controls.is-vod .transport-play {
+  background: var(--gradient);
+  color: #fff;
+}
+
+.player-controls.is-vod .icon-btn-active {
+  background: rgba(var(--accent-rgb), 0.4);
+}
+
+.vod-title {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  color: var(--player-text);
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vod-title strong {
+  font-weight: 800;
+}
+
+.vod-title span {
+  margin-left: 8px;
+  color: var(--player-text-dim);
+}
+
+.player-pane-video-wrap:fullscreen .vod-title {
+  font-size: 16px;
+}

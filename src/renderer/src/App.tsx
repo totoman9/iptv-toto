@@ -2,7 +2,12 @@ import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { flushSync } from 'react-dom'
 import { TopNav, type ViewKey } from './components/TopNav'
 import { CategoryColumn, ALL_GROUP } from './components/CategoryColumn'
-import { ItemListColumn, type ListableItem, type ListViewMode } from './components/ItemListColumn'
+import {
+  ItemListColumn,
+  type ChannelMeta,
+  type ListableItem,
+  type ListViewMode
+} from './components/ItemListColumn'
 import { MediaBrowser } from './components/media/MediaBrowser'
 import { ManageSourcesModal } from './components/ManageSourcesModal'
 import { PinPromptModal } from './components/PinPromptModal'
@@ -32,12 +37,15 @@ import {
   applyPosterSize,
   applyTheme,
   loadAccent,
+  loadPosterShape,
   loadPosterSize,
   loadTheme,
   saveAccent,
+  savePosterShape,
   savePosterSize,
   saveTheme,
   type Accent,
+  type PosterShape,
   type PosterSize,
   type Theme
 } from './lib/theme'
@@ -54,7 +62,7 @@ import { useReminders } from './hooks/useReminders'
 import { REMINDER_LEAD_MS, type Reminder } from './lib/reminders'
 import { fold } from './lib/search'
 import { getAccountInfo, getTimeshiftUrl } from './lib/xtream'
-import type { IndexedChannel } from './lib/epgIndex'
+import { currentProgram, type IndexedChannel } from './lib/epgIndex'
 import type { Channel, EpgProgram, PlayableItem, RecordingEntry } from '../../shared/types'
 
 const LIST_VIEW_KEY = 'iptv-toto-live-view'
@@ -186,6 +194,7 @@ function App(): ReactElement {
   const [theme, setTheme] = useState<Theme>(loadTheme)
   const [accent, setAccent] = useState<Accent>(loadAccent)
   const [posterSize, setPosterSize] = useState<PosterSize>(loadPosterSize)
+  const [posterShape, setPosterShape] = useState<PosterShape>(loadPosterShape)
   // Mini pencere: uygulama küçülüp köşede her zaman üstte kalır
   const [compact, setCompact] = useState(false)
   // Çoklu ekran açıkken: başlangıç kanalı, hesabın bağlantı sınırı, kapanınca dönülecek yayın
@@ -215,6 +224,29 @@ function App(): ReactElement {
 
   // ----- Rehber dizini (şimdi yayında, maç merkezi, program araması) -----
   const epgIndex = useEpgIndex(activeSource, channels, liveOrder, favoriteIds)
+
+  // Kanal listesinde "şu an yayında" satırı: dakikada bir tazelenir
+  const [minuteTick, setMinuteTick] = useState(() => Date.now())
+  useEffect(() => {
+    const iv = setInterval(() => setMinuteTick(Date.now()), 60_000)
+    return () => clearInterval(iv)
+  }, [])
+  const liveNow = useMemo(() => {
+    const map = new Map<number, ChannelMeta>()
+    for (const ch of epgIndex.channels) {
+      const p = currentProgram(ch, minuteTick)
+      if (p) map.set(ch.streamId, { now: p.title, progress: (minuteTick - p.start) / (p.end - p.start) })
+    }
+    return map
+  }, [epgIndex.channels, minuteTick])
+  const getLiveMeta = useMemo(
+    () =>
+      (item: ListableItem): ChannelMeta | undefined => {
+        const sid = (item as Channel).streamId
+        return sid !== undefined ? liveNow.get(sid) : undefined
+      },
+    [liveNow]
+  )
   const programHits = useMemo(() => {
     const now = Date.now()
     return epgIndex.channels
@@ -516,6 +548,11 @@ function App(): ReactElement {
     setPosterSize(next)
     applyPosterSize(next)
     savePosterSize(next)
+  }
+
+  function changePosterShape(next: PosterShape): void {
+    setPosterShape(next)
+    savePosterShape(next)
   }
 
   function setCompactMode(on: boolean): void {
@@ -840,6 +877,7 @@ function App(): ReactElement {
             favoriteIds={favoriteIds}
             onToggleFavorite={toggleFavoriteWithUndo}
             onContextMenu={openChannelMenu}
+            getMeta={getLiveMeta}
             emptyIcon="search"
             emptyTitle="Canlı kanal bulunamadı"
             emptyHint={liveStatus === 'ready' ? 'Bu kaynakta canlı yayın listesi yok.' : ''}
@@ -893,6 +931,7 @@ function App(): ReactElement {
           onToggleFavorite={toggleFavoriteWithUndo}
           onContextMenu={openChannelMenu}
           onReorder={activeFolder ? undefined : favorites.reorderFavorites}
+          getMeta={getLiveMeta}
           emptyIcon={activeFolder ? 'folder' : 'favorite'}
           emptyTitle={activeFolder ? 'Bu klasör boş' : 'Favori kanalın yok'}
           emptyHint={
@@ -956,7 +995,7 @@ function App(): ReactElement {
   const mediaKind = view === 'vod' || view === 'series' ? view : null
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${mediaKind ? 'is-media-view' : ''}`}>
       <TopNav
         view={view}
         onViewChange={changeView}
@@ -973,6 +1012,8 @@ function App(): ReactElement {
         onAccentChange={changeAccent}
         posterSize={posterSize}
         onPosterSizeChange={changePosterSize}
+        posterShape={posterShape}
+        onPosterShapeChange={changePosterShape}
         onOpenSearch={() => setSearchOpen(true)}
         onOpenSettings={() => setShowSettings(true)}
         recordingActive={!!activeRecording}
@@ -999,6 +1040,8 @@ function App(): ReactElement {
               onPlay={playFromBrowser}
               openRequest={mediaOpen?.kind === mediaKind ? mediaOpen : null}
               onEditCategories={() => setEditSection(mediaKind)}
+              posterSize={posterSize}
+              posterShape={posterShape}
             />
           ) : null}
           <div key="player-host" className={`player-host host-${hostMode}`}>

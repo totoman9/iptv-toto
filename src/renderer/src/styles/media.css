@@ -1,10 +1,18 @@
 /* ---------- Film/dizi afiş boyutu ---------- */
+/* --poster-width: dikey afiş, --land-width: yatay kart genişliği.
+   Değerler lib/theme.ts'teki cardWidth() ile aynı olmalı. */
+:root {
+  --land-width: 280px;
+}
+
 :root[data-poster-size='sm'] {
   --poster-width: 118px;
+  --land-width: 220px;
 }
 
 :root[data-poster-size='lg'] {
   --poster-width: 190px;
+  --land-width: 340px;
 }
 
 /* ---------- Canlı TV: ızgara (kutucuk) görünümü ---------- */
@@ -174,15 +182,15 @@
 }
 
 /* Vitrin üst bandı */
+/* Kenardan kenara vitrin. Satır yüksekliği (MediaBrowser: HERO_ROW_H) bu
+   yükseklikten biraz az; böylece ilk satır vitrinin solan alt kısmına biner. */
 .media-hero {
   position: relative;
-  height: 420px;
-  margin: 20px 22px 0;
-  border-radius: 22px;
+  height: 540px;
   overflow: hidden;
   display: flex;
   align-items: flex-end;
-  background: #1e1730;
+  background: #07070a;
 }
 
 .media-hero-bg,
@@ -198,12 +206,10 @@
 .media-hero-shade {
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    90deg,
-    rgba(24, 12, 48, 0.94) 0%,
-    rgba(24, 12, 48, 0.6) 55%,
-    rgba(88, 28, 135, 0.25) 100%
-  );
+  background:
+    linear-gradient(0deg, var(--bg) 0%, color-mix(in srgb, var(--bg) 55%, transparent) 9%, transparent 21%),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.86) 0%, rgba(0, 0, 0, 0.5) 42%, rgba(0, 0, 0, 0) 72%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.35) 0%, transparent 22%);
 }
 
 .media-hero-content {
@@ -211,8 +217,16 @@
   display: flex;
   align-items: flex-end;
   gap: 26px;
-  padding: 30px 34px;
+  padding: 30px 44px 118px;
   color: #fff;
+  animation: hero-fade 0.6s ease;
+}
+
+@keyframes hero-fade {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
 }
 
 .media-hero-poster {
@@ -373,23 +387,47 @@
   opacity: 1;
 }
 
-/* Top 10 satırı — poster'ın arkasında/solunda büyük sıra numarası */
+/* Top 10 satırı — afişin solunda, afişin alt çizgisine oturan büyük sıra
+   numarası. Numara ayrı bir kutuda ve afiş görseliyle aynı yükseklikte;
+   böylece başlık uzunluğu ne olursa olsun tüm afişler aynı hizada durur. */
 .top10-item {
-  display: flex;
-  align-items: flex-end;
+  position: relative;
   flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  padding-left: calc(var(--poster-width, 150px) * 0.62);
+}
+
+.top10-item.is-wide {
+  padding-left: calc(var(--poster-width, 150px) * 1.05);
 }
 
 .top10-rank {
-  font-size: 130px;
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: calc(var(--poster-width, 150px) * 1.5);
+  display: flex;
+  align-items: flex-end;
+  font-size: calc(var(--poster-width, 150px) * 1.15);
   font-weight: 900;
   line-height: 1;
-  color: transparent;
-  -webkit-text-stroke: 2px var(--text-faint);
-  margin-right: -26px;
-  margin-bottom: -6px;
+  letter-spacing: -0.08em;
+  color: var(--bg);
+  -webkit-text-stroke: 3px var(--text-faint);
+  paint-order: stroke fill;
   user-select: none;
-  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.top10-rank span {
+  display: block;
+  margin-bottom: -0.17em;
+}
+
+.top10-item .poster-card {
+  position: relative;
+  z-index: 1;
 }
 
 /* Afiş kartı */
@@ -418,7 +456,7 @@
 }
 
 .poster-card:hover .poster-img {
-  transform: translateY(-3px) scale(1.045);
+  transform: scale(1.035);
   box-shadow: 0 14px 30px rgba(var(--accent-rgb), 0.25);
 }
 
@@ -457,7 +495,7 @@
 .poster-rating {
   position: absolute;
   top: 8px;
-  left: 8px;
+  right: 8px;
   background: rgba(10, 8, 19, 0.72);
   color: #fde68a;
   font-size: 11px;
@@ -535,7 +573,92 @@
 
 .poster-grid-row {
   display: flex;
+  align-items: flex-start;
   gap: 18px;
+  padding-top: 6px;
+}
+
+/* ---------- Yatay (Netflix tarzı) kartlar ---------- */
+.poster-card.shape-landscape {
+  width: var(--land-width, 280px);
+}
+
+.shape-landscape .poster-img {
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+}
+
+/* Sağlayıcı yalnızca dikey afiş verdiyse: afişin bulanık hâli zemine,
+   kendisi sağ tarafa — afiş kırpılıp yüzler/yazılar kesilmesin */
+.poster-land-blur {
+  position: absolute;
+  inset: -24px;
+  background-size: cover;
+  background-position: center;
+  filter: blur(18px) saturate(1.3) brightness(0.62);
+}
+
+.poster-img img.poster-land-side {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: auto;
+  height: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  box-shadow: -12px 0 26px rgba(0, 0, 0, 0.45);
+}
+
+.poster-land-caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 30px 12px 11px;
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.82));
+  color: #fff;
+  pointer-events: none;
+}
+
+.poster-land-caption.has-side {
+  right: 37.5%;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.35), transparent);
+}
+
+.poster-land-title {
+  font-size: 13.5px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.poster-land-sub {
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.shape-landscape .poster-progress {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  border-radius: 0;
+  z-index: 2;
+}
+
+.poster-badge.poster-badge-new {
+  background: #e50914;
+  border-radius: 4px;
+  letter-spacing: 0.02em;
 }
 
 /* ---------- Detay sayfası ---------- */
@@ -845,4 +968,418 @@
   align-items: center;
   gap: 12px;
   padding: 0 14px;
+}
+
+/* ---------- Netflix tarzı bütünleşik görünüm ----------
+   Film/Dizi ekranında üst menü ile araç çubuğu zeminle aynı renge bürünür,
+   araç çubuğu vitrinin üzerinde yüzer; aşağı kayınca düz zemine geçer. */
+.app-shell.is-media-view {
+  background: var(--bg);
+}
+
+.app-shell.is-media-view .topnav {
+  border-bottom-color: transparent;
+}
+
+.media-browser {
+  position: relative;
+}
+
+.media-browser.is-home .media-toolbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 6;
+  border-bottom-color: transparent;
+  background: linear-gradient(180deg, var(--bg) 0%, color-mix(in srgb, var(--bg) 70%, transparent) 55%, transparent);
+  transition:
+    background 0.25s,
+    box-shadow 0.25s;
+}
+
+.media-browser.is-home.is-scrolled .media-toolbar {
+  background: var(--bg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+}
+
+.media-hero-bg.is-sharp {
+  inset: 0;
+  filter: none;
+  opacity: 1;
+  background-position: center 22%;
+  animation: hero-bg-in 0.9s ease;
+}
+
+@keyframes hero-bg-in {
+  from {
+    opacity: 0;
+    transform: scale(1.04);
+  }
+}
+
+.media-hero-title {
+  font-size: 52px;
+}
+
+.media-hero-plot {
+  max-width: 560px;
+  margin: 0 0 18px;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.86);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.media-hero-top10 {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 16px;
+  font-weight: 800;
+  margin-bottom: 14px;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+.media-hero-top10 b {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  background: #e50914;
+  color: #fff;
+  font-size: 8px;
+  line-height: 1;
+  padding: 4px 4px 3px;
+  border-radius: 3px;
+  letter-spacing: 0.04em;
+  text-shadow: none;
+}
+
+.media-hero-top10 b em {
+  font-style: normal;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.media-hero-dots {
+  position: absolute;
+  right: 40px;
+  bottom: 122px;
+  display: flex;
+  gap: 6px;
+  z-index: 2;
+}
+
+.media-hero-dots button {
+  width: 22px;
+  height: 4px;
+  padding: 0;
+  border: none;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.35);
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    width 0.2s;
+}
+
+.media-hero-dots button.active {
+  width: 34px;
+  background: #fff;
+}
+
+.media-row-scroller {
+  align-items: flex-start;
+  padding: 6px 4px 12px;
+  margin: -4px -4px 0;
+}
+
+.media-row-scroller-wrap.is-landscape .row-arrow {
+  bottom: 12px;
+}
+
+.media-row-head .seg-mini {
+  margin-left: auto;
+  align-self: center;
+}
+
+.seg-toggle.seg-mini {
+  padding: 2px;
+}
+
+.seg-toggle.seg-mini button {
+  padding: 4px 10px;
+  font-size: 11px;
+}
+
+/* ---------- Üzerine gelince açılan önizleme kartı ---------- */
+.hover-preview {
+  position: fixed;
+  z-index: 900;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.55);
+  animation: hover-preview-in 0.2s ease-out;
+}
+
+@keyframes hover-preview-in {
+  from {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+}
+
+.hover-preview-art {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: var(--surface-2);
+  cursor: pointer;
+}
+
+.hover-preview-art > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.hover-preview-art img.poster-land-side {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: auto;
+  height: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  box-shadow: -12px 0 26px rgba(0, 0, 0, 0.45);
+}
+
+.hover-preview-title {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 34px 14px 12px;
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.8));
+  color: #fff;
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1.2;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+}
+
+.hover-preview-title.has-side {
+  right: 37.5%;
+}
+
+.hover-preview-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.hover-preview-progress div {
+  height: 100%;
+  background: #e50914;
+}
+
+.hover-preview-body {
+  padding: 12px 14px 14px;
+}
+
+.hp-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hp-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    transform 0.15s;
+}
+
+.hp-btn:hover {
+  border-color: var(--text);
+  transform: scale(1.06);
+}
+
+.hp-btn-play {
+  background: var(--text);
+  color: var(--bg);
+  border-color: transparent;
+}
+
+.hp-btn-play:hover {
+  border-color: transparent;
+}
+
+.hp-btn-more {
+  margin-left: auto;
+}
+
+.hp-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 11px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+
+.hp-new {
+  color: #46d369;
+  font-weight: 800;
+}
+
+.hp-rating {
+  color: #f5c518;
+  font-weight: 800;
+}
+
+.hp-chip {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 5px;
+  font-size: 11.5px;
+}
+
+.hp-genres {
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- Canlı TV görsel yenileme ----------
+   Daha az çizgi, hap biçimli kategoriler, büyük logolu ve "şu an yayında"
+   satırlı kanal listesi, üzerine gelince hafifçe yükselen kutucuklar. */
+.pane {
+  border-right-color: color-mix(in srgb, var(--border-soft) 55%, transparent);
+}
+
+.pane-categories {
+  background: color-mix(in srgb, var(--surface) 35%, transparent);
+}
+
+.category-row {
+  border-radius: 999px;
+  padding: 9px 14px;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.category-row.active {
+  background: var(--gradient);
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(var(--accent-rgb), 0.28);
+}
+
+.channel-row {
+  gap: 12px;
+  border-radius: 12px;
+  transition: background 0.15s;
+}
+
+.channel-row.active {
+  background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.26), rgba(var(--accent-rgb), 0.06));
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+.channel-row-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-2) 70%, #ffffff 8%);
+  box-shadow: inset 0 0 0 1px var(--border-soft);
+  padding: 4px;
+}
+
+.channel-row-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.channel-row-text .channel-row-name {
+  display: block;
+  flex: none;
+}
+
+.channel-row-now {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.channel-row-now-title {
+  font-size: 11px;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
+}
+
+.channel-row.active .channel-row-now-title {
+  color: var(--text-dim);
+}
+
+.channel-row-now-bar {
+  width: 34px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--surface-2);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.channel-row-now-bar span {
+  display: block;
+  height: 100%;
+  background: var(--gradient);
+}
+
+.channel-tile {
+  transition:
+    transform 0.15s,
+    box-shadow 0.15s,
+    border-color 0.15s;
+}
+
+.channel-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgba(var(--accent-rgb), 0.18);
+}
+
+.channel-tile.active {
+  box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.35);
 }

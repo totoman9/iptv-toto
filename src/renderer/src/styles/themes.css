@@ -101,12 +101,21 @@
    bu blok olmadan mor dışındaki renkler açık temanın soluk tonlarını
    kullanmaya devam edip siyah zeminde yanlış/soluk görünüyordu. */
 :root[data-theme='black'][data-accent]:not([data-accent='purple']) {
+  /* Açık temanın renk bloğu (:root[data-accent]:not(...)) daha özgül olduğu
+     için --bg / --text gibi değişkenleri de burada yeniden vermemiz şart;
+     yoksa zemin ve yazılar açık temadaki gibi kalıyordu. */
+  --bg: #000000;
+  --bg-elevated: color-mix(in srgb, var(--primary) 4%, #0a0a0a);
   --surface: color-mix(in srgb, var(--primary) 12%, #131313);
   --surface-2: color-mix(in srgb, var(--primary) 16%, #1a1a1a);
   --surface-hover: color-mix(in srgb, var(--primary) 24%, #232323);
   --border: color-mix(in srgb, var(--primary) 20%, #232323);
   --border-soft: color-mix(in srgb, var(--primary) 14%, #181818);
+  --text: #f2f2f5;
+  --text-dim: #a8a8b0;
+  --text-faint: #74747c;
   --accent-soft: color-mix(in srgb, var(--primary) 30%, #131313);
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
 }
 
 :root[data-theme='black'][data-accent='purple'] {

@@ -37,6 +37,7 @@ import {
   IconRecord,
   IconRefresh,
   IconRewind,
+  IconForward10,
   IconScissors,
   IconSkipNext,
   IconSkipPrev,
@@ -741,13 +742,14 @@ export function PlayerPane({
           video.volume = Math.max(0, video.volume - 0.05)
           break
         // Canlı yayında sağ/sol = sonraki/önceki kanal, diğerlerinde 10 sn sar
+        // Film/dizide Shift ile 30 sn
         case 'ArrowRight':
           if (currentItem.isLive) onNext?.()
-          else video.currentTime = Math.min(video.duration || 0, video.currentTime + 10)
+          else seekBy(e.shiftKey ? 30 : 10)
           break
         case 'ArrowLeft':
           if (currentItem.isLive) onPrev?.()
-          else video.currentTime = Math.max(0, video.currentTime - 10)
+          else seekBy(e.shiftKey ? -30 : -10)
           break
       }
     }
@@ -880,6 +882,16 @@ export function PlayerPane({
     const video = videoRef.current
     if (!video) return
     video.currentTime = Number(e.target.value)
+  }
+
+  // Film/dizide ileri-geri sarma. Süre henüz bilinmiyorsa (NaN) üst sınır
+  // koymadan sar; eskiden süre bilinmeyince hedef 0'a düşüyordu.
+  function seekBy(seconds: number): void {
+    const video = videoRef.current
+    if (!video || item?.isLive) return
+    const d = video.duration
+    const t = video.currentTime + seconds
+    video.currentTime = Math.max(0, Number.isFinite(d) && d > 0 ? Math.min(d - 1, t) : t)
   }
 
   function rewindBy(seconds: number): void {
@@ -1037,6 +1049,24 @@ export function PlayerPane({
     )
   ) : null
 
+  const volumeEl = (
+    <div className="volume-control">
+      <button className="icon-btn" onClick={toggleMute} title="Sesi kapat/aç (M)">
+        {isMuted || volume === 0 ? <IconMute size={15} /> : <IconVolume size={15} />}
+      </button>
+      <input
+        type="range"
+        className="volume-bar"
+        min={0}
+        max={1}
+        step={0.01}
+        value={isMuted ? 0 : volume}
+        onChange={onVolumeChange}
+      />
+    </div>
+  )
+  const seekPct = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0
+
   return (
     <div className={`player-pane mode-${mode}`}>
       <div className="player-stage" style={stageStyle}>
@@ -1171,7 +1201,28 @@ export function PlayerPane({
                   </div>
                 )}
 
-                <div className="player-controls">
+                {!item.isLive && (
+                  <div className="vod-seek-row">
+                    <input
+                      type="range"
+                      className="seek-bar"
+                      min={0}
+                      max={duration || 0}
+                      step={0.5}
+                      value={currentTime}
+                      onChange={onSeek}
+                      style={{ '--seek-pct': `${seekPct}%` } as CSSProperties}
+                    />
+                    <span
+                      className="time-label vod-remaining"
+                      title={`${formatTime(currentTime)} / ${formatTime(duration)}`}
+                    >
+                      {duration > 0 ? `-${formatTime(Math.max(0, remaining))}` : formatTime(currentTime)}
+                    </span>
+                  </div>
+                )}
+
+                <div className={`player-controls ${item.isLive ? '' : 'is-vod'}`}>
                   <div className="transport">
                     {onPrev && (
                       <button className="icon-btn" onClick={onPrev} title="Önceki kanal (←)">
@@ -1195,49 +1246,40 @@ export function PlayerPane({
                         <IconRewind size={16} />
                       </button>
                     )}
-                    {!item.isLive && item.nextEpisode && (
-                      <button
-                        className="icon-btn"
-                        onClick={playNextEpisode}
-                        title="Sonraki bölüm"
-                      >
-                        <IconSkipNext size={15} />
-                      </button>
+                    {!item.isLive && (
+                      <>
+                        <button className="icon-btn" onClick={() => seekBy(-10)} title="10 sn geri (←) · Shift+← 30 sn">
+                          <IconRewind size={19} />
+                        </button>
+                        <button className="icon-btn" onClick={() => seekBy(10)} title="10 sn ileri (→) · Shift+→ 30 sn">
+                          <IconForward10 size={19} />
+                        </button>
+                      </>
                     )}
                   </div>
 
-                  {!item.isLive ? (
-                    <>
-                      <span className="time-label">{formatTime(currentTime)}</span>
-                      <input
-                        type="range"
-                        className="seek-bar"
-                        min={0}
-                        max={duration || 0}
-                        step={0.5}
-                        value={currentTime}
-                        onChange={onSeek}
-                      />
-                      <span className="time-label">{formatTime(duration)}</span>
-                    </>
-                  ) : (
+                  {item.isLive ? (
                     <div className="controls-spacer" />
+                  ) : (
+                    <>
+                      {volumeEl}
+                      <div className="vod-title">
+                        <strong>{item.seriesName || item.name}</strong>
+                        {item.kind === 'episode' && item.season !== undefined && (
+                          <span>
+                            S{item.season}:B{item.episodeNum}
+                          </span>
+                        )}
+                      </div>
+                      {item.nextEpisode && (
+                        <button className="icon-btn" onClick={playNextEpisode} title="Sonraki bölüm">
+                          <IconSkipNext size={17} />
+                        </button>
+                      )}
+                    </>
                   )}
 
-                  <div className="volume-control">
-                    <button className="icon-btn" onClick={toggleMute} title="Sesi kapat/aç (M)">
-                      {isMuted || volume === 0 ? <IconMute size={15} /> : <IconVolume size={15} />}
-                    </button>
-                    <input
-                      type="range"
-                      className="volume-bar"
-                      min={0}
-                      max={1}
-                      step={0.01}
-                      value={isMuted ? 0 : volume}
-                      onChange={onVolumeChange}
-                    />
-                  </div>
+                  {item.isLive && volumeEl}
 
                   <button
                     className={`icon-btn ${panelOpen ? 'icon-btn-active' : ''}`}

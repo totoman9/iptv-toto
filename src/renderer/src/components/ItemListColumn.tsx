@@ -6,6 +6,12 @@ import { EmptyIllustration, type EmptyIllustrationKind } from './EmptyIllustrati
 
 export type ListViewMode = 'list' | 'grid'
 
+// Satırın altında gösterilen "şu an yayında" bilgisi (EPG'si olan kanallar)
+export interface ChannelMeta {
+  now?: string
+  progress?: number
+}
+
 export interface ListableItem {
   id: string
   name: string
@@ -23,6 +29,7 @@ interface RowProps {
   onContextMenu?: (item: ListableItem, x: number, y: number) => void
   // Verilirse satırlar sürüklenip elle sıralanabilir (ör. favoriler listesi)
   onReorder?: (draggedId: string, targetId: string) => void
+  getMeta?: (item: ListableItem) => ChannelMeta | undefined
 }
 
 function FavButton({
@@ -59,9 +66,11 @@ function Row({
   onToggleFavorite,
   renderRowExtra,
   onContextMenu,
-  onReorder
+  onReorder,
+  getMeta
 }: RowComponentProps<RowProps>): ReactElement {
   const item = rows[index]
+  const meta = getMeta?.(item)
   return (
     <div
       style={style}
@@ -94,7 +103,19 @@ function Row({
           <span>{item.name.slice(0, 2).toUpperCase()}</span>
         )}
       </div>
-      <span className="channel-row-name">{item.name}</span>
+      <div className="channel-row-text">
+        <span className="channel-row-name">{item.name}</span>
+        {meta?.now && (
+          <span className="channel-row-now">
+            <span className="channel-row-now-title">{meta.now}</span>
+            {meta.progress !== undefined && (
+              <span className="channel-row-now-bar">
+                <span style={{ width: `${Math.round(meta.progress * 100)}%` }} />
+              </span>
+            )}
+          </span>
+        )}
+      </div>
       {renderRowExtra?.(item)}
       <FavButton item={item} favoriteIds={favoriteIds} onToggleFavorite={onToggleFavorite} />
     </div>
@@ -168,6 +189,7 @@ interface Props {
   onContextMenu?: (item: ListableItem, x: number, y: number) => void
   onReorder?: (draggedId: string, targetId: string) => void
   emptyIcon?: EmptyIllustrationKind
+  getMeta?: (item: ListableItem) => ChannelMeta | undefined
 }
 
 const TILE_COLS = 3
@@ -188,7 +210,8 @@ export function ItemListColumn({
   topStrip,
   onContextMenu,
   onReorder,
-  emptyIcon
+  emptyIcon,
+  getMeta
 }: Props): ReactElement {
   const [search, setSearch] = useState('')
 
@@ -259,7 +282,8 @@ export function ItemListColumn({
           <List
             rowComponent={Row}
             rowCount={filtered.length}
-            rowHeight={54}
+            rowHeight={58}
+            overscanCount={4}
             rowProps={{
               rows: filtered,
               selectedId,
@@ -268,7 +292,8 @@ export function ItemListColumn({
               onToggleFavorite,
               renderRowExtra,
               onContextMenu,
-              onReorder
+              onReorder,
+              getMeta
             }}
           />
         </div>

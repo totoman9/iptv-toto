@@ -81,3 +81,30 @@ export function applyPosterSize(size: PosterSize): void {
 export function savePosterSize(size: PosterSize): void {
   write(POSTER_SIZE_KEY, size)
 }
+
+// Film/dizi kartlarının şekli: Netflix'teki gibi yatay (varsayılan) ya da
+// klasik dikey afiş
+export type PosterShape = 'landscape' | 'portrait'
+
+const POSTER_SHAPE_KEY = 'iptv-toto-poster-shape'
+
+export function loadPosterShape(): PosterShape {
+  return read(POSTER_SHAPE_KEY) === 'portrait' ? 'portrait' : 'landscape'
+}
+
+export function savePosterShape(shape: PosterShape): void {
+  write(POSTER_SHAPE_KEY, shape)
+}
+
+// Kart genişliği (px) — sanal listelerin satır yüksekliğini hesaplamak için
+// CSS'teki --poster-width / --land-width değerleriyle aynı tutulmalı
+export function cardWidth(size: PosterSize, shape: PosterShape): number {
+  if (shape === 'landscape') return size === 'sm' ? 220 : size === 'lg' ? 340 : 280
+  return size === 'sm' ? 118 : size === 'lg' ? 190 : 150
+}
+
+// Kartın toplam yüksekliği (görsel + altındaki başlık alanı)
+export function cardHeight(size: PosterSize, shape: PosterShape): number {
+  const w = cardWidth(size, shape)
+  return shape === 'landscape' ? Math.round((w * 9) / 16) : Math.round(w * 1.5) + 48
+}
