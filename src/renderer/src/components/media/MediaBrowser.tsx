@@ -111,6 +111,29 @@ function hashId(id: string): number {
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0
   return Math.abs(h)
 }
+
+// Afişi olmayan içerik (kırık/boş kutu) ilk ekranda/ilk sıralarda karşımıza
+// çıkmasın — afişi olanlar göreli sırasını koruyarak öne, afişsizler sona
+// alınıyor. Herhangi bir sıralamanın (son eklenen, puan, A-Z...) ÜSTÜNE
+// uygulanan genel bir kural, tek bir listeye özel değil.
+function withPosterFirst<T extends { logo?: string }>(list: T[]): T[] {
+  const withPoster: T[] = []
+  const withoutPoster: T[] = []
+  for (const item of list) (item.logo ? withPoster : withoutPoster).push(item)
+  return withoutPoster.length ? [...withPoster, ...withoutPoster] : list
+}
+
+// Top 10 tamamen dondurulmuş kalırsa hep aynı görünüyor. En iyi ~7 sabit
+// kalır (liste güvenilir kalsın), kalan ~3 yer her gün alt sıralardaki
+// (11-30) güçlü adaylar arasından değişir — tam rastgele değil, kısmi.
+function pinnedPlusDaily<T>(sorted: T[], idOf: (t: T) => string, pinCount = 7, total = 10): T[] {
+  if (sorted.length <= total) return sorted
+  const pinned = sorted.slice(0, pinCount)
+  const pool = sorted.slice(pinCount)
+  const seed = daySeed()
+  const rotated = [...pool].sort((a, b) => ((hashId(idOf(a)) + seed) % 991) - ((hashId(idOf(b)) + seed) % 991))
+  return [...pinned, ...rotated].slice(0, total)
+}
 const NEW_WINDOW_S = 7 * 24 * 3600
 
 interface HeroExtra {
@@ -493,8 +516,12 @@ export function MediaBrowser({
       if (list) list.push(e)
       else map.set(e.group, [e])
     }
+    for (const [g, list] of map) map.set(g, withPosterFirst(list))
     return map
   }, [entries])
+
+  // "Tüm filmler/diziler" (ALL_GROUP) ızgarası için de aynı kural
+  const displayEntries = useMemo(() => withPosterFirst(entries), [entries])
 
   const orderedGroups = useMemo(() => {
     const known = categoryOrder.filter((g) => byGroup.has(g))
@@ -647,24 +674,35 @@ export function MediaBrowser({
 
   // ----- Vitrin (üst bant): en fazla 5 içerik, 10 sn'de bir döner -----
   const heroEntries = useMemo(() => {
-    const pool =
-      kind === 'vod'
-        ? entries.filter((e) => e.added).sort((a, b) => (b.added || 0) - (a.added || 0))
-        : entries
-            .filter((e) => (e.rating || 0) > 0)
-            .sort((a, b) => (b.backdrop ? 1 : 0) - (a.backdrop ? 1 : 0) || (b.rating || 0) - (a.rating || 0))
-    const usable = pool.filter((e) => e.logo && !isLocked(e.group))
-    // Hep aynı 5 kaliteli içerik yerine, güçlü bir aday havuzundan (ör. en
-    // yeni/yüksek puanlı ~20) her gün farklı bir 5'li seçilip karıştırılıyor
-    // — vitrin her açılışta aynı görünmesin diye.
+    // Afişi olmayan hiçbir şey vitrine çıkmasın.
+    const usable = entries.filter((e) => e.logo && !isLocked(e.group))
+    // Sadece "son eklenen" ya da sadece "yüksek puanlı" değil, ikisini
+    // harmanlıyoruz — böylece art arda birkaçı yeni eklenenlerden, birkaçı
+    // yüksek puanlılardan geliyor (film ve dizide aynı mantık).
+    const byRating = [...usable]
+      .filter((e) => (e.rating || 0) > 0)
+      .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+    const byRecent = [...usable]
+      .filter((e) => e.added || e.updated)
+      .sort((a, b) => ((b.added ?? b.updated) || 0) - ((a.added ?? a.updated) || 0))
+    const merged: Entry[] = []
+    const seen = new Set<string>()
+    for (const e of [...byRating.slice(0, 12), ...byRecent.slice(0, 10)]) {
+      if (seen.has(e.id)) continue
+      seen.add(e.id)
+      merged.push(e)
+    }
+    // Hep aynı 5 kaliteli içerik yerine, bu harmanlanmış aday havuzundan her
+    // gün farklı bir 5'li seçilip karıştırılıyor — vitrin her açılışta aynı
+    // görünmesin diye.
     const seed = daySeed()
-    const candidates = usable.slice(0, 20)
+    const candidates = merged.slice(0, 24)
     const pick = [...candidates]
       .sort((a, b) => ((hashId(a.id) + seed) % 991) - ((hashId(b.id) + seed) % 991))
       .slice(0, 5)
     return pick.length ? pick : usable.slice(0, 1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind, entries, lockedGroups])
+  }, [entries, lockedGroups])
 
   const [heroIndex, setHeroIndex] = useState(0)
   const [heroPaused, setHeroPaused] = useState(false)
@@ -750,16 +788,13 @@ export function MediaBrowser({
 
   const top10 = useMemo(() => {
     if (top10Source === 'imdb' && imdbRatings && imdbRatings.size >= 3) {
-      return top10Candidates
+      const sorted = top10Candidates
         .filter((e) => imdbRatings.has(e.id))
         .sort((a, b) => imdbRatings.get(b.id)! - imdbRatings.get(a.id)!)
-        .slice(0, 10)
-        .map((e) => ({ e, rating: imdbRatings.get(e.id) }))
+      return pinnedPlusDaily(sorted, (e) => e.id).map((e) => ({ e, rating: imdbRatings.get(e.id) }))
     }
-    return top10Candidates
-      .filter((e) => (e.rating || 0) > 0)
-      .slice(0, 10)
-      .map((e) => ({ e, rating: e.rating }))
+    const sorted = top10Candidates.filter((e) => (e.rating || 0) > 0)
+    return pinnedPlusDaily(sorted, (e) => e.id).map((e) => ({ e, rating: e.rating }))
   }, [top10Source, imdbRatings, top10Candidates])
 
   const top10Rank = useMemo(() => new Map(top10.map(({ e }, i) => [e.id, i])), [top10])
@@ -938,10 +973,11 @@ export function MediaBrowser({
   // ----- Vitrin satırları -----
   const homeRows = useMemo<HomeRow[]>(() => {
     const rows: HomeRow[] = []
-    const recent =
+    const recent = withPosterFirst(
       kind === 'vod'
         ? [...entries].filter((e) => e.added).sort((a, b) => (b.added || 0) - (a.added || 0))
         : [...entries].filter((e) => (e.rating || 0) > 0).sort((a, b) => (b.rating || 0) - (a.rating || 0))
+    )
 
     if (heroEntries.length > 0) rows.push({ type: 'hero', entries: heroEntries })
 
@@ -1131,7 +1167,7 @@ export function MediaBrowser({
     else if (filters.sort === 'year') list.sort((a, b) => parseInt(b.year || '0', 10) - parseInt(a.year || '0', 10))
     else if (filters.sort === 'added') list.sort((a, b) => stamp(b) - stamp(a))
     else if (filters.sort === 'az') list.sort((a, b) => a.name.localeCompare(b.name, 'tr'))
-    return list
+    return withPosterFirst(list)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterActive, filters, entries, lockedGroups])
 
@@ -1411,7 +1447,7 @@ export function MediaBrowser({
       </>
     )
   } else if (layout === 'grid') {
-    const list = gridGroup === ALL_GROUP ? entries : byGroup.get(gridGroup) || []
+    const list = gridGroup === ALL_GROUP ? displayEntries : byGroup.get(gridGroup) || []
     body = (
       <div className="media-grid-layout">
         <CategoryColumn

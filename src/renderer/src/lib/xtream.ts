@@ -72,7 +72,7 @@ interface XtreamSeriesInfoEpisode {
   title: string
   episode_num: number
   container_extension?: string
-  info?: { duration?: string; duration_secs?: number | string }
+  info?: { duration?: string; duration_secs?: number | string; movie_image?: string }
 }
 
 interface XtreamSeriesInfo {
@@ -363,7 +363,10 @@ export async function getSeriesSeasons(
           ep.container_extension || 'mp4'
         }`,
         durationSeconds:
-          toNumber(ep.info?.duration_secs) || parseDurationToSeconds(ep.info?.duration)
+          toNumber(ep.info?.duration_secs) || parseDurationToSeconds(ep.info?.duration),
+        // Bazı sağlayıcılar gerçek görsel yerine sonu "/" ile biten boş bir
+        // taban adres gönderiyor (ör. ".../images/") — bunu hiç denemeyelim.
+        image: ep.info?.movie_image && !ep.info.movie_image.endsWith('/') ? ep.info.movie_image : undefined
       }))
       return { season: Number(seasonNum), episodes: seasonEpisodes }
     })

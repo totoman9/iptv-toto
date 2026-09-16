@@ -4,13 +4,12 @@
 // siyah zemin (koyu temanın morumsu tonu yerine).
 export type Theme = 'light' | 'dark' | 'black'
 
-export type Accent = 'purple' | 'blue' | 'teal' | 'green' | 'orange' | 'pink' | 'red' | 'anthracite'
+export type Accent = 'purple' | 'blue' | 'teal' | 'orange' | 'pink' | 'red' | 'anthracite'
 
 export const ACCENTS: { id: Accent; label: string; color: string }[] = [
   { id: 'purple', label: 'Mor', color: '#7c3aed' },
   { id: 'blue', label: 'Mavi', color: '#2563eb' },
   { id: 'teal', label: 'Turkuaz', color: '#0d9488' },
-  { id: 'green', label: 'Yeşil', color: '#16a34a' },
   { id: 'orange', label: 'Turuncu', color: '#ea580c' },
   { id: 'pink', label: 'Pembe', color: '#db2777' },
   { id: 'red', label: 'Kırmızı', color: '#dc2626' },

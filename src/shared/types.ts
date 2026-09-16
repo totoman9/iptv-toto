@@ -69,6 +69,9 @@ export interface SeriesEpisode {
   episodeNum: number
   url: string
   durationSeconds?: number
+  // Bölümün küçük görseli (sağlayıcı veriyorsa) — Netflix'teki gibi bölüm
+  // listesinde küçük resim göstermek için
+  image?: string
 }
 
 export interface SeriesSeason {

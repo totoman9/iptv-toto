@@ -39,6 +39,21 @@ interface Props {
 
 export const episodeProgressId = (ep: SeriesEpisode): string => `episode-${ep.id}`
 
+// Bölüm listesinde küçük görsel (Netflix'teki gibi) — sağlayıcı vermiyorsa ya
+// da adres bozuksa oynat ikonuna düşer.
+function EpisodeThumb({ image }: { image?: string }): ReactElement {
+  const [broken, setBroken] = useState(false)
+  return (
+    <span className="episode-thumb">
+      {image && !broken ? (
+        <img src={image} alt="" loading="lazy" onError={() => setBroken(true)} />
+      ) : (
+        <IconPlay size={14} />
+      )}
+    </span>
+  )
+}
+
 export function SeriesDetail({
   item,
   source,
@@ -252,6 +267,7 @@ export function SeriesDetail({
             return (
               <button key={ep.id} className="episode-item" onClick={() => onPlayEpisode(ep, false, allEpisodes, imdb.info?.imdbId)}>
                 <span className="episode-num">{ep.episodeNum}</span>
+                <EpisodeThumb image={ep.image} />
                 {rating !== undefined && (
                   <span className={`ep-rating ${episodeRatingClass(rating)}`} title="Bölümün IMDb puanı">
                     ★ {rating.toFixed(1)}

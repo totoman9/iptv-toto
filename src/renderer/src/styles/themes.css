@@ -22,16 +22,6 @@
   --accent-soft: #ccfbf1;
 }
 
-:root[data-accent='green'] {
-  --primary: #16a34a;
-  --primary-dark: #15803d;
-  --primary-light: #4ade80;
-  --gradient: linear-gradient(135deg, #16a34a 0%, #22c55e 50%, #84cc16 100%);
-  --accent-rgb: 22, 163, 74;
-  --accent2-rgb: 132, 204, 22;
-  --accent-soft: #dcfce7;
-}
-
 :root[data-accent='orange'] {
   --primary: #ea580c;
   --primary-dark: #c2410c;
