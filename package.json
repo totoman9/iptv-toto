@@ -1,6 +1,6 @@
 {
   "name": "iptv-toto",
-  "version": "0.8.4",
+  "version": "0.8.5",
   "description": "IPTV Toto — Masaüstü IPTV oynatıcı (Mac & Windows)",
   "main": "./out/main/index.js",
   "type": "commonjs",
