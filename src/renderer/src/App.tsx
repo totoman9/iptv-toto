@@ -9,6 +9,7 @@ import {
   type ListViewMode
 } from './components/ItemListColumn'
 import { MediaBrowser } from './components/media/MediaBrowser'
+import { LiveShowcase } from './components/live/LiveShowcase'
 import { ManageSourcesModal } from './components/ManageSourcesModal'
 import { PinPromptModal } from './components/PinPromptModal'
 import { ParentalLockSettingsModal } from './components/ParentalLockSettingsModal'
@@ -26,7 +27,7 @@ import { StatsView } from './components/StatsView'
 import { MultiView } from './components/MultiView'
 import { useFollowChecker } from './hooks/useFollowChecker'
 import { watchlistStore } from './lib/library'
-import { IconGrid, IconGuide, IconRecord, IconStar } from './components/Icons'
+import { IconGrid, IconGuide, IconLiveTv, IconRecord, IconStar } from './components/Icons'
 import { ContextMenu } from './components/ContextMenu'
 import { SkeletonChannelList } from './components/Skeleton'
 import { EmptyIllustration } from './components/EmptyIllustration'
@@ -66,6 +67,17 @@ import { currentProgram, type IndexedChannel } from './lib/epgIndex'
 import type { Channel, EpgProgram, PlayableItem, RecordingEntry } from '../../shared/types'
 
 const LIST_VIEW_KEY = 'iptv-toto-live-view'
+const LIVE_LAYOUT_KEY = 'iptv-toto-live-layout'
+
+type LiveLayout = 'showcase' | 'classic'
+
+function loadLiveLayout(): LiveLayout {
+  try {
+    return window.localStorage.getItem(LIVE_LAYOUT_KEY) === 'classic' ? 'classic' : 'showcase'
+  } catch {
+    return 'showcase'
+  }
+}
 
 const SECTION_TITLES: Record<CategorySection, string> = {
   live: 'Canlı TV kategorileri',
@@ -189,6 +201,15 @@ function App(): ReactElement {
   const [theater, setTheater] = useState(false)
   const [liveBeforeTheater, setLiveBeforeTheater] = useState<PlayableItem | null>(null)
   const [liveGroup, setLiveGroup] = useState(ALL_GROUP)
+  const [liveLayout, setLiveLayoutState] = useState<LiveLayout>(loadLiveLayout)
+  function setLiveLayout(next: LiveLayout): void {
+    setLiveLayoutState(next)
+    try {
+      window.localStorage.setItem(LIVE_LAYOUT_KEY, next)
+    } catch {
+      /* ignore */
+    }
+  }
   const [activeFolder, setActiveFolder] = useState<string | null>(null)
   const [listView, setListView] = useState<ListViewMode>(loadListView)
   const [theme, setTheme] = useState<Theme>(loadTheme)
@@ -840,7 +861,8 @@ function App(): ReactElement {
     view === 'recordings' ||
     view === 'guide' ||
     view === 'watchlist' ||
-    view === 'stats'
+    view === 'stats' ||
+    (view === 'live' && liveLayout === 'showcase')
   const hostMode: PlayerMode | 'hidden' = noSourceYet
     ? 'hidden'
     : theater && playing
@@ -868,7 +890,7 @@ function App(): ReactElement {
         </button>
       </div>
     )
-  } else if (view === 'live') {
+  } else if (view === 'live' && liveLayout === 'classic') {
     if (loading && channels.length === 0) {
       leftArea = (
         <div className="pane pane-wide">
@@ -931,6 +953,13 @@ function App(): ReactElement {
                   title="Çoklu ekran: 2–4 kanalı aynı anda izle"
                 >
                   <IconGrid size={15} />
+                </button>
+                <button
+                  className="icon-btn"
+                  onClick={() => setLiveLayout('showcase')}
+                  title="Vitrin görünümüne geç"
+                >
+                  <IconLiveTv size={15} />
                 </button>
               </>
             }
@@ -1059,6 +1088,41 @@ function App(): ReactElement {
             kesilmiyor. Görünüşü (yan panel / köşe / tam sayfa) CSS ile değişir. */}
         <div className={`main-area view-${view}`}>
           {leftArea}
+          {!noSourceYet && view === 'live' && liveLayout === 'showcase' ? (
+            loading && channels.length === 0 ? (
+              <div className="pane pane-wide">
+                <SkeletonChannelList />
+              </div>
+            ) : error && channels.length === 0 ? (
+              <div className="pane pane-wide">
+                <div className="empty-state">
+                  <h3>Sunucuya bağlanılamadı</h3>
+                  <p>{error}</p>
+                  <p>30 saniye içinde kendiliğinden tekrar denenecek.</p>
+                  <button className="btn-primary" onClick={reload}>
+                    Tekrar Dene
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <LiveShowcase
+                channels={liveChannels}
+                categoryOrder={liveOrder}
+                lockedGroups={lockApi.lockedGroups}
+                isLocked={lockApi.isLocked}
+                guard={guardedAction}
+                favoriteIds={favoriteIds}
+                onToggleFavorite={toggleFavoriteWithUndo}
+                onSelect={playChannel}
+                selectedId={playing?.id}
+                getMeta={getLiveMeta}
+                onOpenGuide={activeSource?.type === 'xtream' ? () => setShowEpgGrid(true) : undefined}
+                onOpenMultiView={() => void openMultiView()}
+                onEditCategories={() => setEditSection('live')}
+                onSwitchClassic={() => setLiveLayout('classic')}
+              />
+            )
+          ) : null}
           {!noSourceYet && mediaKind ? (
             <MediaBrowser
               key={`${mediaKind}-${activeSourceId}`}
