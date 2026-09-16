@@ -1164,26 +1164,37 @@ textarea {
   opacity: 0.8;
 }
 
-.player-pane-idle-icon {
+.player-pane-idle-logo {
   position: relative;
-  width: 68px;
-  height: 68px;
+  width: 96px;
+  height: 96px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(var(--accent-rgb), 0.16), transparent 70%);
-  color: var(--player-text-faint);
-  opacity: 0.85;
+  margin-bottom: 4px;
 }
 
-.player-pane-idle-icon::before {
+.player-pane-idle-logo img {
+  width: 72%;
+  height: 72%;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.5));
+}
+
+.player-pane-idle-logo::before {
   content: '';
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  border: 1px solid rgba(var(--accent-rgb), 0.22);
+  border: 1px solid rgba(var(--accent-rgb), 0.25);
   animation: idle-icon-pulse 2.4s ease-out infinite;
+}
+
+.player-pane-idle-brand {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--player-text);
 }
 
 @keyframes idle-icon-pulse {

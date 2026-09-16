@@ -4,7 +4,7 @@
 // siyah zemin (koyu temanın morumsu tonu yerine).
 export type Theme = 'light' | 'dark' | 'black'
 
-export type Accent = 'purple' | 'blue' | 'teal' | 'green' | 'orange' | 'pink' | 'red'
+export type Accent = 'purple' | 'blue' | 'teal' | 'green' | 'orange' | 'pink' | 'red' | 'anthracite'
 
 export const ACCENTS: { id: Accent; label: string; color: string }[] = [
   { id: 'purple', label: 'Mor', color: '#7c3aed' },
@@ -13,7 +13,8 @@ export const ACCENTS: { id: Accent; label: string; color: string }[] = [
   { id: 'green', label: 'Yeşil', color: '#16a34a' },
   { id: 'orange', label: 'Turuncu', color: '#ea580c' },
   { id: 'pink', label: 'Pembe', color: '#db2777' },
-  { id: 'red', label: 'Kırmızı', color: '#dc2626' }
+  { id: 'red', label: 'Kırmızı', color: '#dc2626' },
+  { id: 'anthracite', label: 'Antrasit', color: '#4b5563' }
 ]
 
 // Film/dizi afişlerinin ızgara görünümündeki boyutu

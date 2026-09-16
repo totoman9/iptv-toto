@@ -128,7 +128,8 @@ interface Filters {
   sort: 'default' | 'rating' | 'year' | 'added' | 'az'
 }
 
-const DEFAULT_FILTERS: Filters = { genre: null, year: 'all', rating: 0, sort: 'default' }
+// Varsayılan sıralama: son eklenenler üstte (provider sırası yerine)
+const DEFAULT_FILTERS: Filters = { genre: null, year: 'all', rating: 0, sort: 'added' }
 
 const YEAR_OPTIONS: [Filters['year'], string][] = [
   ['all', 'Tüm yıllar'],
@@ -285,7 +286,10 @@ function HomeListRow({
     const e = row.entries[heroIndex % row.entries.length]
     const extra = heroExtra[e.id]
     const sharp = extra?.backdrop || e.backdrop
-    const bg = sharp || e.logo
+    // Gerçek (geniş) bir arka plan görseli yoksa afişi bulanıklaştırıp
+    // germek küçük/pikselli duruyordu — bunun yerine düz koyu zemin +
+    // afiş (zaten ayrıca, net biçimde gösteriliyor) daha temiz kalıyor.
+    const bg = sharp
     const rank = top10Rank.get(e.id)
     return (
       <div style={style}>
@@ -766,9 +770,14 @@ export function MediaBrowser({
 
   // ----- Üzerine gelince açılan önizleme -----
   const [hover, setHover] = useState<HoverTarget | null>(null)
-  const startHover = useCallback<HoverStart>((el, data, onOpen, shape) => {
-    setHover({ data, rect: el.getBoundingClientRect(), onOpen, shape, el })
-  }, [])
+  const hoverPreviewEnabled = settings.hoverPreviewEnabled ?? true
+  const startHover = useCallback<HoverStart>(
+    (el, data, onOpen, shape) => {
+      if (!hoverPreviewEnabled) return
+      setHover({ data, rect: el.getBoundingClientRect(), onOpen, shape, el })
+    },
+    [hoverPreviewEnabled]
+  )
   // PosterCard'ın kendi açılış gecikmesini (bekleme sırasında fareyi çekince)
   // iptal etmesi dışında burada yapacak bir şey yok — kapanma artık aşağıdaki
   // "fare, kart ya da önizlemenin üzerinde mi" takibiyle yönetiliyor.
@@ -1085,7 +1094,10 @@ export function MediaBrowser({
 
   // ----- Filtreler, "Ne izlesem?", benzer içerikler -----
   const filterActive =
-    filters.genre !== null || filters.year !== 'all' || filters.rating > 0 || filters.sort !== 'default'
+    filters.genre !== null ||
+    filters.year !== 'all' ||
+    filters.rating > 0 ||
+    filters.sort !== DEFAULT_FILTERS.sort
 
   const topGenres = useMemo(() => {
     const counts = new Map<string, number>()

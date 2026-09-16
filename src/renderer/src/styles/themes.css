@@ -62,6 +62,16 @@
   --accent-soft: #fee2e2;
 }
 
+:root[data-accent='anthracite'] {
+  --primary: #4b5563;
+  --primary-dark: #374151;
+  --primary-light: #9ca3af;
+  --gradient: linear-gradient(135deg, #374151 0%, #4b5563 50%, #6b7280 100%);
+  --accent-rgb: 75, 85, 99;
+  --accent2-rgb: 156, 163, 175;
+  --accent-soft: #e5e7eb;
+}
+
 /* Mor dışındaki renklerde açık tema yüzeyleri */
 :root[data-accent]:not([data-accent='purple']) {
   --bg: color-mix(in srgb, var(--primary) 2%, #fafafa);

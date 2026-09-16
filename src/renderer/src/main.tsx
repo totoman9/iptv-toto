@@ -49,7 +49,7 @@ applyPosterSize(loadPosterSize())
 const root = ReactDOM.createRoot(document.getElementById('root')!)
 root.render(<Splash />)
 
-const MIN_SPLASH_MS = 500
+const MIN_SPLASH_MS = 1100
 const splashStart = performance.now()
 
 // Yerel canlı yayın aktarıcısının portunu uygulama açılmadan önce al

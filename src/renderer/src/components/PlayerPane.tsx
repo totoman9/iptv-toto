@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import type { ClipResult, EpgProgram, PlayableItem, SourceConfig } from '../../../shared/types'
 import { attachStream, type AttachedPlayer, type TrackInfo } from '../lib/playerEngine'
+import logoMarkUrl from '../assets/logo-mark.svg'
 import { ChannelDrawer, type ChannelDrawerData } from './ChannelDrawer'
 import { PlayerSettingsPanel } from './PlayerSettingsPanel'
 import { ShortcutHelp } from './ShortcutHelp'
@@ -1212,9 +1213,10 @@ export function PlayerPane({
 
           {!item && (
             <div className="player-pane-idle">
-              <div className="player-pane-idle-icon">
-                <IconLiveTv size={30} />
+              <div className="player-pane-idle-logo">
+                <img src={logoMarkUrl} alt="" />
               </div>
+              <div className="player-pane-idle-brand">IPTV Toto</div>
               <p>Bir kanal seçin</p>
               <span className="player-pane-idle-hint">
                 Soldaki listeden bir kanala tıkla. Yıldıza basarak favorilerine ekleyebilirsin.

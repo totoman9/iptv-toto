@@ -7,6 +7,9 @@ export interface AppSettings {
   // "Top 10" satırının neye göre sıralanacağı: sağlayıcının kendi puanı
   // (varsayılan, anında) ya da IMDb puanı (OMDb'den sorulur, önbelleğe alınır)
   top10Source?: 'provider' | 'imdb'
+  // Kart üzerinde beklenince büyüyen küçük önizleme kartı (film/dizi/kanal).
+  // Varsayılan açık; bazı bilgisayarlarda gereksiz yavaşlık hissi verebiliyor.
+  hoverPreviewEnabled?: boolean
 }
 
 // Uygulamayla birlikte gelen OMDb anahtarı: IMDb puanları kurulumdan hemen

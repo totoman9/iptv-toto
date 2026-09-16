@@ -110,16 +110,38 @@ export function SettingsModal({ onClose }: { onClose: () => void }): ReactElemen
           </p>
           <div className="seg-toggle" style={{ alignSelf: 'flex-start', width: 'fit-content' }}>
             <button
-              className={(settings.top10Source ?? 'provider') === 'provider' ? 'active' : ''}
+              className={settings.top10Source === 'provider' ? 'active' : ''}
               onClick={() => updateSettings({ top10Source: 'provider' })}
             >
               Sağlayıcı puanı
             </button>
             <button
-              className={settings.top10Source === 'imdb' ? 'active' : ''}
+              className={(settings.top10Source ?? 'imdb') === 'imdb' ? 'active' : ''}
               onClick={() => updateSettings({ top10Source: 'imdb' })}
             >
               IMDb puanı
+            </button>
+          </div>
+        </section>
+
+        <section className="settings-section">
+          <div className="settings-section-title">Kart önizlemesi</div>
+          <p className="modal-sub">
+            Film, dizi ve kanal kartlarının üzerinde biraz bekleyince büyüyen küçük önizleme kutusu. Bazı
+            bilgisayarlarda gereksiz yavaşlık hissi verebiliyor — istersen kapat.
+          </p>
+          <div className="seg-toggle" style={{ alignSelf: 'flex-start', width: 'fit-content' }}>
+            <button
+              className={(settings.hoverPreviewEnabled ?? true) ? 'active' : ''}
+              onClick={() => updateSettings({ hoverPreviewEnabled: true })}
+            >
+              Açık
+            </button>
+            <button
+              className={settings.hoverPreviewEnabled === false ? 'active' : ''}
+              onClick={() => updateSettings({ hoverPreviewEnabled: false })}
+            >
+              Kapalı
             </button>
           </div>
         </section>

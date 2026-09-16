@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { Channel } from '../../../../shared/types'
 import type { ChannelMeta } from '../ItemListColumn'
 import { ChannelHoverCard, type ChannelHoverTarget } from './ChannelHoverCard'
+import { useSettings } from '../../hooks/useSettings'
 import {
   IconChevronRight,
   IconEdit,
@@ -127,6 +128,10 @@ export function LiveShowcase({
 }): ReactElement {
   const [search, setSearch] = useState('')
   const [hover, setHover] = useState<ChannelHoverTarget | null>(null)
+  const hoverPreviewEnabled = useSettings().hoverPreviewEnabled ?? true
+  const startHover = (target: ChannelHoverTarget): void => {
+    if (hoverPreviewEnabled) setHover(target)
+  }
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -293,7 +298,7 @@ export function LiveShowcase({
                 locked={isLocked(c.group)}
                 meta={getMeta(c)}
                 onClick={() => play(c)}
-                onHoverStart={(el) => setHover({ channel: c, rect: el.getBoundingClientRect(), meta: getMeta(c), el })}
+                onHoverStart={(el) => startHover({ channel: c, rect: el.getBoundingClientRect(), meta: getMeta(c), el })}
                 onHoverEnd={() => {}}
               />
             ))}
@@ -358,7 +363,7 @@ export function LiveShowcase({
                     meta={getMeta(c)}
                     onClick={() => play(c)}
                     onHoverStart={(el) =>
-                      setHover({ channel: c, rect: el.getBoundingClientRect(), meta: getMeta(c), el })
+                      startHover({ channel: c, rect: el.getBoundingClientRect(), meta: getMeta(c), el })
                     }
                     onHoverEnd={() => {}}
                   />
@@ -392,7 +397,7 @@ export function LiveShowcase({
                       meta={getMeta(c)}
                       onClick={() => play(c)}
                       onHoverStart={(el) =>
-                        setHover({ channel: c, rect: el.getBoundingClientRect(), meta: getMeta(c), el })
+                        startHover({ channel: c, rect: el.getBoundingClientRect(), meta: getMeta(c), el })
                       }
                       onHoverEnd={() => {}}
                     />
