@@ -3,6 +3,7 @@ import type { PlayableItem, SubtitleResult, SubtitleSearchParams } from '../../.
 import type { TrackInfo } from '../lib/playerEngine'
 import { cleanTitle, lookupImdb } from '../lib/omdb'
 import { effectiveOmdbKey } from '../lib/settings'
+import type { SubtitleAppearance } from '../lib/subtitleAppearance'
 
 export interface ExternalSubtitle {
   label: string
@@ -22,6 +23,8 @@ interface Props {
   onLoadExternal: (sub: ExternalSubtitle) => void
   onShift: (seconds: number) => void
   onClearExternal: () => void
+  appearance: SubtitleAppearance
+  onAppearanceChange: (patch: Partial<SubtitleAppearance>) => void
 }
 
 // Oynatıcı ayar panelindeki "Altyazı" sekmesi: yayındaki ses/altyazı
@@ -38,7 +41,9 @@ export function SubtitleTab({
   offset,
   onLoadExternal,
   onShift,
-  onClearExternal
+  onClearExternal,
+  appearance,
+  onAppearanceChange
 }: Props): ReactElement {
   const [configured, setConfigured] = useState<boolean | null>(null)
   const [languages, setLanguages] = useState<'tr' | 'tr,en'>('tr')
@@ -98,6 +103,58 @@ export function SubtitleTab({
 
   return (
     <div className="settings-body">
+      <div className="settings-label">Altyazı görünümü</div>
+      <div className="sub-appearance-row">
+        <span className="sub-appearance-label">Boyut</span>
+        <div className="settings-seg">
+          <button className={appearance.size === 'sm' ? 'active' : ''} onClick={() => onAppearanceChange({ size: 'sm' })}>
+            Küçük
+          </button>
+          <button className={appearance.size === 'md' ? 'active' : ''} onClick={() => onAppearanceChange({ size: 'md' })}>
+            Orta
+          </button>
+          <button className={appearance.size === 'lg' ? 'active' : ''} onClick={() => onAppearanceChange({ size: 'lg' })}>
+            Büyük
+          </button>
+        </div>
+      </div>
+      <div className="sub-appearance-row">
+        <span className="sub-appearance-label">Arka plan</span>
+        <div className="settings-seg">
+          <button
+            className={appearance.background === 'none' ? 'active' : ''}
+            onClick={() => onAppearanceChange({ background: 'none' })}
+            title="Şeffaf — sadece yazı, arka plan kutusu yok"
+          >
+            Şeffaf
+          </button>
+          <button
+            className={appearance.background === 'soft' ? 'active' : ''}
+            onClick={() => onAppearanceChange({ background: 'soft' })}
+          >
+            Hafif
+          </button>
+          <button
+            className={appearance.background === 'solid' ? 'active' : ''}
+            onClick={() => onAppearanceChange({ background: 'solid' })}
+          >
+            Koyu
+          </button>
+        </div>
+      </div>
+      <div className="sub-appearance-row">
+        <span className="sub-appearance-label">Renk</span>
+        <div className="settings-seg">
+          <button className={appearance.color === 'white' ? 'active' : ''} onClick={() => onAppearanceChange({ color: 'white' })}>
+            Beyaz
+          </button>
+          <button className={appearance.color === 'yellow' ? 'active' : ''} onClick={() => onAppearanceChange({ color: 'yellow' })}>
+            Sarı
+          </button>
+        </div>
+      </div>
+      <div className="sub-preview" />
+
       {hasEmbedded && (
         <>
           {audioTracks.length > 1 && (

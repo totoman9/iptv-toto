@@ -1698,6 +1698,48 @@
   color: var(--player-text-faint);
 }
 
+.sub-appearance-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.sub-appearance-label {
+  width: 64px;
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--player-text-dim);
+}
+
+.sub-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 4px 0 16px;
+  padding: 26px 12px;
+  border-radius: 8px;
+  background: repeating-conic-gradient(
+      color-mix(in srgb, var(--player-text-faint) 18%, transparent) 0% 25%,
+      transparent 0% 50%
+    )
+    50% / 14px 14px;
+  /* Boyut, 1em tabanlı (var(--sub-size)) burada değil, ebeveynin kendi
+     font-size'ından (16px) hesaplanıyor — sıfırlanmış bir üst öğeye bağlı
+     kalmasın diye. */
+  font-size: 16px;
+}
+
+.sub-preview::before {
+  content: 'Örnek altyazı metni';
+  font-size: var(--sub-size, 1.15em);
+  color: var(--sub-color, #fff);
+  background: var(--sub-bg, rgba(0, 0, 0, 0.5));
+  text-shadow: var(--sub-shadow, 0 1px 2px rgba(0, 0, 0, 0.6));
+  padding: 3px 8px;
+  border-radius: 3px;
+}
+
 .sub-active {
   background: rgba(22, 163, 74, 0.12);
   border: 1px solid rgba(22, 163, 74, 0.35);
@@ -1746,12 +1788,13 @@
   text-align: center;
 }
 
-/* Altyazıların görünümü */
+/* Altyazıların görünümü — bkz. lib/subtitleAppearance.ts (Ayarlar > Altyazı) */
 .player-pane-video-wrap video::cue {
-  font-size: 1.15em;
+  font-size: var(--sub-size, 1.15em);
   line-height: 1.35;
-  background: rgba(0, 0, 0, 0.6);
-  color: #fff;
+  background: var(--sub-bg, rgba(0, 0, 0, 0.5));
+  color: var(--sub-color, #fff);
+  text-shadow: var(--sub-shadow, 0 1px 2px rgba(0, 0, 0, 0.6));
 }
 
 /* ---------- Bağlantı durumu etiketi (oynatıcı ortası) ---------- */

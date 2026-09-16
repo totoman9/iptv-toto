@@ -10,6 +10,12 @@ import { usePictureSettings } from '../hooks/usePictureSettings'
 import { pictureFilter } from '../lib/pictureSettings'
 import { loadLeveling, saveLeveling, setVolumeLeveling } from '../lib/audioLeveling'
 import {
+  applySubtitleAppearance,
+  loadSubtitleAppearance,
+  saveSubtitleAppearance,
+  type SubtitleAppearance
+} from '../lib/subtitleAppearance'
+import {
   getBufferMode,
   looksUhd,
   setBufferMode,
@@ -126,6 +132,26 @@ function formatClock(ms: number): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
+// Basit bir WebVTT ayrıştırıcı — internetten indirilen altyazıyı <track src>
+// yerine elle video'ya ekliyoruz (bkz. aşağıdaki useEffect'teki açıklama).
+function parseVtt(vtt: string): { start: number; end: number; text: string }[] {
+  const toSec = (h: string | undefined, m: string, s: string, ms: string): number =>
+    (h ? parseInt(h, 10) : 0) * 3600 + parseInt(m, 10) * 60 + parseInt(s, 10) + parseInt(ms, 10) / 1000
+  const timeRe = /(?:(\d{2}):)?(\d{2}):(\d{2})[.,](\d{3})\s*-->\s*(?:(\d{2}):)?(\d{2}):(\d{2})[.,](\d{3})/
+  const lines = vtt.replace(/\r/g, '').split('\n')
+  const cues: { start: number; end: number; text: string }[] = []
+  for (let i = 0; i < lines.length; i++) {
+    const m = timeRe.exec(lines[i])
+    if (!m) continue
+    const start = toSec(m[1], m[2], m[3], m[4])
+    const end = toSec(m[5], m[6], m[7], m[8])
+    const text: string[] = []
+    for (i++; i < lines.length && lines[i].trim() !== ''; i++) text.push(lines[i])
+    if (end > start && text.length > 0) cues.push({ start, end, text: text.join('\n') })
+  }
+  return cues
+}
+
 // "Diğer" menüsündeki bir satır: simge + ne işe yaradığı + kısayol tuşu
 function MoreItem({
   icon,
@@ -190,6 +216,7 @@ export function PlayerPane({
   const [controlsVisible, setControlsVisible] = useState(true)
   const [retryTick, setRetryTick] = useState(0)
   const [audioTracks, setAudioTracks] = useState<TrackInfo[]>([])
+  const [subtitleAppearance, setSubtitleAppearance] = useState<SubtitleAppearance>(loadSubtitleAppearance)
   const [subtitleTracks, setSubtitleTracks] = useState<TrackInfo[]>([])
   const [currentAudio, setCurrentAudio] = useState(-1)
   const [currentSubtitle, setCurrentSubtitle] = useState(-1)
@@ -770,6 +797,20 @@ export function PlayerPane({
     return () => clearInterval(iv)
   }, [item])
 
+  // Altyazı görünümü (boyut/arka plan/renk) — video::cue bunu CSS
+  // değişkenleriyle okuyor (bkz. lib/subtitleAppearance.ts)
+  useEffect(() => {
+    if (wrapRef.current) applySubtitleAppearance(wrapRef.current, subtitleAppearance)
+  }, [subtitleAppearance])
+
+  function changeSubtitleAppearance(patch: Partial<SubtitleAppearance>): void {
+    setSubtitleAppearance((prev) => {
+      const next = { ...prev, ...patch }
+      saveSubtitleAppearance(next)
+      return next
+    })
+  }
+
   // İnternetten indirilen altyazı: videoya <track> olarak eklenir
   useEffect(() => {
     setExternalSub(null)
@@ -779,25 +820,28 @@ export function PlayerPane({
   useEffect(() => {
     const video = videoRef.current
     if (!video || !externalSub) return
-    const url = URL.createObjectURL(new Blob([externalSub.vtt], { type: 'text/vtt' }))
-    const track = document.createElement('track')
-    track.kind = 'subtitles'
-    track.label = externalSub.label
-    track.srclang = 'tr'
-    track.src = url
-    track.default = true
-    video.appendChild(track)
-    const show = (): void => {
-      for (const t of Array.from(video.textTracks)) {
-        t.mode = t.label === externalSub.label ? 'showing' : 'disabled'
+    // <track src=blob> yerine altyazıyı elle (video.addTextTrack + addCue) ile
+    // ekliyoruz. Film/dizide ileri/geri sarma videonun kaynağını (src)
+    // değiştirip yeniden yüklüyor (bkz. playerEngine'deki vodRemux seek'i);
+    // <track> elemanları her yeniden yüklemede tarayıcı tarafından tekrar
+    // ayrıştırılıyor ve eski cue'ler temizlenmeden yenileri ekleniyordu — bu
+    // da ekranda aynı altyazının iki kez üst üste binmesine yol açıyordu.
+    // JS ile eklenen bir TextTrack, medya yeniden yüklense de sabit kalıyor.
+    const tt = video.addTextTrack('subtitles', externalSub.label, 'tr')
+    tt.mode = 'showing'
+    for (const c of parseVtt(externalSub.vtt)) {
+      try {
+        tt.addCue(new VTTCue(c.start, c.end, c.text))
+      } catch {
+        /* tek bir bozuk cue tüm altyazıyı düşürmesin */
       }
     }
-    track.addEventListener('load', show)
-    show()
+    for (const t of Array.from(video.textTracks)) {
+      if (t !== tt) t.mode = 'disabled'
+    }
     return () => {
-      track.removeEventListener('load', show)
-      track.remove()
-      URL.revokeObjectURL(url)
+      tt.mode = 'disabled'
+      for (const c of Array.from(tt.cues || [])) tt.removeCue(c)
     }
   }, [externalSub])
 
@@ -1472,6 +1516,8 @@ export function PlayerPane({
                   }}
                   onShift={shiftExternalSub}
                   onClearExternal={() => setExternalSub(null)}
+                  appearance={subtitleAppearance}
+                  onAppearanceChange={changeSubtitleAppearance}
                 />
               }
               onClose={() => setPanelOpen(false)}
