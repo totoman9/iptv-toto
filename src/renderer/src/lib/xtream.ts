@@ -251,12 +251,18 @@ interface XtreamMediaInfo {
   duration?: string
   movie_image?: string
   cover_big?: string
-  backdrop_path?: string[]
+  // Sağlayıcı bunu bazen dizi, bazen düz metin olarak gönderiyor
+  backdrop_path?: string[] | string
 }
 
 function mapMediaInfo(info: XtreamMediaInfo | undefined): MediaDetails {
   if (!info) return {}
   const durationSeconds = parseDurationToSeconds(info.duration)
+  // Dizi olarak gelirse ilk öğe, düz metin olarak gelirse kendisi. Düz metni
+  // dizi sanıp [0] almak adresin ilk HARFİNİ ("h") veriyordu.
+  const backdropPath = Array.isArray(info.backdrop_path)
+    ? info.backdrop_path[0]
+    : info.backdrop_path
   return {
     plot: info.plot || undefined,
     cast: info.cast || undefined,
@@ -269,8 +275,8 @@ function mapMediaInfo(info: XtreamMediaInfo | undefined): MediaDetails {
     // de aynı koşula bağlıyoruz ki ekranda "00:00:00" görünmesin.
     durationText: durationSeconds ? info.duration : undefined,
     durationSeconds,
-    coverBig: info.cover_big || info.movie_image || info.backdrop_path?.[0] || undefined,
-    backdrop: info.backdrop_path?.[0] || undefined,
+    coverBig: info.cover_big || info.movie_image || backdropPath || undefined,
+    backdrop: backdropPath || undefined,
     originalName: info.o_name || undefined,
     trailer: info.youtube_trailer || undefined
   }
@@ -283,7 +289,7 @@ export async function getVodDetails(
   const res = await window.iptv.http.fetchJson<{ info?: XtreamMediaInfo }>(
     apiUrl(cfg, 'get_vod_info', `&vod_id=${streamId}`)
   )
-  return mapMediaInfo(res.data?.info)
+  return { ...mapMediaInfo(res.data?.info), fetchOk: res.ok }
 }
 
 // Aynı film birden yerde (vitrin, önizleme kartı, detay sayfası, oynatma) bilgi
@@ -294,8 +300,14 @@ export function getVodDetailsCached(cfg: XtreamSourceConfig, streamId: number): 
   const key = `${cfg.id}:${streamId}`
   let hit = vodDetailsCache.get(key)
   if (!hit) {
-    hit = getVodDetails(cfg, streamId).catch((): MediaDetails => ({}))
+    hit = getVodDetails(cfg, streamId).catch((): MediaDetails => ({ fetchOk: false }))
     vodDetailsCache.set(key, hit)
+    // Başarısız denemeyi önbellekte tutmuyoruz: sunucu bir anlığına
+    // yanıt vermediyse, aynı filme tekrar bakıldığında yeniden sorulsun
+    // (yoksa uygulama kapanana kadar o film boş kalırdı).
+    void hit.then((d) => {
+      if (d.fetchOk === false && vodDetailsCache.get(key) === hit) vodDetailsCache.delete(key)
+    })
   }
   return hit
 }

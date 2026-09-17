@@ -97,6 +97,10 @@ export interface MediaDetails {
   originalName?: string
   // YouTube fragman kimliği/adresi
   trailer?: string
+  // Sağlayıcıdan gerçekten yanıt alındı mı? "Bilgi yok" ile "sunucuya
+  // ulaşılamadı" birbirine karışmasın diye: ikisinde de alanlar boş geliyor,
+  // ama birincisi kalıcı bir gerçek, ikincisi geçici bir arıza.
+  fetchOk?: boolean
 }
 
 // Oynatıcıya verilen öğe. kind/series* alanları "kaldığın yerden devam"

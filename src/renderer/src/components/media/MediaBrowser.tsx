@@ -27,6 +27,7 @@ import {
   watchlistStore
 } from '../../lib/library'
 import { isBadImage, markImageBad, markImageOk, remainingProbeMs, useBadImagesVersion } from '../../lib/badImages'
+import { getKnownBackdrop, rememberBackdrop } from '../../lib/vodBackdrops'
 import { cleanTitle, lookupImdb } from '../../lib/omdb'
 import { updateSettings } from '../../lib/settings'
 import { useSettings } from '../../hooks/useSettings'
@@ -98,6 +99,8 @@ const ROW_LIMIT = 30
 // bundan uzun, ilk satır vitrinin solan alt kısmının üzerine biner.
 const HERO_ROW_H = 480
 const HERO_ROTATE_MS = 10_000
+// Vitrin için geniş görsel beklerken en fazla bu kadar bekleriz
+const HERO_WIDE_ART_GRACE_MS = 6000
 
 // Güne göre sabit ama ertesi gün değişen bir "rastgelelik" — vitrin ve
 // "bugün senin için" gibi satırlar her açılışta aynı 4-5 şeyi göstermesin
@@ -722,8 +725,13 @@ export function MediaBrowser({
   }
 
   // ----- Vitrin (üst bant): en fazla 5 içerik, 10 sn'de bir döner -----
-  const heroEntries = useMemo(() => {
-    // Afişi olmayan hiçbir şey vitrine çıkmasın.
+  // Vitrindeki büyük alan sadece afişi değil, gerçek GENİŞ (yatay) bir
+  // görseli olan içerikleri kullanmalı — yoksa afiş + düz zemin gösteriliyor
+  // ki bu vitrin için amaçlanan "sinematik" görünümü vermiyor. Dizilerde
+  // geniş görsel adresi liste ile zaten geliyor; filmlerde ise yalnızca
+  // detay bilgisiyle (aşağıdaki useEffect ile önden, arka planda) geliyor.
+  const heroRankedPool = useMemo(() => {
+    // Afişi olmayan hiçbir şey vitrin adayı bile olmasın.
     const usable = entries.filter((e) => hasUsablePoster(e) && !isLocked(e.group))
     // Sadece "son eklenen" ya da sadece "yüksek puanlı" değil, ikisini
     // harmanlıyoruz — böylece art arda birkaçı yeni eklenenlerden, birkaçı
@@ -736,22 +744,139 @@ export function MediaBrowser({
       .sort((a, b) => ((b.added ?? b.updated) || 0) - ((a.added ?? a.updated) || 0))
     const merged: Entry[] = []
     const seen = new Set<string>()
-    for (const e of [...byRating.slice(0, 12), ...byRecent.slice(0, 10)]) {
+    // Geniş görseli olan var mı bilmediğimiz için havuzu geniş tutuyoruz —
+    // yoksa yalnızca ilk birkaç aday geniş görselsiz çıkarsa vitrin boş kalır.
+    for (const e of [...byRating.slice(0, 24), ...byRecent.slice(0, 20)]) {
       if (seen.has(e.id)) continue
       seen.add(e.id)
       merged.push(e)
     }
-    // Hep aynı 5 kaliteli içerik yerine, bu harmanlanmış aday havuzundan her
-    // gün farklı bir 5'li seçilip karıştırılıyor — vitrin her açılışta aynı
-    // görünmesin diye.
-    const seed = daySeed()
-    const candidates = merged.slice(0, 24)
-    const pick = [...candidates]
-      .sort((a, b) => ((hashId(a.id) + seed) % 991) - ((hashId(b.id) + seed) % 991))
-      .slice(0, 5)
-    return pick.length ? pick : usable.slice(0, 1)
+    return merged
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entries, lockedGroups, badImagesVersion])
+
+  // Filmlerde geniş görsel adresi listede gelmiyor, sadece film detayında
+  // (get_vod_info) geliyor. Vitrin adayı olabilecek filmler için bunu önden,
+  // arka planda soruyoruz — kullanıcı hiç fark etmeden, tek tek film açar
+  // gibi normal bir API isteği (yayın açmıyor, bağlantı sınırına dokunmuyor).
+  // Daha önce öğrenilenler diskten geldiği için ilk turdan sonra bu sorgu
+  // hiç yapılmıyor; vitrin anında doğru içerikle açılıyor.
+  const [vodBackdrops, setVodBackdrops] = useState<Record<string, string | null>>({})
+  const [heroProbeDone, setHeroProbeDone] = useState(false)
+  // Sağlayıcı yavaşsa/yanıt vermiyorsa vitrin dakikalarca boş kalmasın:
+  // birkaç saniye içinde geniş görselli bir şey bulunamazsa eski görünüme
+  // (afiş + düz zemin) düşüyoruz, sonra veri gelince kendiliğinden düzeliyor.
+  const [heroWaitedTooLong, setHeroWaitedTooLong] = useState(false)
+  const vodBackdropsRef = useRef(vodBackdrops)
+  vodBackdropsRef.current = vodBackdrops
+  const vodBackdropInFlight = useRef(new Set<string>())
+  useEffect(() => {
+    if (kind !== 'vod') {
+      setHeroProbeDone(true)
+      return
+    }
+    // Diskte kayıtlı olanları hemen kullan
+    const fromDisk: Record<string, string | null> = {}
+    for (const e of heroRankedPool) {
+      if (!e.vod || e.id in vodBackdropsRef.current) continue
+      const known = getKnownBackdrop(e.id)
+      if (known !== undefined) fromDisk[e.id] = known || null
+    }
+    if (Object.keys(fromDisk).length) setVodBackdrops((p) => ({ ...fromDisk, ...p }))
+
+    if (!source || source.type !== 'xtream') {
+      setHeroProbeDone(true)
+      return
+    }
+    const cfg = source
+    const pending = heroRankedPool.filter(
+      (e) =>
+        e.vod &&
+        !(e.id in vodBackdropsRef.current) &&
+        !(e.id in fromDisk) &&
+        !vodBackdropInFlight.current.has(e.id)
+    )
+    if (!pending.length) {
+      // Sorulacak yeni bir şey yok; ama hâlâ yanıt bekleyenler varsa "bitti"
+      // demek erken olur — yoksa geniş görseller gelmeden eski görünüme
+      // (afiş + düz zemin) düşerdi.
+      if (!vodBackdropInFlight.current.size) setHeroProbeDone(true)
+      return
+    }
+    let cancelled = false
+    for (const e of pending) vodBackdropInFlight.current.add(e.id)
+    const graceTimer = setTimeout(() => {
+      if (!cancelled) setHeroWaitedTooLong(true)
+    }, HERO_WIDE_ART_GRACE_MS)
+    const CONCURRENCY = 4
+    let cursor = 0
+    async function worker(): Promise<void> {
+      while (cursor < pending.length && !cancelled) {
+        const e = pending[cursor++]
+        let backdrop: string | null = null
+        let answered = false
+        try {
+          const d = await getVodDetailsCached(cfg, e.vod!.streamId)
+          answered = d.fetchOk === true
+          backdrop = d.backdrop && !isBadImage(d.backdrop) ? d.backdrop : null
+        } catch {
+          answered = false
+        }
+        vodBackdropInFlight.current.delete(e.id)
+        // Sunucuya ulaşılamadıysa "bu filmde geniş görsel yok" diye
+        // KAYDETMİYORUZ — yoksa geçici bir arıza kalıcı bir yanlışa dönüşür.
+        // Hafızaya da yazmıyoruz ki sonraki denemede yeniden sorulabilsin.
+        if (!answered) continue
+        rememberBackdrop(e.id, backdrop)
+        if (!cancelled) setVodBackdrops((p) => ({ ...p, [e.id]: backdrop }))
+      }
+    }
+    void Promise.all(Array.from({ length: Math.min(CONCURRENCY, pending.length) }, worker)).then(
+      () => {
+        if (!cancelled) setHeroProbeDone(true)
+      }
+    )
+    return () => {
+      cancelled = true
+      clearTimeout(graceTimer)
+      // Yarıda kalanların "soruluyor" işaretini kaldır — yoksa bir sonraki
+      // denemede hepsi hâlâ "soruluyor" görünüp hiç sorulmuyordu.
+      for (const e of pending) vodBackdropInFlight.current.delete(e.id)
+    }
+  }, [heroRankedPool, kind, source])
+
+  const lastHeroPick = useRef<Entry[]>([])
+  const heroEntries = useMemo(() => {
+    const withWideArt = heroRankedPool
+      .filter((e) => {
+        const backdrop = e.series ? e.backdrop : vodBackdrops[e.id]
+        return !!backdrop && !isBadImage(backdrop)
+      })
+      .map((e) => (e.vod && vodBackdrops[e.id] ? { ...e, backdrop: vodBackdrops[e.id]! } : e))
+    // Hep aynı 5 kaliteli içerik yerine, bu havuzdan her gün farklı bir 5'li
+    // seçilip karıştırılıyor — vitrin her açılışta aynı görünmesin diye.
+    const seed = daySeed()
+    const dailyPick = (list: Entry[]): Entry[] =>
+      [...list.slice(0, 24)]
+        .sort((a, b) => ((hashId(a.id) + seed) % 991) - ((hashId(b.id) + seed) % 991))
+        .slice(0, 5)
+    const pick = dailyPick(withWideArt)
+    if (pick.length) {
+      lastHeroPick.current = pick
+      return pick
+    }
+    // Geniş görseller arka planda (film detayı) yüklenirken bir an için hiç
+    // aday olmayabilir — bu sırada vitrin bomboş kalmasın diye bir önceki
+    // (varsa) seçim korunuyor.
+    if (!heroProbeDone && !heroWaitedTooLong) return lastHeroPick.current
+    // Sorgu bitti ve gerçekten hiç geniş görselli içerik yok (sağlayıcıya
+    // ulaşılamıyor olabilir): vitrini komple gizlemek yerine eski davranışa
+    // (afiş + düz zemin) dönüyoruz.
+    const fallback = dailyPick(heroRankedPool)
+    if (fallback.length) lastHeroPick.current = fallback
+    return lastHeroPick.current
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [heroRankedPool, vodBackdrops, heroProbeDone, heroWaitedTooLong, badImagesVersion])
 
   const [heroIndex, setHeroIndex] = useState(0)
   const [heroPaused, setHeroPaused] = useState(false)
