@@ -7,6 +7,7 @@ import { initSettings } from './lib/settings'
 import { initLibraryStores } from './lib/library'
 import { channelQualityPrefs } from './lib/channelPrefs'
 import { recentChannelsStore } from './lib/recentChannels'
+import { initBadImages } from './lib/badImages'
 import { applyAccent, applyPosterSize, applyTheme, loadAccent, loadPosterSize, loadTheme } from './lib/theme'
 import './styles/global.css'
 import './styles/player.css'
@@ -59,7 +60,8 @@ Promise.all([
   initSettings(),
   initLibraryStores(),
   channelQualityPrefs.init(),
-  recentChannelsStore.init()
+  recentChannelsStore.init(),
+  initBadImages()
 ]).finally(() => {
   const remaining = MIN_SPLASH_MS - (performance.now() - splashStart)
   setTimeout(

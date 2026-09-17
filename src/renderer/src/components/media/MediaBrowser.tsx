@@ -26,6 +26,7 @@ import {
   toggleWatchlist,
   watchlistStore
 } from '../../lib/library'
+import { isBadImage, markImageBad, markImageOk, remainingProbeMs, useBadImagesVersion } from '../../lib/badImages'
 import { cleanTitle, lookupImdb } from '../../lib/omdb'
 import { updateSettings } from '../../lib/settings'
 import { useSettings } from '../../hooks/useSettings'
@@ -116,10 +117,41 @@ function hashId(id: string): number {
 // çıkmasın — afişi olanlar göreli sırasını koruyarak öne, afişsizler sona
 // alınıyor. Herhangi bir sıralamanın (son eklenen, puan, A-Z...) ÜSTÜNE
 // uygulanan genel bir kural, tek bir listeye özel değil.
+// "Afişi var" demek, adresin DOLU olması değil; adresin gerçekten AÇILIYOR
+// olması demek. Açılmadığı öğrenilen adresler (bkz. lib/badImages.ts)
+// afişsiz sayılır, böylece listenin sonuna düşerler.
+function hasUsablePoster(item: { logo?: string }): boolean {
+  return !!item.logo && !isBadImage(item.logo)
+}
+
+// CSS arka plan görselleri "açıldı/açılmadı" bilgisi vermiyor; vitrindeki
+// büyük görseli görünmez bir kopyayla yükleyip sonucu öğreniyoruz. Hiç yanıt
+// vermeyen sunucularda hata da gelmediği için süre dolunca pes ediyoruz.
+function BgProbe({ url }: { url: string }): ReactElement {
+  useEffect(() => {
+    let done = false
+    const img = new Image()
+    img.onload = () => {
+      done = true
+      markImageOk(url)
+    }
+    img.onerror = () => {
+      done = true
+      markImageBad(url)
+    }
+    img.src = url
+    const t = setTimeout(() => {
+      if (!done) markImageBad(url)
+    }, remainingProbeMs(url, 3000))
+    return () => clearTimeout(t)
+  }, [url])
+  return <></>
+}
+
 function withPosterFirst<T extends { logo?: string }>(list: T[]): T[] {
   const withPoster: T[] = []
   const withoutPoster: T[] = []
-  for (const item of list) (item.logo ? withPoster : withoutPoster).push(item)
+  for (const item of list) (hasUsablePoster(item) ? withPoster : withoutPoster).push(item)
   return withoutPoster.length ? [...withPoster, ...withoutPoster] : list
 }
 
@@ -308,25 +340,39 @@ function HomeListRow({
   if (row.type === 'hero') {
     const e = row.entries[heroIndex % row.entries.length]
     const extra = heroExtra[e.id]
-    const sharp = extra?.backdrop || e.backdrop
+    // Daha önce açılmadığı öğrenilen adresleri hiç denemiyoruz
+    const backdropCandidate = extra?.backdrop || e.backdrop
+    const sharp = backdropCandidate && !isBadImage(backdropCandidate) ? backdropCandidate : undefined
     // Gerçek (geniş) bir arka plan görseli yoksa afişi bulanıklaştırıp
     // germek küçük/pikselli duruyordu — bunun yerine düz koyu zemin +
     // afiş (zaten ayrıca, net biçimde gösteriliyor) daha temiz kalıyor.
     const bg = sharp
+    const heroPoster = e.logo && !isBadImage(e.logo) ? e.logo : undefined
     const rank = top10Rank.get(e.id)
     return (
       <div style={style}>
         <div className="media-hero" onMouseEnter={() => onHeroHover(true)} onMouseLeave={() => onHeroHover(false)}>
           {bg && (
-            <div
-              key={bg}
-              className={`media-hero-bg ${sharp ? 'is-sharp' : ''}`}
-              style={{ backgroundImage: cssUrl(bg) }}
-            />
+            <>
+              <div
+                key={bg}
+                className={`media-hero-bg ${sharp ? 'is-sharp' : ''}`}
+                style={{ backgroundImage: cssUrl(bg) }}
+              />
+              <BgProbe url={bg} />
+            </>
           )}
           <div className="media-hero-shade" />
           <div className="media-hero-content" key={e.id}>
-            {e.logo && !sharp && <img className="media-hero-poster" src={e.logo} alt="" />}
+            {heroPoster && !sharp && (
+              <img
+                className="media-hero-poster"
+                src={heroPoster}
+                alt=""
+                onError={() => markImageBad(heroPoster)}
+                onLoad={() => markImageOk(heroPoster)}
+              />
+            )}
             <div>
               {rank !== undefined ? (
                 <div className="media-hero-top10">
@@ -476,6 +522,9 @@ export function MediaBrowser({
   const liked = usePersisted(likedStore)
   const { entries: progressEntries, byId: progressById } = useProgress()
   const settings = useSettings()
+  // Yeni bir "açılmayan görsel" öğrenildiğinde sıralamalar yeniden
+  // hesaplansın (afişsiz sayılıp sona düşsün) diye
+  const badImagesVersion = useBadImagesVersion()
   const top10Source = settings.top10Source ?? 'imdb'
   const [scrolled, setScrolled] = useState(false)
 
@@ -518,10 +567,10 @@ export function MediaBrowser({
     }
     for (const [g, list] of map) map.set(g, withPosterFirst(list))
     return map
-  }, [entries])
+  }, [entries, badImagesVersion])
 
   // "Tüm filmler/diziler" (ALL_GROUP) ızgarası için de aynı kural
-  const displayEntries = useMemo(() => withPosterFirst(entries), [entries])
+  const displayEntries = useMemo(() => withPosterFirst(entries), [entries, badImagesVersion])
 
   const orderedGroups = useMemo(() => {
     const known = categoryOrder.filter((g) => byGroup.has(g))
@@ -675,7 +724,7 @@ export function MediaBrowser({
   // ----- Vitrin (üst bant): en fazla 5 içerik, 10 sn'de bir döner -----
   const heroEntries = useMemo(() => {
     // Afişi olmayan hiçbir şey vitrine çıkmasın.
-    const usable = entries.filter((e) => e.logo && !isLocked(e.group))
+    const usable = entries.filter((e) => hasUsablePoster(e) && !isLocked(e.group))
     // Sadece "son eklenen" ya da sadece "yüksek puanlı" değil, ikisini
     // harmanlıyoruz — böylece art arda birkaçı yeni eklenenlerden, birkaçı
     // yüksek puanlılardan geliyor (film ve dizide aynı mantık).
@@ -702,7 +751,7 @@ export function MediaBrowser({
       .slice(0, 5)
     return pick.length ? pick : usable.slice(0, 1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entries, lockedGroups])
+  }, [entries, lockedGroups, badImagesVersion])
 
   const [heroIndex, setHeroIndex] = useState(0)
   const [heroPaused, setHeroPaused] = useState(false)
@@ -742,13 +791,13 @@ export function MediaBrowser({
 
   // ----- Top 10: sağlayıcı puanı ya da (tercihe bağlı) IMDb puanı -----
   const top10Candidates = useMemo(() => {
-    const usable = entries.filter((e) => e.logo && !isLocked(e.group))
+    const usable = entries.filter((e) => hasUsablePoster(e) && !isLocked(e.group))
     const rated = usable.filter((e) => (e.rating || 0) > 0).sort((a, b) => (b.rating || 0) - (a.rating || 0))
     if (rated.length >= 10) return rated.slice(0, 30)
     // Sağlayıcı puan vermiyorsa IMDb için son eklenenlerden aday seç
     return [...rated, ...usable.filter((e) => !(e.rating || 0)).sort((a, b) => (b.added || b.updated || 0) - (a.added || a.updated || 0))].slice(0, 30)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entries, lockedGroups])
+  }, [entries, lockedGroups, badImagesVersion])
 
   const [imdbRatings, setImdbRatings] = useState<Map<string, number> | null>(null)
   const [imdbLoading, setImdbLoading] = useState(false)
@@ -997,7 +1046,7 @@ export function MediaBrowser({
       ...watchlist.filter((w) => w.kind === kind).map((w) => w.id)
     ])
     const picksForToday = entries
-      .filter((e) => e.logo && !isLocked(e.group) && !alreadyShown.has(e.id))
+      .filter((e) => hasUsablePoster(e) && !isLocked(e.group) && !alreadyShown.has(e.id))
       .sort((a, b) => (hashId(a.id) + daySeed) % 997 - ((hashId(b.id) + daySeed) % 997))
       .slice(0, ROW_LIMIT)
     if (picksForToday.length > 0) {
@@ -1098,7 +1147,7 @@ export function MediaBrowser({
     }
     return rows
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind, entries, orderedGroups, byGroup, continueList, progressById, seriesLatest, lockedGroups, route, watchlist, followed, heroEntries, top10, top10Source, imdbLoading])
+  }, [kind, entries, orderedGroups, byGroup, continueList, progressById, seriesLatest, lockedGroups, route, watchlist, followed, heroEntries, top10, top10Source, imdbLoading, badImagesVersion])
 
   // İzleme listem — artık vitrinde satır olarak değil, araç çubuğundaki
   // "İzleme listem" düğmesiyle ayrı bir sayfa olarak açılıyor.
@@ -1169,7 +1218,7 @@ export function MediaBrowser({
     else if (filters.sort === 'az') list.sort((a, b) => a.name.localeCompare(b.name, 'tr'))
     return withPosterFirst(list)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterActive, filters, entries, lockedGroups])
+  }, [filterActive, filters, entries, lockedGroups, badImagesVersion])
 
   function pickRandom(): void {
     const base = filterActive ? filtered : entries

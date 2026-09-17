@@ -12,6 +12,7 @@ import { isFinished, progressRatio } from '../../lib/continueWatching'
 import { formatTime, minutesLeft } from '../../lib/format'
 import { IconArrowLeft, IconBell, IconBookmark, IconCheck, IconPlay, IconPlayCircle } from '../Icons'
 import { usePersisted } from '../../lib/persisted'
+import { isBadImage, markImageBad, markImageOk, remainingProbeMs } from '../../lib/badImages'
 import {
   followStore,
   markSeriesSeen,
@@ -46,25 +47,33 @@ export const episodeProgressId = (ep: SeriesEpisode): string => `episode-${ep.id
 function EpisodeThumb({ image }: { image?: string }): ReactElement {
   const [broken, setBroken] = useState(false)
   const loadedRef = useRef(false)
+  const usable = image && !broken && !isBadImage(image)
   useEffect(() => {
     if (!image) return
     loadedRef.current = false
     setBroken(false)
     const t = setTimeout(() => {
-      if (!loadedRef.current) setBroken(true)
-    }, 2500)
+      if (!loadedRef.current) {
+        markImageBad(image)
+        setBroken(true)
+      }
+    }, remainingProbeMs(image, 2500))
     return () => clearTimeout(t)
   }, [image])
   return (
     <span className="episode-thumb">
-      {image && !broken ? (
+      {usable ? (
         <img
           src={image}
           alt=""
           loading="lazy"
-          onError={() => setBroken(true)}
+          onError={() => {
+            markImageBad(image)
+            setBroken(true)
+          }}
           onLoad={() => {
             loadedRef.current = true
+            markImageOk(image)
           }}
         />
       ) : (

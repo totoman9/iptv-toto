@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react'
 import type { PosterShape } from '../../lib/theme'
+import { isBadImage, markImageBad, markImageOk, remainingProbeMs } from '../../lib/badImages'
 import { IconLock, IconPlay } from '../Icons'
 
 export interface PosterCardData {
@@ -55,6 +56,9 @@ export function LandscapeArt({
 // verir; önizlemenin kendisi MediaBrowser'da çizilir (bkz. HoverPreview).
 const HOVER_DELAY_MS = 450
 
+// Bir görselin "açılmıyor" sayılması için beklenen süre
+export const PROBE_MS = 2500
+
 export function PosterCard({
   data,
   onClick,
@@ -74,8 +78,12 @@ export function PosterCard({
   const [backdropBroken, setBackdropBroken] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const landscape = shape === 'landscape'
-  const image = data.image && !imageBroken ? data.image : undefined
-  const backdrop = landscape && data.backdrop && !backdropBroken ? data.backdrop : undefined
+  // Daha önce (bu ya da başka bir kartta) açılmadığı öğrenilen adresi hiç
+  // denemiyoruz — böylece ikinci görüşte boş kutu hiç görünmüyor.
+  const imageUsable = data.image && !imageBroken && !isBadImage(data.image)
+  const backdropUsable = data.backdrop && !backdropBroken && !isBadImage(data.backdrop)
+  const image = imageUsable ? data.image : undefined
+  const backdrop = landscape && backdropUsable ? data.backdrop : undefined
   const hasArt = !data.locked && !!(backdrop || image)
 
   // Bazı sağlayıcıların görsel sunucusu çok yavaş/erişilemez oluyor; tarayıcı
@@ -84,13 +92,27 @@ export function PosterCard({
   // bozukmuş gibi davranıp temiz başlık kartına düşüyoruz.
   const loadedRef = useRef<{ backdrop?: string; image?: string }>({})
   useEffect(() => {
-    if (!backdrop && !image) return
+    const url = backdrop || image
+    if (!url) return
     const t = setTimeout(() => {
-      if (backdrop && loadedRef.current.backdrop !== backdrop) setBackdropBroken(true)
-      if (image && loadedRef.current.image !== image) setImageBroken(true)
-    }, 2500)
+      if (backdrop && loadedRef.current.backdrop !== backdrop) failBackdrop(backdrop)
+      if (image && loadedRef.current.image !== image) failImage(image)
+    }, remainingProbeMs(url, PROBE_MS))
     return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [backdrop, image])
+
+  // Bozuk/açılmayan adresi yalnızca bu karta değil, uygulamanın tamamına
+  // bildiriyoruz: sıralamalar (afişi olanlar önde) bunu öğrenip bu içeriği
+  // listenin sonuna atıyor.
+  function failImage(url?: string): void {
+    markImageBad(url)
+    setImageBroken(true)
+  }
+  function failBackdrop(url?: string): void {
+    markImageBad(url)
+    setBackdropBroken(true)
+  }
 
   return (
     <button
@@ -117,13 +139,15 @@ export function PosterCard({
           <LandscapeArt
             backdrop={backdrop}
             image={image}
-            onBackdropError={() => setBackdropBroken(true)}
-            onImageError={() => setImageBroken(true)}
+            onBackdropError={() => failBackdrop(backdrop)}
+            onImageError={() => failImage(image)}
             onBackdropLoad={() => {
               loadedRef.current.backdrop = backdrop
+              markImageOk(backdrop)
             }}
             onImageLoad={() => {
               loadedRef.current.image = image
+              markImageOk(image)
             }}
           />
         ) : (
@@ -131,9 +155,10 @@ export function PosterCard({
             src={image}
             alt=""
             loading="lazy"
-            onError={() => setImageBroken(true)}
+            onError={() => failImage(image)}
             onLoad={() => {
               loadedRef.current.image = image
+              markImageOk(image)
             }}
           />
         )}
