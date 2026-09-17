@@ -8,7 +8,6 @@ import { initLibraryStores } from './lib/library'
 import { channelQualityPrefs } from './lib/channelPrefs'
 import { recentChannelsStore } from './lib/recentChannels'
 import { initBadImages } from './lib/badImages'
-import { initVodBackdrops } from './lib/vodBackdrops'
 import { applyAccent, applyPosterSize, applyTheme, loadAccent, loadPosterSize, loadTheme } from './lib/theme'
 import './styles/global.css'
 import './styles/player.css'
@@ -62,8 +61,7 @@ Promise.all([
   initLibraryStores(),
   channelQualityPrefs.init(),
   recentChannelsStore.init(),
-  initBadImages(),
-  initVodBackdrops()
+  initBadImages()
 ]).finally(() => {
   const remaining = MIN_SPLASH_MS - (performance.now() - splashStart)
   setTimeout(
